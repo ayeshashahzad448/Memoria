@@ -34,6 +34,7 @@ export default function SearchTab() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [userFilter, setUserFilter] = useState<string[]>([]);
   const [constFilter, setConstFilter] = useState<string | null>(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const usersInPlay = useMemo(() => {
     const ids = new Set<string>();
@@ -72,6 +73,7 @@ export default function SearchTab() {
   return (
     <View className="bg-void flex-1">
       <ScrollView
+        scrollEnabled={scrollEnabled}
         contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
         keyboardShouldPersistTaps="handled"
       >
@@ -112,7 +114,11 @@ export default function SearchTab() {
                   <Text className="text-muted text-sm">Pick a date to filter by</Text>
                 </Pressable>
               ) : (
-                <WheelDatePicker value={selectedDate} onChange={setSelectedDate} />
+                <WheelDatePicker
+                  value={selectedDate}
+                  onChange={setSelectedDate}
+                  onActiveChange={(active) => setScrollEnabled(!active)}
+                />
               )}
             </GlassCard>
             {selectedDate ? (

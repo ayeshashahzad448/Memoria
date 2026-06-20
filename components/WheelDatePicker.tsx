@@ -4,10 +4,10 @@ import {
   type NativeSyntheticEvent,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { getDaysInMonth } from 'date-fns';
 
 const ITEM_HEIGHT = 40;
@@ -36,9 +36,17 @@ type WheelColumnProps = {
   onSelect: (value: number) => void;
   flex?: number;
   align?: 'center' | 'left';
+  onActiveChange?: (active: boolean) => void;
 };
 
-function WheelColumn({ values, selected, onSelect, flex = 1, align = 'center' }: WheelColumnProps) {
+function WheelColumn({
+  values,
+  selected,
+  onSelect,
+  flex = 1,
+  align = 'center',
+  onActiveChange,
+}: WheelColumnProps) {
   const ref = useRef<ScrollView>(null);
   const selectedIndex = values.findIndex((v) => v.value === selected);
   const isScrolling = useRef(false);
@@ -58,6 +66,7 @@ function WheelColumn({ values, selected, onSelect, flex = 1, align = 'center' }:
   const handleMomentumEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       isScrolling.current = false;
+      onActiveChange?.(false);
       const y = e.nativeEvent.contentOffset.y;
       const idx = Math.max(0, Math.min(values.length - 1, Math.round(y / ITEM_HEIGHT)));
       const next = values[idx];
@@ -65,7 +74,7 @@ function WheelColumn({ values, selected, onSelect, flex = 1, align = 'center' }:
       // Snap exactly onto the row.
       ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: true });
     },
-    [onSelect, selected, values],
+    [onActiveChange, onSelect, selected, values],
   );
 
   return (
@@ -79,6 +88,7 @@ function WheelColumn({ values, selected, onSelect, flex = 1, align = 'center' }:
         nestedScrollEnabled
         onScrollBeginDrag={() => {
           isScrolling.current = true;
+          onActiveChange?.(true);
         }}
         onMomentumScrollEnd={handleMomentumEnd}
         onScrollEndDrag={handleMomentumEnd}
@@ -124,9 +134,16 @@ export type WheelDatePickerProps = {
   onChange: (date: Date) => void;
   minYear?: number;
   maxYear?: number;
+  onActiveChange?: (active: boolean) => void;
 };
 
-export function WheelDatePicker({ value, onChange, minYear, maxYear }: WheelDatePickerProps) {
+export function WheelDatePicker({
+  value,
+  onChange,
+  minYear,
+  maxYear,
+  onActiveChange,
+}: WheelDatePickerProps) {
   const now = new Date();
   const maxY = maxYear ?? now.getFullYear();
   const minY = minYear ?? maxY - 10;
@@ -183,18 +200,21 @@ export function WheelDatePicker({ value, onChange, minYear, maxYear }: WheelDate
           values={monthValues}
           selected={month}
           onSelect={(m) => emit(m, day, year)}
+          onActiveChange={onActiveChange}
         />
         <WheelColumn
           flex={1.2}
           values={dayValues}
           selected={day}
           onSelect={(d) => emit(month, d, year)}
+          onActiveChange={onActiveChange}
         />
         <WheelColumn
           flex={1.6}
           values={yearValues}
           selected={year}
           onSelect={(y) => emit(month, day, y)}
+          onActiveChange={onActiveChange}
         />
       </View>
     </View>
