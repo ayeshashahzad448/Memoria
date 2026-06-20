@@ -230,8 +230,8 @@
   --color-void-deep: oklch(0.08 0.02 276);
   --color-starlight: oklch(0.97 0.01 270);
   --color-nebula: oklch(0.62 0.16 300);
-  --color-glass: oklch(0.26 0.04 274 / 0.55);
-  --color-glass-border: oklch(0.7 0.05 270 / 0.25);
+  --color-glass: oklch(0.24 0.04 274 / 0.5);
+  --color-glass-border: oklch(0.72 0.05 270 / 0.18);
 }
 
 @source './node_modules/heroui-native/lib';

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { View, type ViewProps } from 'react-native';
+import { StyleSheet, View, type ViewProps } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Platform } from 'react-native';
 
@@ -25,17 +25,18 @@ export function GlassCard({
 }: GlassCardProps) {
   return (
     <View
-      className={cn('border-glass-border overflow-hidden rounded-3xl border', className)}
+      className={cn('border-glass-border overflow-hidden rounded-2xl border', className)}
       style={{
+        borderWidth: StyleSheet.hairlineWidth,
         shadowColor: '#5FE3F0',
-        shadowOpacity: 0.18,
-        shadowRadius: 24,
+        shadowOpacity: 0.1,
+        shadowRadius: 18,
         shadowOffset: { width: 0, height: 0 },
       }}
       {...rest}
     >
       <BlurView
-        intensity={Platform.OS === 'android' ? Math.min(intensity, 30) : intensity}
+        intensity={Platform.OS === 'android' ? Math.min(intensity, 26) : Math.min(intensity, 38)}
         tint="dark"
         className="absolute inset-0"
       />

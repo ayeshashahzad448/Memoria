@@ -28,26 +28,37 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
   useEffect(() => {
     if (pulseStarted.current) return;
     pulseStarted.current = true;
-    pulse.value = withRepeat(withTiming(6, { duration: 6400, easing: Easing.linear }), -1, false);
+    pulse.value = withRepeat(withTiming(6, { duration: 15000, easing: Easing.linear }), -1, false);
   });
 
-  const glowStyle = useAnimatedStyle(() => {
-    const a = Math.sin(pulse.value * 1.6 * Math.PI * 2);
-    const b = Math.sin(pulse.value * 3.4 * Math.PI * 2);
-    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
-    const gr = r.value + 14 + twinkle * 3;
+  const haloStyle = useAnimatedStyle(() => {
+    const a = Math.sin(pulse.value * 0.7 * Math.PI * 2);
+    const b = Math.sin(pulse.value * 1.2 * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4);
+    const gr = r.value + 16 + twinkle * 3;
     return {
       width: gr * 2,
       height: gr * 2,
       borderRadius: gr,
       marginLeft: -gr,
       marginTop: -gr,
-      opacity: 0.32 + twinkle * 0.3,
+      opacity: 0.34 + twinkle * 0.18,
+    };
+  });
+
+  const bloomStyle = useAnimatedStyle(() => {
+    const br = Math.max(r.value * 0.62, 5) + 3;
+    return {
+      width: br * 2,
+      height: br * 2,
+      borderRadius: br,
+      marginLeft: -br,
+      marginTop: -br,
     };
   });
 
   const coreStyle = useAnimatedStyle(() => {
-    const cr = Math.max(r.value, 4);
+    const cr = Math.max(r.value * 0.62, 5);
     return {
       width: cr * 2,
       height: cr * 2,
@@ -57,27 +68,19 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
     };
   });
 
-  const pinStyle = useAnimatedStyle(() => {
-    const pr = Math.max(r.value * 0.32, 2);
-    return {
-      width: pr * 2,
-      height: pr * 2,
-      borderRadius: pr,
-      marginLeft: -pr,
-      marginTop: -pr,
-    };
-  });
-
   return (
     <View style={{ width: 160, height: 120, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View
-        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: color }, glowStyle]}
+        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: color }, haloStyle]}
       />
       <Animated.View
-        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: color }, coreStyle]}
+        style={[
+          { position: 'absolute', left: 80, top: 60, backgroundColor: '#CFE3FF' },
+          bloomStyle,
+        ]}
       />
       <Animated.View
-        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: '#FFFFFF' }, pinStyle]}
+        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: '#FFFFFF' }, coreStyle]}
       />
     </View>
   );

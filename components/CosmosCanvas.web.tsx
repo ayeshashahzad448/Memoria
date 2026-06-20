@@ -131,8 +131,69 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     return segs;
   }, [constellations, revealed, byId, toScreen]);
 
+  const band = useMemo(() => {
+    const arr: { id: string; x: number; y: number; r: number; o: number }[] = [];
+    const count = 7;
+    for (let i = 0; i < count; i += 1) {
+      const t = i / (count - 1);
+      arr.push({
+        id: `band-${i}`,
+        x: width * (0.12 + t * 0.78),
+        y: height * (0.78 - t * 0.6) + (seed(`by${i}`) - 0.5) * height * 0.12,
+        r: Math.max(width, height) * (0.22 + seed(`br${i}`) * 0.12),
+        o: 0.05 + seed(`bo${i}`) * 0.04,
+      });
+    }
+    return arr;
+  }, [width, height]);
+
+  const dust = useMemo(() => {
+    const arr: { id: string; x: number; y: number; r: number }[] = [];
+    for (let i = 0; i < 80; i += 1) {
+      arr.push({
+        id: `dust-${i}`,
+        x: seed(`dx${i}`) * width,
+        y: seed(`dy${i}`) * height,
+        r: 0.4 + seed(`dr${i}`) * 1.1,
+      });
+    }
+    return arr;
+  }, [width, height]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#0b0e1f', overflow: 'hidden' }}>
+      {/* Faint Milky Way haze */}
+      {band.map((b) => (
+        <View
+          key={b.id}
+          style={{
+            position: 'absolute',
+            left: b.x - b.r,
+            top: b.y - b.r,
+            width: b.r * 2,
+            height: b.r * 2,
+            borderRadius: b.r,
+            backgroundColor: '#5E6BBF',
+            opacity: b.o,
+          }}
+        />
+      ))}
+      {/* Distant dust */}
+      {dust.map((d) => (
+        <View
+          key={d.id}
+          style={{
+            position: 'absolute',
+            left: d.x,
+            top: d.y,
+            width: d.r * 2,
+            height: d.r * 2,
+            borderRadius: d.r,
+            backgroundColor: '#DCE6FF',
+            opacity: 0.22,
+          }}
+        />
+      ))}
       <Pressable
         onPress={onTapEmpty}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -153,8 +214,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
                   top: seg.y1,
                   width: len,
                   height: 1,
-                  backgroundColor: '#9FB4FF',
-                  opacity: 0.5,
+                  backgroundColor: '#8FA6E8',
+                  opacity: 0.38,
                   transform: [{ rotateZ: `${angle}deg` }],
                   transformOrigin: '0 0',
                 }}
@@ -196,7 +257,8 @@ function StarDot({
 }) {
   const color = colorFor(star.colorKey).hex;
   const phase = seed(star.id);
-  const rate = 1.3 + seed(`${star.id}-rate`) * 1.4;
+  const rate = 0.5 + seed(`${star.id}-rate`) * 0.7;
+  const liveliness = 0.35 + seed(`${star.id}-live`) * 0.65;
   const clock = useSharedValue(phase);
 
   const started = useRef(false);
@@ -204,35 +266,35 @@ function StarDot({
     if (started.current) return;
     started.current = true;
     clock.value = withRepeat(
-      withTiming(phase + 6, { duration: 6400, easing: Easing.linear }),
+      withTiming(phase + 6, { duration: 15000, easing: Easing.linear }),
       -1,
       false,
     );
   });
 
-  const glowStyle = useAnimatedStyle(() => {
+  const haloStyle = useAnimatedStyle(() => {
     const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
-    const b = Math.sin((clock.value * rate * 2.3 + phase * 1.7) * Math.PI * 2);
-    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
-    const gr = radius + 8 + (isSelected || isForging ? 6 : 0) + twinkle * 2;
+    const b = Math.sin((clock.value * rate * 1.7 + phase * 1.7) * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
+    const gr = radius + 7 + (isSelected || isForging ? 6 : 0) + twinkle * 1.5;
     return {
       width: gr * 2,
       height: gr * 2,
       borderRadius: gr,
       marginLeft: -gr,
       marginTop: -gr,
-      opacity: (isSelected || isForging ? 0.45 : 0.26) + 0.22 * twinkle,
+      opacity: (isSelected || isForging ? 0.4 : 0.2) + 0.12 * twinkle,
     };
   });
 
-  const coreR = Math.max(radius, MIN_STAR_RADIUS);
-  const pinR = Math.max(radius * 0.32, 1.5);
+  const coreR = Math.max(radius * 0.5, MIN_STAR_RADIUS * 0.6);
+  const bloomR = coreR + 2.5;
 
   const coreStyle = useAnimatedStyle(() => {
     const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
-    const b = Math.sin((clock.value * rate * 2.3 + phase * 1.7) * Math.PI * 2);
-    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
-    return { opacity: 0.6 + 0.4 * twinkle };
+    const b = Math.sin((clock.value * rate * 1.7 + phase * 1.7) * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
+    return { opacity: 0.82 + 0.18 * twinkle };
   });
 
   return (
@@ -241,7 +303,8 @@ function StarDot({
       hitSlop={12}
       style={{ position: 'absolute', left: pos.x, top: pos.y }}
     >
-      <Animated.View style={[{ position: 'absolute', backgroundColor: color }, glowStyle]} />
+      {/* Faint colored halo */}
+      <Animated.View style={[{ position: 'absolute', backgroundColor: color }, haloStyle]} />
       {(isSelected || isForging) && (
         <View
           style={{
@@ -257,6 +320,22 @@ function StarDot({
           }}
         />
       )}
+      {/* Soft white-blue bloom */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: bloomR * 2,
+            height: bloomR * 2,
+            borderRadius: bloomR,
+            marginLeft: -bloomR,
+            marginTop: -bloomR,
+            backgroundColor: '#CFE3FF',
+          },
+          coreStyle,
+        ]}
+      />
+      {/* Bright white core */}
       <Animated.View
         style={[
           {
@@ -266,22 +345,10 @@ function StarDot({
             borderRadius: coreR,
             marginLeft: -coreR,
             marginTop: -coreR,
-            backgroundColor: color,
+            backgroundColor: '#FFFFFF',
           },
           coreStyle,
         ]}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          width: pinR * 2,
-          height: pinR * 2,
-          borderRadius: pinR,
-          marginLeft: -pinR,
-          marginTop: -pinR,
-          backgroundColor: '#FFFFFF',
-          opacity: 0.95,
-        }}
       />
     </Pressable>
   );

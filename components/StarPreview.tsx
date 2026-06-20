@@ -34,28 +34,34 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
   useEffect(() => {
     if (pulseStarted.current) return;
     pulseStarted.current = true;
-    pulse.value = withRepeat(withTiming(6, { duration: 6400, easing: Easing.linear }), -1, false);
+    pulse.value = withRepeat(withTiming(6, { duration: 15000, easing: Easing.linear }), -1, false);
   });
 
-  // Twinkle: brightness flickers while the size stays steady.
+  // Gentle, slow twinkle in brightness while size stays steady.
   const twinkle = useDerivedValue(() => {
-    const a = Math.sin(pulse.value * 1.6 * Math.PI * 2);
-    const b = Math.sin(pulse.value * 3.4 * Math.PI * 2);
-    return Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
+    const a = Math.sin(pulse.value * 0.7 * Math.PI * 2);
+    const b = Math.sin(pulse.value * 1.2 * Math.PI * 2);
+    return Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4);
   });
 
-  const glowR = useDerivedValue(() => r.value + 14 + twinkle.value * 3);
-  const glowOpacity = useDerivedValue(() => 0.32 + twinkle.value * 0.3);
-  const coreR = useDerivedValue(() => Math.max(r.value, 4));
-  const pinR = useDerivedValue(() => Math.max(r.value * 0.32, 2));
+  const haloR = useDerivedValue(() => r.value + 16 + twinkle.value * 3);
+  const haloOpacity = useDerivedValue(() => 0.34 + twinkle.value * 0.18);
+  const bloomR = useDerivedValue(() => Math.max(r.value * 0.62, 5) + 3);
+  const coreR = useDerivedValue(() => Math.max(r.value * 0.62, 5));
+  const coreOpacity = useDerivedValue(() => 0.85 + twinkle.value * 0.15);
 
   return (
     <Canvas style={{ width: 160, height: 120 }}>
-      <Circle cx={80} cy={60} r={glowR} color={color} opacity={glowOpacity}>
-        <Blur blur={14} />
+      {/* Colored halo (emotion) */}
+      <Circle cx={80} cy={60} r={haloR} color={color} opacity={haloOpacity}>
+        <Blur blur={16} />
       </Circle>
-      <Circle cx={80} cy={60} r={coreR} color={color} />
-      <Circle cx={80} cy={60} r={pinR} color="#FFFFFF" />
+      {/* White-blue bloom */}
+      <Circle cx={80} cy={60} r={bloomR} color="#CFE3FF" opacity={coreOpacity}>
+        <Blur blur={3} />
+      </Circle>
+      {/* Bright white core */}
+      <Circle cx={80} cy={60} r={coreR} color="#FFFFFF" opacity={coreOpacity} />
     </Canvas>
   );
 }
