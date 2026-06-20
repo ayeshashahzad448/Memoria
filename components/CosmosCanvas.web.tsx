@@ -161,7 +161,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   }, [width, height]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0b0e1f', overflow: 'hidden' }}>
+    <View style={{ flex: 1, backgroundColor: '#0b0c10', overflow: 'hidden' }}>
       {/* Faint Milky Way haze */}
       {band.map((b) => (
         <View
@@ -173,7 +173,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             width: b.r * 2,
             height: b.r * 2,
             borderRadius: b.r,
-            backgroundColor: '#5E6BBF',
+            backgroundColor: '#3A2E6B',
             opacity: b.o,
           }}
         />
@@ -214,8 +214,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
                   top: seg.y1,
                   width: len,
                   height: 1,
-                  backgroundColor: '#8FA6E8',
-                  opacity: 0.38,
+                  backgroundColor: '#9D5CFF',
+                  opacity: 0.5,
                   transform: [{ rotateZ: `${angle}deg` }],
                   transformOrigin: '0 0',
                 }}

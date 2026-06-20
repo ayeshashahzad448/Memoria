@@ -1,11 +1,11 @@
 import type { StarColor, StarColorKey, MemoriaUser } from '@/lib/types';
 
-/** Emotion color palette for the star glow grid. */
+/** Emotion color palette for the star glow grid — Midnight Aurora resonance accents. */
 export const STAR_COLORS: StarColor[] = [
-  { key: 'amber', label: 'Amber', emotion: 'Warmth', hex: '#FFB347' },
-  { key: 'cyan', label: 'Cyan', emotion: 'Calm', hex: '#5FE3F0' },
-  { key: 'rose', label: 'Rose', emotion: 'Love', hex: '#FF8FB1' },
-  { key: 'violet', label: 'Violet', emotion: 'Wonder', hex: '#B68CFF' },
+  { key: 'cyan', label: 'Cyan', emotion: 'Calm', hex: '#45F3FF' },
+  { key: 'rose', label: 'Rose', emotion: 'Love', hex: '#FF2A6D' },
+  { key: 'amber', label: 'Amber', emotion: 'Nostalgia', hex: '#FFC75F' },
+  { key: 'violet', label: 'Violet', emotion: 'Wonder', hex: '#7A04EB' },
   { key: 'emerald', label: 'Emerald', emotion: 'Growth', hex: '#5FE0A8' },
   { key: 'gold', label: 'Gold', emotion: 'Joy', hex: '#FFE066' },
   { key: 'ice', label: 'Ice', emotion: 'Peace', hex: '#BFD9FF' },
@@ -15,7 +15,7 @@ export const STAR_COLORS: StarColor[] = [
 export const DEFAULT_STAR_COLOR: StarColorKey = 'cyan';
 
 export function colorFor(key: StarColorKey): StarColor {
-  return STAR_COLORS.find((c) => c.key === key) ?? STAR_COLORS[1];
+  return STAR_COLORS.find((c) => c.key === key) ?? STAR_COLORS[0];
 }
 
 /**

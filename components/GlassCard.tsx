@@ -28,7 +28,7 @@ export function GlassCard({
       className={cn('border-glass-border overflow-hidden rounded-2xl border', className)}
       style={{
         borderWidth: StyleSheet.hairlineWidth,
-        shadowColor: '#5FE3F0',
+        shadowColor: '#45F3FF',
         shadowOpacity: 0.1,
         shadowRadius: 18,
         shadowOffset: { width: 0, height: 0 },

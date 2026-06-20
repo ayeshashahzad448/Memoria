@@ -10,7 +10,7 @@ import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 export default function StarDetail() {
   const router = useRouter();
@@ -63,7 +63,9 @@ export default function StarDetail() {
           </View>
         </View>
 
-        <Text className="text-starlight text-3xl leading-9 font-bold">{star.title}</Text>
+        <Text className="text-starlight font-display text-3xl leading-9 font-bold">
+          {star.title}
+        </Text>
 
         <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
           <View className="flex-row items-center gap-1.5">
@@ -105,7 +107,7 @@ export default function StarDetail() {
 
         {star.story.trim().length > 0 && (
           <GlassCard className="mt-5" contentClassName="p-5">
-            <Text className="text-starlight/90 text-base leading-6">{star.story}</Text>
+            <Text className="text-starlight/90 font-serif text-base leading-7">{star.story}</Text>
           </GlassCard>
         )}
 

@@ -37,7 +37,7 @@ export function SparkPulse() {
   return (
     <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View
-        style={[{ position: 'absolute', left: 70, top: 70, backgroundColor: '#5FE3F0' }, glowStyle]}
+        style={[{ position: 'absolute', left: 70, top: 70, backgroundColor: '#45F3FF' }, glowStyle]}
       />
       <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF' }} />
     </View>

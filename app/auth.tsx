@@ -30,7 +30,9 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="mb-8 items-center">
-            <Text className="text-starlight text-5xl font-bold tracking-tight">Memoria</Text>
+            <Text className="text-starlight font-display text-5xl font-bold tracking-tight">
+              Memoria
+            </Text>
             <Text className="text-muted mt-2 text-center">
               A cosmos of your memories, kept luminous.
             </Text>

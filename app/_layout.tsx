@@ -9,6 +9,12 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import { Lora_400Regular, Lora_500Medium } from '@expo-google-fonts/lora';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { useEffect } from 'react';
@@ -53,6 +59,14 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    Lora_400Regular,
+    Lora_500Medium,
+    // Clean family aliases so `fontFamily: 'Space Grotesk' | 'Lora'` resolves on native too.
+    'Space Grotesk': SpaceGrotesk_600SemiBold,
+    Lora: Lora_400Regular,
   });
 
   // Report uncaught JS errors and unhandled promise rejections to parent (Bilt preview iframe)
@@ -92,7 +106,7 @@ export default function RootLayout() {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href =
-          'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+          'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&display=swap';
         link.crossOrigin = 'anonymous';
         document.head.appendChild(link);
       }
@@ -148,7 +162,7 @@ function RootNavigator() {
     <>
       {/* oxlint-disable-next-line react/style-prop-object -- expo-status-bar style prop takes a string */}
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b0e1f' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b0c10' } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
         <Stack.Screen name="onboarding" />

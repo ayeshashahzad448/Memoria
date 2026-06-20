@@ -1,15 +1,15 @@
 import { Tabs } from 'expo-router';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text } from 'heroui-native';
-import { Orbit, Search, Sparkles, History, User } from 'lucide-react-native';
+import { Orbit, Search, Spline, History, User } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 interface TabDef {
   name: string;
@@ -23,7 +23,7 @@ interface TabDef {
 // raised, glowing primary view.
 const TABS: TabDef[] = [
   { name: 'throwbacks', label: 'Throwbacks', icon: History },
-  { name: 'constellations', label: 'Groups', icon: Sparkles },
+  { name: 'constellations', label: 'Groups', icon: Spline },
   { name: 'index', label: 'Cosmos', icon: Orbit, center: true },
   { name: 'search', label: 'Search', icon: Search },
   { name: 'profile', label: 'Profile', icon: User },
@@ -33,7 +33,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#0b0e1f' } }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#0b0c10' } }}
     >
       {TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{ title: t.label }} />
@@ -51,7 +51,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      className="border-glass-border absolute inset-x-0 bottom-0 overflow-hidden border-t"
+      className="border-glass-border absolute inset-x-0 bottom-0 border-t"
       style={{
         shadowColor: ACCENT,
         shadowOpacity: 0.1,
@@ -59,12 +59,16 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         shadowOffset: { width: 0, height: -4 },
       }}
     >
-      <BlurView
-        intensity={Platform.OS === 'android' ? 28 : 44}
-        tint="dark"
-        className="absolute inset-0"
-      />
-      <View className="bg-void/60 absolute inset-0" />
+      {/* Clipped frosted-glass background. Kept separate so the raised center
+          button can overflow above the bar without being cut off. */}
+      <View style={StyleSheet.absoluteFill} className="overflow-hidden">
+        <BlurView
+          intensity={Platform.OS === 'android' ? 28 : 44}
+          tint="dark"
+          className="absolute inset-0"
+        />
+        <View className="bg-void/70 absolute inset-0" />
+      </View>
       <View className="pb-safe-offset-1.5 flex-row items-end px-2 pt-2">
         {ordered.map(({ tab, route, index }) => {
           const focused = state.index === index;
@@ -129,21 +133,22 @@ function CenterTab({
       onPress={onPress}
       hitSlop={6}
       className="flex-1 items-center justify-end gap-1"
-      style={{ marginTop: -22 }}
+      style={{ marginTop: -26 }}
     >
       <View
-        className="border-glass-border h-[58px] w-[58px] items-center justify-center rounded-full border"
+        className="h-[62px] w-[62px] items-center justify-center rounded-full border"
         style={{
-          backgroundColor: 'rgba(11,14,31,0.85)',
+          backgroundColor: '#0B0C10',
+          borderColor: focused ? `${ACCENT}80` : 'rgba(255,255,255,0.12)',
           shadowColor: ACCENT,
-          shadowOpacity: focused ? 0.65 : 0.4,
-          shadowRadius: focused ? 16 : 10,
+          shadowOpacity: focused ? 0.7 : 0.45,
+          shadowRadius: focused ? 18 : 11,
           shadowOffset: { width: 0, height: 0 },
         }}
       >
         <View
-          className="h-[50px] w-[50px] items-center justify-center rounded-full"
-          style={{ backgroundColor: focused ? `${ACCENT}26` : 'rgba(255,255,255,0.04)' }}
+          className="h-[52px] w-[52px] items-center justify-center rounded-full"
+          style={{ backgroundColor: focused ? `${ACCENT}26` : 'rgba(255,255,255,0.05)' }}
         >
           <Icon size={26} color={focused ? ACCENT : '#C8D0F5'} strokeWidth={focused ? 2.4 : 1.9} />
         </View>

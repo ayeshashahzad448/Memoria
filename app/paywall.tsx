@@ -19,7 +19,7 @@ import { getPremiumProduct, purchasePremium, type IapProduct } from '@/lib/iap';
 
 const ACCENT = colorFor('cyan').hex;
 const VIOLET = colorFor('violet').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 const BENEFITS = [
   'Unlimited cloud storage for photos and voice notes',
@@ -78,7 +78,9 @@ export default function Paywall() {
           </View>
 
           <View className="gap-2">
-            <Text className="text-starlight text-2xl leading-8 font-bold">Your cosmos is full</Text>
+            <Text className="text-starlight font-display text-2xl leading-8 font-bold">
+              Your cosmos is full
+            </Text>
             <Text className="text-muted text-sm leading-6">
               Upgrade to Memoria Premium to unlock infinite storage and keep your legacy growing.
             </Text>
@@ -91,7 +93,7 @@ export default function Paywall() {
                   className="mt-0.5 h-4 w-4 items-center justify-center rounded-full"
                   style={{ backgroundColor: ACCENT }}
                 >
-                  <Check size={11} color="#0b0e1f" strokeWidth={3} />
+                  <Check size={11} color="#0b0c10" strokeWidth={3} />
                 </View>
                 <Text className="text-starlight/90 flex-1 text-sm leading-5">{b}</Text>
               </View>

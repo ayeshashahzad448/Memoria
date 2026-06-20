@@ -9,7 +9,7 @@ import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 export default function ThrowbacksTab() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function ThrowbacksTab() {
   return (
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
-        <Text className="text-starlight text-3xl font-bold">Throwbacks</Text>
+        <Text className="text-starlight font-display text-3xl font-bold">Throwbacks</Text>
         <Text className="text-muted mt-1 mb-6 text-sm leading-5">
           Memories that resurface from years past, brought back for you to revisit.
         </Text>

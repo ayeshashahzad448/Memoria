@@ -24,7 +24,7 @@ import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 export default function CosmosTab() {
   const router = useRouter();
@@ -187,7 +187,7 @@ export default function CosmosTab() {
                 shadowOffset: { width: 0, height: 0 },
               }}
             >
-              <Plus size={30} color="#0b0e1f" strokeWidth={2.5} />
+              <Plus size={30} color="#0b0c10" strokeWidth={2.5} />
             </View>
           </Pressable>
         </View>

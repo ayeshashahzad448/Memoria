@@ -10,7 +10,7 @@ import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
 
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 type DateRange = 'any' | '30d' | '90d' | '365d';
 
@@ -80,7 +80,7 @@ export default function SearchTab() {
         contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-starlight text-3xl font-bold">Search</Text>
+        <Text className="text-starlight font-display text-3xl font-bold">Search</Text>
         <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
 
         <View className="gap-4">

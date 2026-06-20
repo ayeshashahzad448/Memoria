@@ -144,7 +144,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   return (
     <GestureDetector gesture={gesture}>
       <Canvas style={{ flex: 1 }}>
-        <Fill color="#0b0e1f" />
+        <Fill color="#0b0c10" />
         <BackgroundStarfield width={width} height={height} clock={clock} />
         <Group transform={transform}>
           <ConstellationLines
@@ -293,10 +293,10 @@ function ConstellationLines({
                 key={seg.key}
                 p1={vec(seg.p1.x, seg.p1.y)}
                 p2={vec(seg.p2.x, seg.p2.y)}
-                color="#8FA6E8"
+                color="#9D5CFF"
                 style="stroke"
-                strokeWidth={0.75}
-                opacity={0.38}
+                strokeWidth={0.9}
+                opacity={0.5}
               />
             ))}
           </Group>
@@ -354,7 +354,7 @@ function BackgroundStarfield({
       <Group>
         <Blur blur={70} />
         {band.map((b) => (
-          <Circle key={b.id} cx={b.x} cy={b.y} r={b.r} color="#5E6BBF" opacity={b.o} />
+          <Circle key={b.id} cx={b.x} cy={b.y} r={b.r} color="#3A2E6B" opacity={b.o} />
         ))}
       </Group>
       {dust.map((d) => (

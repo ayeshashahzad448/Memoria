@@ -11,7 +11,7 @@ import { CURRENT_USER, colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, totalMediaBytes } from '@/lib/storage';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function ProfileTab() {
   return (
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
-        <Text className="text-starlight text-3xl font-bold">Profile</Text>
+        <Text className="text-starlight font-display text-3xl font-bold">Profile</Text>
 
         {/* Identity */}
         <GlassCard className="mt-5" contentClassName="flex-row items-center gap-4 p-5">
@@ -88,7 +88,7 @@ export default function ProfileTab() {
 
           {!isPremium && (
             <Button size="sm" onPress={() => router.push('/paywall')}>
-              <Sparkles size={15} color="#0b0e1f" />
+              <Sparkles size={15} color="#0b0c10" />
               <Button.Label>Upgrade to Premium</Button.Label>
             </Button>
           )}

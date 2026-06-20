@@ -51,7 +51,7 @@ export default function Onboarding() {
           entering={FadeIn.duration(2200).easing(Easing.out(Easing.ease))}
           className="absolute inset-0 items-center justify-center px-10"
         >
-          <Text className="text-starlight mb-10 text-center text-2xl font-semibold">
+          <Text className="text-starlight font-display mb-10 text-center text-2xl font-semibold">
             create your first star
           </Text>
           <Pressable onPress={beginFirstStar} hitSlop={20}>

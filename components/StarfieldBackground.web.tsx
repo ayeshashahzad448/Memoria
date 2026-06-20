@@ -22,7 +22,7 @@ function rand(i: number): number {
  */
 export function StarfieldBackground({
   variant = 'drift',
-  background = variant === 'dust' ? '#0b0e1f' : '#080b18',
+  background = variant === 'dust' ? '#0b0c10' : '#07080b',
 }: StarfieldBackgroundProps) {
   const { width, height } = useWindowDimensions();
   const count = variant === 'dust' ? 40 : 70;

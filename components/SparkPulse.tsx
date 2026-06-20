@@ -27,7 +27,7 @@ export function SparkPulse() {
 
   return (
     <Canvas style={{ width: 140, height: 140 }}>
-      <Circle cx={70} cy={70} r={glow} color="#5FE3F0" opacity={glowOpacity} />
+      <Circle cx={70} cy={70} r={glow} color="#45F3FF" opacity={glowOpacity} />
       <Circle cx={70} cy={70} r={10} color="#FFFFFF" />
     </Canvas>
   );

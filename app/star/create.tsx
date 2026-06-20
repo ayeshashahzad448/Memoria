@@ -33,7 +33,7 @@ import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 const MAX_PHOTOS = 3;
 const MAX_VOICE = 4;
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8C93B8';
+const MUTED = '#94A3B8';
 
 export default function CreateStar() {
   const router = useRouter();

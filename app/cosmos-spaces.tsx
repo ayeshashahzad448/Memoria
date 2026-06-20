@@ -42,7 +42,7 @@ export default function CosmosSpaces() {
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-6 pb-12" keyboardShouldPersistTaps="handled">
         <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-starlight text-2xl font-bold">Cosmos spaces</Text>
+          <Text className="text-starlight font-display text-2xl font-bold">Cosmos spaces</Text>
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Text className="text-muted">Close</Text>
           </Pressable>

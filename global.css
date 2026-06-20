@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&display=swap');
 
 @import 'tailwindcss';
 @import 'uniwind';
@@ -175,63 +175,79 @@
     --radius: 0.75rem;
     --field-radius: calc(var(--radius) * 1.25);
 
-    /* Base — boundless void */
-    --background: oklch(0.16 0.03 275);
-    --foreground: oklch(0.97 0.01 270);
+    /* Base — Deep Cosmos void (#0B0C10) over a desaturated indigo Nebula (#1F2833) */
+    --background: #0b0c10;
+    --foreground: #f8fafc;
 
-    --surface: oklch(0.22 0.035 274);
+    --surface: rgba(255, 255, 255, 0.04);
     --surface-foreground: var(--foreground);
 
-    --overlay: oklch(0.24 0.04 274);
+    --overlay: #12151c;
     --overlay-foreground: var(--foreground);
 
-    --muted: oklch(0.68 0.03 275);
-    --scrollbar: oklch(0.4 0.03 275);
+    --muted: #94a3b8;
+    --scrollbar: #334155;
 
-    --default: oklch(0.27 0.035 274);
+    --default: rgba(255, 255, 255, 0.06);
     --default-foreground: var(--foreground);
 
-    /* Brand — luminous starlight cyan/violet */
-    --accent: oklch(0.78 0.13 215);
-    --accent-foreground: oklch(0.16 0.03 275);
+    /* Brand — Stellar Cyan */
+    --accent: #45f3ff;
+    --accent-foreground: #0b0c10;
 
-    --field-background: oklch(0.24 0.035 274);
+    --field-background: rgba(255, 255, 255, 0.04);
     --field-foreground: var(--foreground);
     --field-placeholder: var(--muted);
-    --field-border: oklch(0.34 0.04 274);
+    --field-border: rgba(255, 255, 255, 0.12);
 
-    --success: oklch(0.78 0.16 160);
-    --success-foreground: oklch(0.16 0.03 275);
-    --warning: oklch(0.82 0.14 76);
-    --warning-foreground: oklch(0.16 0.03 275);
-    --danger: oklch(0.66 0.2 22);
-    --danger-foreground: oklch(0.97 0.01 270);
+    --success: #45f3ff;
+    --success-foreground: #0b0c10;
+    --warning: #ffc75f;
+    --warning-foreground: #0b0c10;
+    --danger: #ff2a6d;
+    --danger-foreground: #f8fafc;
 
-    --segment: oklch(0.27 0.035 274);
+    --segment: rgba(255, 255, 255, 0.06);
     --segment-foreground: var(--foreground);
 
-    --border: oklch(0.3 0.035 274);
-    --separator: oklch(0.3 0.035 274);
+    --border: rgba(255, 255, 255, 0.1);
+    --separator: rgba(255, 255, 255, 0.08);
     --focus: var(--accent);
     --link: var(--accent);
 
-    --backdrop: rgba(4, 6, 18, 0.7);
+    --backdrop: rgba(4, 6, 14, 0.72);
 
     --surface-shadow: 0 0 0 0 transparent inset;
     --overlay-shadow: 0 0 0 0 transparent inset;
     --field-shadow: 0 0 0 0 transparent inset;
     --skeleton-animation: shimmer;
+
+    /* Typography system */
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    --font-serif: 'Lora', Georgia, serif;
   }
 }
 
-/* Custom utility colors for the cosmos UI */
+/* Custom utility colors for the cosmos UI — Midnight Aurora */
 @theme {
-  --color-void: oklch(0.12 0.025 275);
-  --color-void-deep: oklch(0.08 0.02 276);
-  --color-starlight: oklch(0.97 0.01 270);
-  --color-nebula: oklch(0.62 0.16 300);
-  --color-glass: oklch(0.24 0.04 274 / 0.5);
-  --color-glass-border: oklch(0.72 0.05 270 / 0.18);
+  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
+
+  --color-void: #0b0c10;
+  --color-void-deep: #07080b;
+  --color-nebula-base: #1f2833;
+  --color-starlight: #f8fafc;
+  --color-secondary: #94a3b8;
+  --color-nebula: #7a04eb;
+  --color-stellar-cyan: #45f3ff;
+  --color-electric-rose: #ff2a6d;
+  --color-warm-amber: #ffc75f;
+  --color-deep-violet: #7a04eb;
+  --color-glass: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @source './node_modules/heroui-native/lib';

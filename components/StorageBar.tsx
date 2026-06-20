@@ -9,9 +9,9 @@ import Animated, {
 
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes } from '@/lib/storage';
 
-const ACCENT = '#5FE3F0';
-const WARNING = '#FFB347';
-const FULL = '#FF6B6B';
+const ACCENT = '#45F3FF';
+const WARNING = '#FFC75F';
+const FULL = '#FF2A6D';
 
 interface StorageBarProps {
   /** Bytes currently used. */
