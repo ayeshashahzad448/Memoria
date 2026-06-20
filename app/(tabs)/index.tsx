@@ -286,7 +286,7 @@ export default function CosmosTab() {
 
       {/* Exit constellation view */}
       {fitIds && !drawId && !selectedStar && !forging && (
-        <View className="pt-safe-offset-12 absolute inset-x-0 top-0 items-center">
+        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 items-center">
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync();
