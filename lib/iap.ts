@@ -12,6 +12,29 @@
 
 export const PREMIUM_PRODUCT_ID = 'memoria.premium.infinite.monthly';
 
+/** Subscription plans surfaced on the paywall. */
+export type PlanId = 'free' | 'personal' | 'family';
+/** Billing cadence the user toggles between. */
+export type BillingPeriod = 'monthly' | 'yearly';
+
+/** Product identifiers per plan + cadence, ready for a real store catalog. */
+export const PRODUCT_IDS: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, string>> = {
+  personal: {
+    monthly: 'memoria.personal.legacy.monthly',
+    yearly: 'memoria.personal.legacy.yearly',
+  },
+  family: {
+    monthly: 'memoria.family.cosmos.monthly',
+    yearly: 'memoria.family.cosmos.yearly',
+  },
+};
+
+/** Placeholder display prices until live store pricing is fetched. */
+export const PLAN_PRICING: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, string>> = {
+  personal: { monthly: '$3.99', yearly: '$39.99' },
+  family: { monthly: '$9.99', yearly: '$99.99' },
+};
+
 export interface IapProduct {
   id: string;
   title: string;
@@ -38,6 +61,18 @@ export async function getPremiumProduct(): Promise<IapProduct> {
     displayPrice: 'PRICE_TBD',
     period: 'month',
   };
+}
+
+/**
+ * Start the purchase flow for a given plan + billing period. Replace with the
+ * real StoreKit / Play Billing call once payments are enabled.
+ */
+export async function purchasePlan(
+  _plan: Exclude<PlanId, 'free'>,
+  _period: BillingPeriod,
+): Promise<PurchaseResult> {
+  // TODO(native): trigger expo-iap requestPurchase for PRODUCT_IDS[plan][period].
+  return { success: false, notAvailable: true };
 }
 
 /**
