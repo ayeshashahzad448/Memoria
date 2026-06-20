@@ -65,7 +65,9 @@ export async function searchPlaces(query: string): Promise<PlacesResult> {
       }
       return {
         predictions: [],
-        error: detail || `Place search failed (${String(res.status)}). You can still type a place above.`,
+        error:
+          detail ||
+          `Place search failed (${String(res.status)}). You can still type a place above.`,
       };
     }
     const raw: unknown = await res.json();
