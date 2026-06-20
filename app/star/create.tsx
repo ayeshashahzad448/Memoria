@@ -406,7 +406,10 @@ export function TagPicker({
   onChange: (ids: string[]) => void;
 }) {
   const [query, setQuery] = useState('');
-  const taggable = useMemo(() => DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id), []);
+  const taggable = useMemo(
+    () => DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id).slice(0, 5),
+    [],
+  );
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return taggable;
