@@ -19,7 +19,7 @@ import { radiusForText } from '@/lib/memoria';
 import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 2;
 
 export default function EditStar() {
   const router = useRouter();

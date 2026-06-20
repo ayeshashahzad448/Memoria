@@ -31,8 +31,8 @@ import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 
-const MAX_PHOTOS = 3;
-const MAX_VOICE = 4;
+const MAX_PHOTOS = 2;
+const MAX_VOICE = 2;
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
 
