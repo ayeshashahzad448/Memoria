@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 
 import type { MemoryStar } from '@/lib/types';
-import { colorFor } from '@/lib/memoria';
+import { colorFor, star3DPosition } from '@/lib/memoria';
 
 interface ConstellationPreviewProps {
   /** Member stars in pick order. */
@@ -16,9 +16,9 @@ const PAD = 10;
 const LINE_COLOR = '#9D5CFF';
 
 /**
- * A small, normalized thumbnail of a constellation: member stars plotted by
- * their cosmos coordinates and chained in pick order (closed for 3+ members),
- * mirroring how the lines render in the live cosmos.
+ * A small, normalized thumbnail of a constellation: a true top-down (map) view
+ * of the member stars — plotting world X against world Z (depth) — chained in
+ * pick order (closed for 3+ members), mirroring the live cosmos layout.
  */
 export function ConstellationPreview({
   members,
@@ -27,8 +27,13 @@ export function ConstellationPreview({
 }: ConstellationPreviewProps) {
   const points = useMemo(() => {
     if (members.length === 0) return [];
-    const xs = members.map((m) => m.x);
-    const ys = members.map((m) => m.y);
+    // Top-down map view: horizontal = world X, vertical = world Z (depth).
+    const plotted = members.map((m) => {
+      const [wx, , wz] = star3DPosition(m.id, m.x, m.y);
+      return { star: m, px: wx, py: wz };
+    });
+    const xs = plotted.map((p) => p.px);
+    const ys = plotted.map((p) => p.py);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
@@ -43,10 +48,10 @@ export function ConstellationPreview({
     const drawH = spanY * scale;
     const offX = PAD + (innerW - drawW) / 2;
     const offY = PAD + (innerH - drawH) / 2;
-    return members.map((m) => ({
-      star: m,
-      cx: offX + (m.x - minX) * scale,
-      cy: offY + (m.y - minY) * scale,
+    return plotted.map((p) => ({
+      star: p.star,
+      cx: offX + (p.px - minX) * scale,
+      cy: offY + (p.py - minY) * scale,
     }));
   }, [members, width, height]);
 
