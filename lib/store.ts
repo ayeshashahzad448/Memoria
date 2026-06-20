@@ -79,6 +79,7 @@ interface MemoriaState {
 
   signIn: () => void;
   signOut: () => void;
+  resetFlow: () => void;
   completeOnboarding: () => void;
   completeTutorial: () => void;
   setActiveCosmos: (id: string) => void;
@@ -150,6 +151,8 @@ export const useMemoria = create<MemoriaState>()(
 
       signIn: () => set({ isAuthed: true }),
       signOut: () => set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
+      resetFlow: () =>
+        set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
       completeOnboarding: () => set({ hasOnboarded: true }),
       completeTutorial: () => set({ hasSeenTutorial: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),

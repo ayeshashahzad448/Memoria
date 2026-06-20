@@ -26,10 +26,17 @@ const WORDMARK = 'Memoria';
 export default function Index() {
   const isAuthed = useMemoria((s) => s.isAuthed);
   const hasOnboarded = useMemoria((s) => s.hasOnboarded);
+  const resetFlow = useMemoria((s) => s.resetFlow);
   const [done, setDone] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
 
   const outro = useSharedValue(0); // 0 -> 1 fade the splash out
+
+  // Always replay the full flow: reset auth/onboarding on each cold open so the
+  // sequence is splash -> sign up/login -> onboarding -> cosmos.
+  useEffect(() => {
+    resetFlow();
+  }, [resetFlow]);
 
   // Type the wordmark out one character at a time.
   useEffect(() => {
