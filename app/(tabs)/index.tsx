@@ -274,7 +274,7 @@ export default function CosmosTab() {
       {/* Connecting animation banner */}
       {drawId && (
         <View
-          className="pt-safe-offset-12 absolute inset-x-0 top-0 items-center"
+          className="pb-safe-offset-28 absolute inset-x-0 bottom-0 items-center"
           pointerEvents="none"
         >
           <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
