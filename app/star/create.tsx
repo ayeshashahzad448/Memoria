@@ -420,7 +420,7 @@ export function TagPicker({
 
   return (
     <View className="gap-2">
-      <Label>Tag who shared this</Label>
+      <Label>Tag people</Label>
       <TextField>
         <Input
           placeholder="Search people"
