@@ -1,0 +1,312 @@
+import { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Button, Input, Text, TextField } from 'heroui-native';
+import { format } from 'date-fns';
+import * as Haptics from 'expo-haptics';
+
+import { CosmosCanvas } from '@/components/CosmosCanvas';
+import { GlassCard } from '@/components/GlassCard';
+import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
+import { colorFor, userById } from '@/lib/memoria';
+import type { MemoryStar } from '@/lib/types';
+
+export default function Cosmos() {
+  const router = useRouter();
+  const stars = useMemoria((s) => s.starsForActiveCosmos());
+  const constellations = useMemoria((s) => s.constellationsForActiveCosmos());
+  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
+  const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
+  const constellationsForStar = useMemoria((s) => s.constellationsForStar);
+  const createConstellation = useMemoria((s) => s.createConstellation);
+  const suggestConstellations = useMemoria((s) => s.suggestConstellations);
+
+  const [selectedStar, setSelectedStar] = useState<MemoryStar | null>(null);
+  const [forging, setForging] = useState(false);
+  const [forgeIds, setForgeIds] = useState<string[]>([]);
+  const [forgeName, setForgeName] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const cosmosName = useMemo(() => {
+    if (activeCosmosId === PERSONAL_COSMOS) return 'Your cosmos';
+    return sharedCosmoses.find((c) => c.id === activeCosmosId)?.name ?? 'Shared cosmos';
+  }, [activeCosmosId, sharedCosmoses]);
+
+  const suggestions = useMemo(
+    () => (showSuggestions ? suggestConstellations() : []),
+    [showSuggestions, suggestConstellations],
+  );
+
+  // Reveal lines for the selected star's constellations.
+  const revealedStarIds = useMemo(() => {
+    if (!selectedStar) return [];
+    const groups = constellationsForStar(selectedStar.id);
+    return groups.flatMap((g) => g.starIds);
+  }, [selectedStar, constellationsForStar]);
+
+  const onTapStar = (star: MemoryStar) => {
+    if (forging) {
+      void Haptics.selectionAsync();
+      setForgeIds((p) => (p.includes(star.id) ? p.filter((x) => x !== star.id) : [...p, star.id]));
+      return;
+    }
+    setSelectedStar(star);
+  };
+
+  const beginForge = () => {
+    setSelectedStar(null);
+    setForging(true);
+    setForgeIds([]);
+    setForgeName('');
+  };
+
+  const confirmForge = () => {
+    if (forgeIds.length < 2) return;
+    createConstellation(forgeName, forgeIds, 'manual');
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    cancelForge();
+  };
+
+  const cancelForge = () => {
+    setForging(false);
+    setForgeIds([]);
+    setForgeName('');
+  };
+
+  return (
+    <View className="bg-void flex-1">
+      <CosmosCanvas
+        stars={stars}
+        constellations={constellations}
+        revealedStarIds={revealedStarIds}
+        selectedStarId={selectedStar?.id}
+        forgingStarIds={forgeIds}
+        onTapStar={onTapStar}
+        onTapEmpty={() => setSelectedStar(null)}
+      />
+
+      {/* Top bar */}
+      <View className="pt-safe-offset-2 absolute inset-x-0 top-0 px-4">
+        <View className="flex-row items-center justify-between">
+          <Pressable onPress={() => router.push('/cosmos-spaces')} hitSlop={8}>
+            <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
+              <Text className="text-starlight font-semibold">
+                {activeCosmosId === PERSONAL_COSMOS ? '✨' : '🌌'} {cosmosName}
+              </Text>
+              <Text className="text-muted text-xs">▾</Text>
+            </GlassCard>
+          </Pressable>
+          <Pressable onPress={() => router.push('/search')} hitSlop={8}>
+            <GlassCard contentClassName="px-3.5 py-2.5">
+              <Text className="text-starlight text-base">🔍</Text>
+            </GlassCard>
+          </Pressable>
+        </View>
+
+        {stars.length > 0 && !forging && (
+          <Pressable
+            onPress={() => setShowSuggestions((v) => !v)}
+            className="mt-3 self-start"
+            hitSlop={6}
+          >
+            <Text className="text-accent text-sm">
+              {showSuggestions ? 'Hide suggestions' : '✨ Suggest constellations'}
+            </Text>
+          </Pressable>
+        )}
+
+        {showSuggestions && !forging && <SuggestionList suggestions={suggestions} />}
+      </View>
+
+      {/* Empty state hint */}
+      {stars.length === 0 && (
+        <View className="absolute inset-0 items-center justify-center px-10" pointerEvents="none">
+          <Text className="text-muted text-center">
+            Your cosmos is waiting. Tap ＋ to create a star.
+          </Text>
+        </View>
+      )}
+
+      {/* HUD card on tap */}
+      {selectedStar && !forging && (
+        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 px-4">
+          <HudCard
+            star={selectedStar}
+            onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
+            onClose={() => setSelectedStar(null)}
+          />
+        </View>
+      )}
+
+      {/* Forge controls */}
+      {forging && (
+        <View className="pb-safe-offset-6 absolute inset-x-0 bottom-0 px-4">
+          <GlassCard contentClassName="gap-3 p-5">
+            <Text className="text-starlight font-semibold">Forge a constellation</Text>
+            <Text className="text-muted text-xs">
+              Tap 2 or more stars to connect them chronologically. {forgeIds.length} selected.
+            </Text>
+            <TextField>
+              <Input
+                placeholder="Name this constellation"
+                value={forgeName}
+                onChangeText={setForgeName}
+              />
+            </TextField>
+            <View className="flex-row gap-3">
+              <Button variant="ghost" className="flex-1" onPress={cancelForge}>
+                Cancel
+              </Button>
+              <Button className="flex-1" isDisabled={forgeIds.length < 2} onPress={confirmForge}>
+                Forge
+              </Button>
+            </View>
+          </GlassCard>
+        </View>
+      )}
+
+      {/* Bottom action row */}
+      {!selectedStar && !forging && (
+        <View className="pb-safe-offset-6 absolute inset-x-0 bottom-0 flex-row items-center justify-center gap-3 px-4">
+          {stars.length >= 2 && (
+            <Pressable onPress={beginForge}>
+              <GlassCard contentClassName="px-5 py-3.5">
+                <Text className="text-starlight">🪢 Forge</Text>
+              </GlassCard>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/star/create', params: { cosmosId: activeCosmosId } })
+            }
+          >
+            <View
+              className="h-16 w-16 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: '#5FE3F0',
+                shadowColor: '#5FE3F0',
+                shadowOpacity: 0.9,
+                shadowRadius: 18,
+                shadowOffset: { width: 0, height: 0 },
+              }}
+            >
+              <Text className="text-void text-3xl font-light">＋</Text>
+            </View>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function HudCard({
+  star,
+  onOpen,
+  onClose,
+}: {
+  star: MemoryStar;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const color = colorFor(star.colorKey);
+  const tagged = star.taggedUserIds.map((id) => userById(id)).filter(Boolean);
+  return (
+    <Pressable onPress={onOpen}>
+      <GlassCard contentClassName="gap-2 p-5">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 flex-row items-center gap-2">
+            <View
+              className="h-3.5 w-3.5 rounded-full"
+              style={{
+                backgroundColor: color.hex,
+                shadowColor: color.hex,
+                shadowOpacity: 0.9,
+                shadowRadius: 8,
+              }}
+            />
+            <Text className="text-starlight flex-1 text-lg font-semibold" numberOfLines={1}>
+              {star.title}
+            </Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Text className="text-muted">✕</Text>
+          </Pressable>
+        </View>
+
+        <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+          <Text className="text-muted text-xs">🗓️ {format(new Date(star.date), 'PP')}</Text>
+          {star.location ? (
+            <Text className="text-muted text-xs" numberOfLines={1}>
+              📍 {star.location.name}
+            </Text>
+          ) : null}
+        </View>
+
+        {tagged.length > 0 && (
+          <Text className="text-muted text-xs">🤝 {tagged.map((u) => u!.name).join(', ')}</Text>
+        )}
+
+        <View className="flex-row items-center gap-3 pt-1">
+          {star.photos.length > 0 && (
+            <Text className="text-muted text-xs">📷 {star.photos.length}</Text>
+          )}
+          {star.voiceNotes.length > 0 && (
+            <Text className="text-muted text-xs">🎙️ {star.voiceNotes.length}</Text>
+          )}
+          <Text className="text-accent ml-auto text-xs">Open memory →</Text>
+        </View>
+      </GlassCard>
+    </Pressable>
+  );
+}
+
+function SuggestionList({
+  suggestions,
+}: {
+  suggestions: { id: string; reason: string; starIds: string[] }[];
+}) {
+  const createConstellation = useMemoria((s) => s.createConstellation);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  const visible = suggestions.filter((s) => !dismissed.includes(s.id));
+  if (visible.length === 0) {
+    return (
+      <GlassCard className="mt-2" contentClassName="p-4">
+        <Text className="text-muted text-xs">
+          No new patterns yet. Add more stars with shared people, places, or dates.
+        </Text>
+      </GlassCard>
+    );
+  }
+
+  return (
+    <View className="mt-2 gap-2">
+      {visible.map((s) => (
+        <GlassCard key={s.id} contentClassName="gap-2 p-4">
+          <Text className="text-starlight text-sm">✨ {s.reason}</Text>
+          <Text className="text-muted text-xs">{s.starIds.length} stars</Text>
+          <View className="flex-row gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex-1"
+              onPress={() => setDismissed((p) => [...p, s.id])}
+            >
+              Dismiss
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1"
+              onPress={() => {
+                createConstellation(s.reason, s.starIds, 'suggested');
+                setDismissed((p) => [...p, s.id]);
+              }}
+            >
+              Forge
+            </Button>
+          </View>
+        </GlassCard>
+      ))}
+    </View>
+  );
+}

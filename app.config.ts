@@ -10,13 +10,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: 'Starlume',
-    slug: 'starlume',
+    name: 'Memoria',
+    slug: 'memoria',
     newArchEnabled: true,
     version: process.env.BILT_APP_VERSION ?? '1.0.0',
     orientation: 'portrait',
-    userInterfaceStyle: 'automatic',
-    scheme: 'starlume',
+    userInterfaceStyle: 'dark',
+    scheme: 'memoria',
     runtimeVersion: {
       policy: 'appVersion',
     },
@@ -34,7 +34,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       appStoreAppId: process.env.BILT_APP_STORE_APP_ID,
     },
-    plugins: ['expo-router', 'expo-font', ...nativePlugins],
+    plugins: [
+      'expo-router',
+      'expo-font',
+      'expo-audio',
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'Memoria uses your photos so you can attach images to a memory star.',
+        },
+      ],
+      ...nativePlugins,
+    ],
     experiments: {
       typedRoutes: true,
       reactCompiler: true,

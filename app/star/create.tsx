@@ -1,0 +1,515 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import { Canvas, Circle, Blur } from '@shopify/react-native-skia';
+import {
+  Easing,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
+import { GlassCard } from '@/components/GlassCard';
+import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
+import {
+  STAR_COLORS,
+  DEFAULT_STAR_COLOR,
+  colorFor,
+  radiusForText,
+  DIRECTORY_USERS,
+  CURRENT_USER,
+} from '@/lib/memoria';
+import { searchPlaces, resolvePlace, placesEnabled, type PlacePrediction } from '@/lib/places';
+import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
+import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
+
+const MAX_PHOTOS = 3;
+const MAX_VOICE = 4;
+
+export default function CreateStar() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const addStar = useMemoria((s) => s.addStar);
+  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
+  const cosmosId =
+    (Array.isArray(params.cosmosId) ? params.cosmosId[0] : params.cosmosId) ??
+    activeCosmosId ??
+    PERSONAL_COSMOS;
+
+  const [title, setTitle] = useState('');
+  const [story, setStory] = useState('');
+  const [colorKey, setColorKey] = useState<StarColorKey>(DEFAULT_STAR_COLOR);
+  const [date] = useState(() => new Date().toISOString());
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
+  const [taggedIds, setTaggedIds] = useState<string[]>([]);
+  const [location, setLocation] = useState<StarLocation | undefined>();
+
+  const canSave = title.trim().length > 0 || story.trim().length > 0;
+
+  const save = () => {
+    if (!canSave) return;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    addStar({
+      title,
+      story,
+      colorKey,
+      date,
+      location,
+      photos,
+      voiceNotes,
+      taggedUserIds: taggedIds,
+      cosmosId,
+    });
+    router.back();
+  };
+
+  const pickPhotos = useCallback(async () => {
+    if (photos.length >= MAX_PHOTOS) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_PHOTOS - photos.length,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setPhotos((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
+    }
+  }, [photos.length]);
+
+  return (
+    <View className="bg-void flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <ScrollView contentContainerClassName="px-5 pt-6 pb-40" keyboardShouldPersistTaps="handled">
+          <View className="mb-2 flex-row items-center justify-between">
+            <Text className="text-starlight text-2xl font-bold">New star</Text>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Text className="text-muted text-base">Close</Text>
+            </Pressable>
+          </View>
+          <Text className="text-muted mb-5 text-sm">
+            Write your memory and watch it manifest. More detail makes a larger, brighter star.
+          </Text>
+
+          {/* Live star preview */}
+          <StarPreview story={story} title={title} colorKey={colorKey} />
+
+          <View className="gap-5">
+            <TextField>
+              <Label>Title</Label>
+              <Input placeholder="A name for this memory" value={title} onChangeText={setTitle} />
+            </TextField>
+
+            <View className="gap-2">
+              <Label>Your story</Label>
+              <TextField>
+                <Input
+                  placeholder="Tell it the way you want to remember it…"
+                  value={story}
+                  onChangeText={setStory}
+                  multiline
+                  numberOfLines={6}
+                  className="min-h-32"
+                  style={{ textAlignVertical: 'top' }}
+                />
+              </TextField>
+              <Text className="text-muted text-right text-xs">
+                {story.trim().length} characters
+              </Text>
+            </View>
+
+            <ColorGrid value={colorKey} onChange={setColorKey} />
+
+            <PhotoPicker
+              photos={photos}
+              onAdd={pickPhotos}
+              onRemove={(uri) => setPhotos((p) => p.filter((x) => x !== uri))}
+            />
+
+            <VoiceRecorder notes={voiceNotes} onChange={setVoiceNotes} />
+
+            <TagPicker selected={taggedIds} onChange={setTaggedIds} />
+
+            <LocationPicker location={location} onChange={setLocation} />
+          </View>
+        </ScrollView>
+
+        <View className="border-glass-border bg-void/90 pb-safe-offset-4 absolute inset-x-0 bottom-0 border-t px-5 pt-4">
+          <Button isDisabled={!canSave} onPress={save}>
+            Manifest this star
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+/* ------------------------------ Live preview ------------------------------ */
+
+function StarPreview({
+  story,
+  title,
+  colorKey,
+}: {
+  story: string;
+  title: string;
+  colorKey: StarColorKey;
+}) {
+  const text = story.length > 0 ? story : title;
+  const targetR = radiusForText(text);
+  const r = useSharedValue(targetR);
+  const pulse = useSharedValue(0);
+  const color = colorFor(colorKey).hex;
+
+  useEffect(() => {
+    r.value = withSpring(targetR, { damping: 14, stiffness: 120 });
+  }, [targetR, r]);
+
+  const pulseStarted = useRef(false);
+  useEffect(() => {
+    if (pulseStarted.current) return;
+    pulseStarted.current = true;
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+  });
+
+  const glowR = useDerivedValue(() => r.value + 14 + pulse.value * 10);
+  const glowOpacity = useDerivedValue(() => 0.4 + pulse.value * 0.25);
+  const coreR = useDerivedValue(() => Math.max(r.value, 4));
+  const pinR = useDerivedValue(() => Math.max(r.value * 0.32, 2));
+
+  return (
+    <GlassCard className="mb-6" contentClassName="items-center py-7">
+      <Canvas style={{ width: 160, height: 120 }}>
+        <Circle cx={80} cy={60} r={glowR} color={color} opacity={glowOpacity}>
+          <Blur blur={14} />
+        </Circle>
+        <Circle cx={80} cy={60} r={coreR} color={color} />
+        <Circle cx={80} cy={60} r={pinR} color="#FFFFFF" />
+      </Canvas>
+      <Text className="text-muted mt-2 text-xs">
+        {text.trim().length === 0
+          ? 'Start typing to bring your star to life'
+          : radiusForText(text) > 18
+            ? 'A core memory is forming'
+            : 'Your star is taking shape'}
+      </Text>
+    </GlassCard>
+  );
+}
+
+/* ------------------------------ Color grid -------------------------------- */
+
+function ColorGrid({
+  value,
+  onChange,
+}: {
+  value: StarColorKey;
+  onChange: (k: StarColorKey) => void;
+}) {
+  return (
+    <View className="gap-2">
+      <Label>Glow color</Label>
+      <View className="flex-row flex-wrap gap-3">
+        {STAR_COLORS.map((c) => {
+          const selected = c.key === value;
+          return (
+            <Pressable
+              key={c.key}
+              onPress={() => onChange(c.key)}
+              className="items-center"
+              hitSlop={6}
+            >
+              <View
+                className="h-11 w-11 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: c.hex,
+                  borderWidth: selected ? 2.5 : 0,
+                  borderColor: '#FFFFFF',
+                  shadowColor: c.hex,
+                  shadowOpacity: selected ? 0.9 : 0.4,
+                  shadowRadius: selected ? 12 : 6,
+                  shadowOffset: { width: 0, height: 0 },
+                }}
+              />
+              <Text className="text-muted mt-1 text-[10px]">{c.emotion}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/* ------------------------------ Photos ------------------------------------ */
+
+function PhotoPicker({
+  photos,
+  onAdd,
+  onRemove,
+}: {
+  photos: string[];
+  onAdd: () => void;
+  onRemove: (uri: string) => void;
+}) {
+  return (
+    <View className="gap-2">
+      <Label>{`Photos  📷  (${photos.length}/${MAX_PHOTOS})`}</Label>
+      <View className="flex-row flex-wrap gap-3">
+        {photos.map((uri) => (
+          <View key={uri} className="overflow-hidden rounded-2xl">
+            <Image source={{ uri }} style={{ width: 84, height: 84 }} />
+            <Pressable
+              onPress={() => onRemove(uri)}
+              className="bg-void/80 absolute top-1 right-1 h-6 w-6 items-center justify-center rounded-full"
+            >
+              <Text className="text-starlight text-xs">✕</Text>
+            </Pressable>
+          </View>
+        ))}
+        {photos.length < MAX_PHOTOS && (
+          <Pressable
+            onPress={onAdd}
+            className="border-glass-border h-[84px] w-[84px] items-center justify-center rounded-2xl border border-dashed"
+          >
+            <Text className="text-muted text-2xl">＋</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/* ------------------------------ Voice notes ------------------------------- */
+
+function VoiceRecorder({
+  notes,
+  onChange,
+}: {
+  notes: VoiceNote[];
+  onChange: (n: VoiceNote[]) => void;
+}) {
+  const { isRecording, isSupported, start, stop } = useVoiceRecorder();
+  const elapsed = useRef(0);
+
+  const toggle = async () => {
+    if (isRecording) {
+      const result = await stop();
+      if (result) {
+        onChange([
+          ...notes,
+          { id: `vn-${Date.now()}`, uri: result.uri, durationSec: result.durationSec },
+        ]);
+      }
+    } else {
+      elapsed.current = Date.now();
+      await start();
+    }
+  };
+
+  const remove = (id: string) => onChange(notes.filter((n) => n.id !== id));
+
+  return (
+    <View className="gap-2">
+      <Label>{`Voice notes  🎙️  (${notes.length}/${MAX_VOICE})`}</Label>
+      {!isSupported && (
+        <Text className="text-muted text-xs">Voice recording runs on a device build.</Text>
+      )}
+      <View className="gap-2">
+        {notes.map((n, i) => (
+          <View
+            key={n.id}
+            className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3"
+          >
+            <Text className="text-starlight">
+              🎙️ Note {i + 1} · {Math.round(n.durationSec)}s
+            </Text>
+            <Pressable onPress={() => remove(n.id)} hitSlop={8}>
+              <Text className="text-muted">Remove</Text>
+            </Pressable>
+          </View>
+        ))}
+        {notes.length < MAX_VOICE && isSupported && (
+          <Pressable
+            onPress={toggle}
+            className="border-glass-border flex-row items-center justify-center gap-2 rounded-2xl border py-3.5"
+            style={isRecording ? { borderColor: '#FF6B6B' } : undefined}
+          >
+            <Text className="text-starlight">
+              {isRecording ? '■ Stop recording' : '🎙️ Record a voice note'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/* ------------------------------ Tagging ----------------------------------- */
+
+function TagPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const taggable = useMemo(() => DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id), []);
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return taggable;
+    return taggable.filter(
+      (u) => u.name.toLowerCase().includes(q) || u.handle.toLowerCase().includes(q),
+    );
+  }, [query, taggable]);
+
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <View className="gap-2">
+      <Label>Tag who shared this · @</Label>
+      <TextField>
+        <Input
+          placeholder="Search people…"
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+        />
+      </TextField>
+      <View className="flex-row flex-wrap gap-2 pt-1">
+        {results.map((u) => {
+          const isSel = selected.includes(u.id);
+          return (
+            <Chip
+              key={u.id}
+              variant={isSel ? 'primary' : 'secondary'}
+              color={isSel ? 'accent' : 'default'}
+              onPress={() => toggle(u.id)}
+            >
+              {`${u.avatar} ${u.name}`}
+            </Chip>
+          );
+        })}
+      </View>
+      {selected.length > 0 && (
+        <Text className="text-muted text-xs">
+          {selected.length} person{selected.length > 1 ? 's' : ''} will see this star in their
+          cosmos.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/* ------------------------------ Location ---------------------------------- */
+
+function LocationPicker({
+  location,
+  onChange,
+}: {
+  location?: StarLocation;
+  onChange: (l: StarLocation | undefined) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<PlacePrediction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!placesEnabled) return;
+    if (debounce.current) clearTimeout(debounce.current);
+    if (query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    debounce.current = setTimeout(() => {
+      setLoading(true);
+      void searchPlaces(query).then((r) => {
+        setResults(r);
+        setLoading(false);
+      });
+    }, 320);
+  }, [query]);
+
+  const choose = async (p: PlacePrediction) => {
+    const resolved = await resolvePlace(p);
+    onChange(resolved);
+    setQuery('');
+    setResults([]);
+  };
+
+  const useManual = () => {
+    if (query.trim().length === 0) return;
+    onChange({ name: query.trim() });
+    setQuery('');
+    setResults([]);
+  };
+
+  return (
+    <View className="gap-2">
+      <Label>Location · 📍</Label>
+      {location ? (
+        <View className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3">
+          <Text className="text-starlight flex-1">📍 {location.name}</Text>
+          <Pressable onPress={() => onChange(undefined)} hitSlop={8}>
+            <Text className="text-muted">Clear</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <View className="flex-row items-center gap-2">
+            <View className="flex-1">
+              <TextField>
+                <Input
+                  placeholder={
+                    placesEnabled ? 'Search a place, or type your own' : 'Type a place name'
+                  }
+                  value={query}
+                  onChangeText={setQuery}
+                  autoCapitalize="words"
+                />
+              </TextField>
+            </View>
+            {loading && <ActivityIndicator color="#5FE3F0" />}
+          </View>
+          {query.trim().length > 0 && (
+            <Pressable onPress={useManual} hitSlop={6}>
+              <Text className="text-accent text-sm">Use “{query.trim()}” as a custom place</Text>
+            </Pressable>
+          )}
+          {results.map((p) => (
+            <Pressable
+              key={p.placeId}
+              onPress={() => choose(p)}
+              className="border-glass-border rounded-2xl border px-4 py-3"
+            >
+              <Text className="text-starlight">{p.primary}</Text>
+              {p.secondary ? <Text className="text-muted text-xs">{p.secondary}</Text> : null}
+            </Pressable>
+          ))}
+        </>
+      )}
+    </View>
+  );
+}

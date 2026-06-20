@@ -13,7 +13,8 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { useEffect } from 'react';
 import * as DevClient from 'expo-dev-client';
-import { HeroUINativeProvider } from 'heroui-native';
+import { HeroUINativeProvider, useThemeColor } from 'heroui-native';
+import { StatusBar } from 'expo-status-bar';
 import { Uniwind } from 'uniwind';
 import {
   ErrorBoundary as ExpoErrorBoundary,
@@ -41,8 +42,8 @@ function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export { ErrorBoundary };
 
-// Starter is light-only by default. Remove this when implementing requested dark mode.
-Uniwind.setTheme('light');
+// Memoria is a dark-only cosmos experience.
+Uniwind.setTheme('dark');
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -135,10 +136,40 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <HeroUINativeProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ title: 'Habits', headerShown: false }} />
-        </Stack>
+        <RootNavigator />
       </HeroUINativeProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function RootNavigator() {
+  const [overlay] = useThemeColor(['overlay']);
+  return (
+    <>
+      {/* oxlint-disable-next-line react/style-prop-object -- expo-status-bar style prop takes a string */}
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b0e1f' } }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="cosmos" />
+        <Stack.Screen
+          name="star/create"
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+        />
+        <Stack.Screen
+          name="star/[id]"
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+        />
+        <Stack.Screen
+          name="search"
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+        />
+        <Stack.Screen
+          name="cosmos-spaces"
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+        />
+      </Stack>
+    </>
   );
 }
