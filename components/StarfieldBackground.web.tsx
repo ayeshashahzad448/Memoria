@@ -4,6 +4,7 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
@@ -40,7 +41,71 @@ export function StarfieldBackground({
       {stars.map((s, i) => (
         <TwinkleDot key={s.id} s={s} index={i} variant={variant} />
       ))}
+      {variant === 'drift'
+        ? Array.from({ length: 3 }, (_, i) => (
+            <ShootingStar
+              key={`sh-${i}`}
+              startX={rand(i * 11 + 21) * width}
+              startY={rand(i * 11 + 22) * height * 0.5}
+              length={120 + rand(i * 11 + 23) * 90}
+              delay={rand(i * 11 + 24)}
+            />
+          ))
+        : null}
     </View>
+  );
+}
+
+function ShootingStar({
+  startX,
+  startY,
+  length,
+  delay,
+}: {
+  startX: number;
+  startY: number;
+  length: number;
+  delay: number;
+}) {
+  const t = useSharedValue(0);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    t.value = withDelay(
+      delay * 6000,
+      withRepeat(withTiming(1, { duration: 7000, easing: Easing.linear }), -1, false),
+    );
+  });
+
+  const dx = length;
+  const dy = length * 0.6;
+  const angle = Math.atan2(dy, dx);
+  const tailLen = Math.hypot(dx, dy) * 0.22;
+
+  const style = useAnimatedStyle(() => {
+    const p = t.value % 1;
+    const prog = p < 0.12 ? p / 0.12 : -1;
+    if (prog < 0)
+      return { opacity: 0, transform: [{ translateX: startX }, { translateY: startY }] };
+    return {
+      opacity: 0.6 * Math.sin(prog * Math.PI),
+      transform: [{ translateX: startX + prog * dx }, { translateY: startY + prog * dy }],
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, style]}>
+      <View
+        style={{
+          width: tailLen,
+          height: 1.6,
+          borderRadius: 1,
+          backgroundColor: '#FFFFFF',
+          transform: [{ rotate: `${angle}rad` }],
+        }}
+      />
+    </Animated.View>
   );
 }
 
