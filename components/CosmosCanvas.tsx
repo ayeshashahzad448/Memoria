@@ -25,6 +25,12 @@ interface CosmosCanvasProps {
   forgingStarIds: string[];
   /** A star to smoothly orbit/zoom toward and focus (e.g. coming from search). */
   focusStarId?: string | null;
+  /** Star ids to smoothly frame as a group (zoom out to reveal a constellation). */
+  fitStarIds?: string[] | null;
+  /** Constellation id to play a glowing star-to-star line-draw animation for. */
+  drawConstellationId?: string | null;
+  /** Fired when the line-draw animation finishes. */
+  onDrawComplete?: () => void;
   /** When true, lock the camera to a flat front-on view (pan + zoom only). */
   view2D?: boolean;
   onTapStar: (star: MemoryStar) => void;
@@ -148,6 +154,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     selectedStarId,
     forgingStarIds,
     focusStarId,
+    fitStarIds,
+    drawConstellationId,
+    onDrawComplete,
     view2D = false,
     onTapStar,
     onTapEmpty,
@@ -244,6 +253,51 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     focusTick();
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusStarId, placed]);
+
+  // When asked to frame a group of stars, ease the orbit target onto their
+  // centroid and zoom *out* so every member is comfortably in view.
+  useEffect(() => {
+    if (!fitStarIds || fitStarIds.length === 0) return;
+    const members = placed.filter((p) => fitStarIds.includes(p.star.id));
+    if (members.length === 0) return;
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    for (const m of members) {
+      cx += m.pos[0];
+      cy += m.pos[1];
+      cz += m.pos[2];
+    }
+    cx /= members.length;
+    cy /= members.length;
+    cz /= members.length;
+    // Largest distance from centroid to any member -> enclosing radius.
+    let spread = 0;
+    for (const m of members) {
+      const d = Math.hypot(m.pos[0] - cx, m.pos[1] - cy, m.pos[2] - cz);
+      if (d > spread) spread = d;
+    }
+    fromX.value = targetX.value;
+    fromY.value = targetY.value;
+    fromZ.value = targetZ.value;
+    fromRadius.value = radius.value;
+    toX.value = cx;
+    toY.value = cy;
+    toZ.value = cz;
+    // Pull the camera back so the whole group + margin fits in frame.
+    toRadius.value = clamp(spread * 2.6 + 8, MIN_RADIUS, MAX_RADIUS);
+    focusT.value = 0;
+    focusActive.value = 1;
+    focusTick();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitStarIds, placed]);
+
+  // Drives the glowing star-to-star line-draw animation (0..1).
+  const drawProgress = useSharedValue(1);
+  useEffect(() => {
+    if (drawConstellationId) drawProgress.value = 0;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawConstellationId]);
 
   // Drag rotates the orbit (3D) or translates the view (2D). One finger only so
   // it doesn't fight pinch. On release we hand the residual velocity to the
@@ -362,6 +416,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               placed={placed}
               constellations={constellations}
               revealedStarIds={revealedStarIds}
+              drawConstellationId={drawConstellationId}
+              drawProgress={drawProgress}
+              onDrawComplete={onDrawComplete}
             />
             {placed.map((p) => (
               <StarSprite
@@ -628,10 +685,16 @@ function ConstellationLines({
   placed,
   constellations,
   revealedStarIds,
+  drawConstellationId,
+  drawProgress,
+  onDrawComplete,
 }: {
   placed: PlacedStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
+  drawConstellationId?: string | null;
+  drawProgress: { value: number };
+  onDrawComplete?: () => void;
 }) {
   const byId = useMemo(() => {
     const m = new Map<string, PlacedStar>();
@@ -643,39 +706,153 @@ function ConstellationLines({
   return (
     <group>
       {constellations.map((c) => {
-        const visible = c.starIds.some((id) => revealed.has(id));
+        const drawing = c.id === drawConstellationId;
+        const visible = drawing || c.starIds.some((id) => revealed.has(id));
         const ordered = [...c.starIds]
           .map((id) => byId.get(id))
           .filter((p): p is PlacedStar => Boolean(p))
           .sort((a, b) => a.star.date.localeCompare(b.star.date));
         if (ordered.length < 2) return null;
         const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
-        return <ConstellationLine key={c.id} points={pts} visible={visible} />;
+        return (
+          <ConstellationLine
+            key={c.id}
+            points={pts}
+            visible={visible}
+            drawing={drawing}
+            drawProgress={drawProgress}
+            onDrawComplete={onDrawComplete}
+          />
+        );
       })}
     </group>
   );
 }
 
-function ConstellationLine({ points, visible }: { points: THREE.Vector3[]; visible: boolean }) {
+function ConstellationLine({
+  points,
+  visible,
+  drawing,
+  drawProgress,
+  onDrawComplete,
+}: {
+  points: THREE.Vector3[];
+  visible: boolean;
+  drawing: boolean;
+  drawProgress: { value: number };
+  onDrawComplete?: () => void;
+}) {
   const matRef = useRef<THREE.LineBasicMaterial>(null);
-  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
+  const geomRef = useRef<THREE.BufferGeometry>(null);
+  const headRef = useRef<THREE.Sprite>(null);
+  const done = useRef(false);
+  // Initialize / refresh the geometry to the full polyline when points change
+  // (and when we're not mid-draw, where the frame loop owns the geometry).
+  useEffect(() => {
+    if (geomRef.current && !drawing) geomRef.current.setFromPoints(points);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [points, drawing]);
+  // Total polyline length and per-segment lengths for even-speed drawing.
+  const segs = useMemo(() => {
+    const lengths: number[] = [];
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const l = points[i].distanceTo(points[i + 1]);
+      lengths.push(l);
+      total += l;
+    }
+    return { lengths, total };
+  }, [points]);
+  const headMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: glowTex(),
+        color: new THREE.Color('#D7B8FF'),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0,
+      }),
+    [],
+  );
+
   useFrame((_, delta) => {
     const mat = matRef.current;
     if (!mat) return;
+
+    if (drawing) {
+      // Advance the draw head along the polyline (~1.2s for the whole path).
+      const p = Math.min(1, drawProgress.value + delta / 1.2);
+      // eslint-disable-next-line react-compiler/react-compiler -- intentional SharedValue mutation in r3f frame loop
+      drawProgress.value = p;
+      const reached = p * segs.total;
+      // Find the active segment and interpolate the head position.
+      let acc = 0;
+      let segIndex = 0;
+      let localT = 0;
+      for (let i = 0; i < segs.lengths.length; i += 1) {
+        if (reached <= acc + segs.lengths[i] || i === segs.lengths.length - 1) {
+          segIndex = i;
+          localT = segs.lengths[i] === 0 ? 1 : (reached - acc) / segs.lengths[i];
+          break;
+        }
+        acc += segs.lengths[i];
+      }
+      const head = new THREE.Vector3().lerpVectors(
+        points[segIndex],
+        points[segIndex + 1],
+        Math.min(1, Math.max(0, localT)),
+      );
+      // Rebuild the visible polyline: completed segments + partial head segment.
+      const drawn: THREE.Vector3[] = [];
+      for (let i = 0; i <= segIndex; i += 1) drawn.push(points[i]);
+      drawn.push(head);
+      if (geomRef.current) geomRef.current.setFromPoints(drawn);
+      // Brighter glowing trail while drawing, settling after.
+      mat.opacity = 0.85;
+      mat.color.set('#C79CFF');
+      // Glowing head spark.
+      if (headRef.current) {
+        headRef.current.position.copy(head);
+        const flicker = 0.6 + 0.4 * Math.sin(p * 40);
+        headMat.opacity = p < 1 ? 0.9 * flicker : 0;
+        const s = 1.6;
+        headRef.current.scale.set(s, s, s);
+      }
+      if (p >= 1 && !done.current) {
+        done.current = true;
+        // Settle to the resting line, then notify completion next tick.
+        if (geomRef.current) geomRef.current.setFromPoints(points);
+        if (onDrawComplete) onDrawComplete();
+      }
+      return;
+    }
+
+    done.current = false;
+    // Ensure the full polyline is present when not actively drawing.
+    if (geomRef.current && geomRef.current.attributes.position?.count !== points.length) {
+      geomRef.current.setFromPoints(points);
+    }
+    if (headMat.opacity > 0) headMat.opacity = 0;
     const target = visible ? 0.55 : 0;
+    mat.color.set('#9D5CFF');
     mat.opacity += (target - mat.opacity) * Math.min(1, delta * 5);
   });
+
   return (
-    // @ts-expect-error r3f line intrinsic
-    <line geometry={geometry}>
-      <lineBasicMaterial
-        ref={matRef}
-        color="#9D5CFF"
-        transparent
-        opacity={visible ? 0.55 : 0}
-        depthWrite={false}
-      />
-    </line>
+    <group>
+      <line>
+        <bufferGeometry ref={geomRef} />
+        <lineBasicMaterial
+          ref={matRef}
+          color="#9D5CFF"
+          transparent
+          opacity={visible ? 0.55 : 0}
+          depthWrite={false}
+        />
+      </line>
+      <sprite ref={headRef} material={headMat} scale={[1.6, 1.6, 1]} />
+    </group>
   );
 }
 

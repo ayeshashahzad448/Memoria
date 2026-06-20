@@ -6,9 +6,11 @@ import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import {
   Camera,
+  Eye,
   MapPin,
   Mic,
   Box,
+  Plus,
   Square,
   Search,
   Sparkles,
@@ -22,7 +24,7 @@ import { GlassCard } from '@/components/GlassCard';
 import { CosmosTutorial } from '@/components/CosmosTutorial';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
-import type { MemoryStar } from '@/lib/types';
+import type { Constellation, MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -32,6 +34,7 @@ export default function CosmosTab() {
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
+  const addStarsToConstellation = useMemoria((s) => s.addStarsToConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
   const focusStarId = useMemoria((s) => s.focusStarId);
@@ -53,6 +56,12 @@ export default function CosmosTab() {
   const [view2D, setView2D] = useState(false);
   // Local focus target handed to the canvas to animate toward (from search).
   const [canvasFocusId, setCanvasFocusId] = useState<string | null>(null);
+  // Group of star ids the canvas should frame (zoom out to a constellation).
+  const [fitIds, setFitIds] = useState<string[] | null>(null);
+  // Constellation id the canvas should play the glowing line-draw animation for.
+  const [drawId, setDrawId] = useState<string | null>(null);
+  // A star awaiting "add to an existing constellation" selection.
+  const [addStarTarget, setAddStarTarget] = useState<MemoryStar | null>(null);
 
   // Show the guided coachmark once for first-time users.
   useEffect(() => {
@@ -81,9 +90,22 @@ export default function CosmosTab() {
   };
 
   const revealedStarIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedStar) {
+      for (const c of constellations) {
+        if (c.starIds.includes(selectedStar.id)) {
+          for (const sid of c.starIds) ids.add(sid);
+        }
+      }
+    }
+    if (fitIds) for (const id of fitIds) ids.add(id);
+    return [...ids];
+  }, [selectedStar, constellations, fitIds]);
+
+  // Constellations the currently selected star already belongs to.
+  const selectedStarGroups = useMemo(() => {
     if (!selectedStar) return [];
-    const groups = constellations.filter((c) => c.starIds.includes(selectedStar.id));
-    return groups.flatMap((g) => g.starIds);
+    return constellations.filter((c) => c.starIds.includes(selectedStar.id));
   }, [selectedStar, constellations]);
 
   const onTapStar = (star: MemoryStar) => {
@@ -97,6 +119,7 @@ export default function CosmosTab() {
 
   const beginForge = (seedStarId?: string) => {
     setSelectedStar(null);
+    setFitIds(null);
     setForging(true);
     setForgeIds(seedStarId ? [seedStarId] : []);
     setForgeName('');
@@ -104,15 +127,61 @@ export default function CosmosTab() {
 
   const confirmForge = () => {
     if (forgeIds.length < 2) return;
-    createConstellation(forgeName, forgeIds, 'manual');
+    const created = createConstellation(forgeName, forgeIds, 'manual');
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    cancelForge();
+    setForging(false);
+    setForgeName('');
+    if (created) {
+      // Frame the new group and play the glowing line-draw animation.
+      setFitIds(created.starIds);
+      setDrawId(created.id);
+    }
+    setForgeIds([]);
   };
 
   const cancelForge = () => {
     setForging(false);
     setForgeIds([]);
     setForgeName('');
+  };
+
+  // Smoothly zoom out to show every memory linked in a constellation.
+  const viewConstellation = (starIds: string[]) => {
+    void Haptics.selectionAsync();
+    setSelectedStar(null);
+    // Re-fire even if the same group is requested again.
+    setFitIds(null);
+    requestAnimationFrame(() => setFitIds([...starIds]));
+  };
+
+  // Constellations a given star is NOT already part of (candidates to add to).
+  const addCandidates = useMemo(() => {
+    if (!addStarTarget) return [];
+    return constellations.filter((c) => !c.starIds.includes(addStarTarget.id));
+  }, [addStarTarget, constellations]);
+
+  // "Add to" a star: if there are existing constellations to join, open the
+  // picker; otherwise start a fresh forge seeded with this star.
+  const onAddToConstellation = (star: MemoryStar) => {
+    const candidates = constellations.filter((c) => !c.starIds.includes(star.id));
+    if (candidates.length > 0) {
+      setSelectedStar(null);
+      setAddStarTarget(star);
+      return;
+    }
+    beginForge(star.id);
+  };
+
+  const confirmAddToExisting = (constellation: Constellation) => {
+    if (!addStarTarget) return;
+    addStarsToConstellation(constellation.id, [addStarTarget.id]);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const allIds = Array.from(new Set([...constellation.starIds, addStarTarget.id]));
+    setAddStarTarget(null);
+    // Frame the group and replay the glowing draw across the updated lines.
+    setFitIds(allIds);
+    setDrawId(null);
+    requestAnimationFrame(() => setDrawId(constellation.id));
   };
 
   return (
@@ -124,9 +193,15 @@ export default function CosmosTab() {
         selectedStarId={selectedStar?.id}
         forgingStarIds={forgeIds}
         focusStarId={canvasFocusId}
+        fitStarIds={fitIds}
+        drawConstellationId={drawId}
+        onDrawComplete={() => setDrawId(null)}
         view2D={view2D}
         onTapStar={onTapStar}
-        onTapEmpty={() => setSelectedStar(null)}
+        onTapEmpty={() => {
+          setSelectedStar(null);
+          setFitIds(null);
+        }}
       />
 
       {/* Top bar */}
@@ -171,16 +246,91 @@ export default function CosmosTab() {
         </View>
       )}
 
+      {/* Connecting animation banner */}
+      {drawId && (
+        <View
+          className="pt-safe-offset-20 absolute inset-x-0 top-0 items-center"
+          pointerEvents="none"
+        >
+          <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
+            <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+            <Text className="text-starlight text-sm font-medium">Connecting your memories</Text>
+          </GlassCard>
+        </View>
+      )}
+
+      {/* Exit constellation view */}
+      {fitIds && !drawId && !selectedStar && !forging && (
+        <View className="pt-safe-offset-20 absolute inset-x-0 top-0 items-center">
+          <Pressable
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setFitIds(null);
+            }}
+          >
+            <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
+              <X size={15} color={MUTED} />
+              <Text className="text-muted text-sm font-medium">Exit constellation view</Text>
+            </GlassCard>
+          </Pressable>
+        </View>
+      )}
+
       {/* HUD card on tap */}
       {selectedStar && !forging && (
         <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
           <HudCard
             star={selectedStar}
+            groups={selectedStarGroups}
             onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
-            onConnect={() => beginForge(selectedStar.id)}
+            onAdd={() => onAddToConstellation(selectedStar)}
+            onCreate={() => beginForge()}
+            onView={viewConstellation}
             canConnect={stars.length >= 2}
             onClose={() => setSelectedStar(null)}
           />
+        </View>
+      )}
+
+      {/* Add-to-existing constellation picker */}
+      {addStarTarget && (
+        <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
+          <GlassCard contentClassName="gap-3 p-5">
+            <Text className="text-starlight font-semibold">Add to a constellation</Text>
+            <Text className="text-muted text-xs" numberOfLines={1}>
+              Link {addStarTarget.title} into an existing constellation.
+            </Text>
+            <View className="gap-2">
+              {addCandidates.map((c) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => confirmAddToExisting(c)}
+                  className="border-glass-border flex-row items-center gap-2 rounded-xl border px-3.5 py-3"
+                >
+                  <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+                  <Text className="text-starlight flex-1 text-sm font-medium" numberOfLines={1}>
+                    {c.name}
+                  </Text>
+                  <Text className="text-muted text-xs">{c.starIds.length}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View className="flex-row gap-3">
+              <Button variant="ghost" className="flex-1" onPress={() => setAddStarTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onPress={() => {
+                  const seed = addStarTarget.id;
+                  setAddStarTarget(null);
+                  beginForge(seed);
+                }}
+              >
+                New instead
+              </Button>
+            </View>
+          </GlassCard>
         </View>
       )}
 
@@ -212,7 +362,7 @@ export default function CosmosTab() {
       )}
 
       {/* Bottom action row */}
-      {!selectedStar && !forging && stars.length >= 2 && (
+      {!selectedStar && !forging && !addStarTarget && !drawId && !fitIds && stars.length >= 2 && (
         <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 flex-row items-center justify-center px-8">
           <Pressable onPress={() => router.push('/constellations')}>
             <GlassCard contentClassName="px-5 py-3.5">
@@ -236,14 +386,20 @@ export default function CosmosTab() {
 
 function HudCard({
   star,
+  groups,
   onOpen,
-  onConnect,
+  onAdd,
+  onCreate,
+  onView,
   canConnect,
   onClose,
 }: {
   star: MemoryStar;
+  groups: Constellation[];
   onOpen: () => void;
-  onConnect: () => void;
+  onAdd: () => void;
+  onCreate: () => void;
+  onView: (starIds: string[]) => void;
   canConnect: boolean;
   onClose: () => void;
 }) {
@@ -310,17 +466,50 @@ function HudCard({
           </View>
         </View>
 
+        {/* Constellation actions */}
+        {groups.length > 0 && (
+          <View className="gap-2">
+            {groups.map((g) => (
+              <Pressable
+                key={g.id}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onView(g.starIds);
+                }}
+                className="border-glass-border flex-row items-center justify-center gap-2 rounded-xl border py-2.5"
+              >
+                <Eye size={15} color={ACCENT} strokeWidth={2.1} />
+                <Text className="text-accent text-sm font-medium" numberOfLines={1}>
+                  View {g.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
         {canConnect && (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onConnect();
-            }}
-            className="border-glass-border mt-1 flex-row items-center justify-center gap-2 rounded-xl border py-2.5"
-          >
-            <Spline size={15} color={ACCENT} strokeWidth={2.1} />
-            <Text className="text-accent text-sm font-medium">Add to constellation</Text>
-          </Pressable>
+          <View className="flex-row gap-2">
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onAdd();
+              }}
+              className="border-glass-border flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5"
+            >
+              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+              <Text className="text-accent text-sm font-medium">Add to</Text>
+            </Pressable>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onCreate();
+              }}
+              className="border-glass-border flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5"
+            >
+              <Plus size={15} color={ACCENT} strokeWidth={2.1} />
+              <Text className="text-accent text-sm font-medium">Create</Text>
+            </Pressable>
+          </View>
         )}
       </GlassCard>
     </Pressable>

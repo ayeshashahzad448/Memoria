@@ -76,7 +76,13 @@ interface MemoriaState {
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
   removeStar: (id: string) => void;
 
-  createConstellation: (name: string, starIds: string[], origin: Constellation['origin']) => void;
+  createConstellation: (
+    name: string,
+    starIds: string[],
+    origin: Constellation['origin'],
+  ) => Constellation | undefined;
+  /** Add one or more stars to an existing constellation. */
+  addStarsToConstellation: (id: string, starIds: string[]) => void;
   removeConstellation: (id: string) => void;
 
   createSharedCosmos: (name: string, memberIds: string[]) => SharedCosmos;
@@ -177,19 +183,31 @@ export const useMemoria = create<MemoriaState>()(
         })),
 
       createConstellation: (name, starIds, origin) => {
-        if (starIds.length < 2) return;
+        if (starIds.length < 2) return undefined;
         const cosmosId = get().activeCosmosId;
+        const constellation: Constellation = {
+          id: uid('const'),
+          name: name.trim() || 'Constellation',
+          starIds,
+          cosmosId,
+          origin,
+        };
         set((state) => ({
-          constellations: [
-            ...state.constellations,
-            { id: uid('const'), name: name.trim() || 'Constellation', starIds, cosmosId, origin },
-          ],
+          constellations: [...state.constellations, constellation],
         }));
+        return constellation;
       },
 
       removeConstellation: (id) =>
         set((state) => ({
           constellations: state.constellations.filter((c) => c.id !== id),
+        })),
+
+      addStarsToConstellation: (id, starIds) =>
+        set((state) => ({
+          constellations: state.constellations.map((c) =>
+            c.id === id ? { ...c, starIds: Array.from(new Set([...c.starIds, ...starIds])) } : c,
+          ),
         })),
 
       createSharedCosmos: (name, memberIds) => {
