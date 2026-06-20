@@ -290,7 +290,7 @@ export default function CosmosTab() {
             groups={selectedStarGroups}
             onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
             onAdd={() => onAddToConstellation(selectedStar)}
-            onCreate={() => beginForge()}
+            onCreate={() => beginForge(selectedStar.id)}
             onView={viewConstellation}
             canConnect={stars.length >= 2}
             onClose={() => setSelectedStar(null)}
@@ -340,13 +340,20 @@ export default function CosmosTab() {
         </View>
       )}
 
-      {/* Forge controls */}
+      {/* Forge controls — compact so memories stay easy to tap */}
       {forging && (
-        <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
-          <GlassCard contentClassName="gap-3 p-5">
-            <Text className="text-starlight font-semibold">New constellation</Text>
+        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 px-4">
+          <GlassCard contentClassName="gap-2.5 p-3.5">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-starlight text-sm font-semibold">New constellation</Text>
+              <View className="bg-accent/15 rounded-full px-2 py-0.5">
+                <Text className="text-accent text-xs font-semibold">
+                  {forgeIds.length} selected
+                </Text>
+              </View>
+            </View>
             <Text className="text-muted text-xs">
-              Tap the memories to connect them in order. {forgeIds.length} selected.
+              Tap memories in the order you want them linked.
             </Text>
             <TextField>
               <Input
@@ -355,12 +362,17 @@ export default function CosmosTab() {
                 onChangeText={setForgeName}
               />
             </TextField>
-            <View className="flex-row gap-3">
-              <Button variant="ghost" className="flex-1" onPress={cancelForge}>
+            <View className="flex-row gap-2.5">
+              <Button variant="ghost" size="sm" className="flex-1" onPress={cancelForge}>
                 Cancel
               </Button>
-              <Button className="flex-1" isDisabled={forgeIds.length < 2} onPress={confirmForge}>
-                Connect
+              <Button
+                size="sm"
+                className="flex-1"
+                isDisabled={forgeIds.length < 2}
+                onPress={confirmForge}
+              >
+                Create constellation
               </Button>
             </View>
           </GlassCard>

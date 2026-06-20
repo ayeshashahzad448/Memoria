@@ -708,10 +708,11 @@ function ConstellationLines({
       {constellations.map((c) => {
         const drawing = c.id === drawConstellationId;
         const visible = drawing || c.starIds.some((id) => revealed.has(id));
+        // Draw lines in the order the memories were selected (starIds order),
+        // not by date, so the path follows the user's pick sequence.
         const ordered = [...c.starIds]
           .map((id) => byId.get(id))
-          .filter((p): p is PlacedStar => Boolean(p))
-          .sort((a, b) => a.star.date.localeCompare(b.star.date));
+          .filter((p): p is PlacedStar => Boolean(p));
         if (ordered.length < 2) return null;
         const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
         return (
