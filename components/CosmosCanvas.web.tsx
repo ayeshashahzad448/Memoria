@@ -21,6 +21,7 @@ interface CosmosCanvasProps {
   selectedStarId?: string;
   forgingStarIds: string[];
   focusStarId?: string | null;
+  view2D?: boolean;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -90,6 +91,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     selectedStarId,
     forgingStarIds,
     focusStarId,
+    view2D = false,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -117,6 +119,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const savedAz = useSharedValue(0);
   const savedPolar = useSharedValue(0);
   const savedRadius = useSharedValue(0);
+  const savedTX = useSharedValue(0);
+  const savedTY = useSharedValue(0);
   const focusT = useSharedValue(1);
   const focusActive = useSharedValue(0);
   const fromX = useSharedValue(0);
@@ -127,6 +131,15 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const toY = useSharedValue(0);
   const toZ = useSharedValue(0);
   const toRadius = useSharedValue(20);
+  const flat = useSharedValue(view2D ? 1 : 0);
+  useEffect(() => {
+    flat.value = view2D ? 1 : 0;
+    if (view2D) {
+      azimuth.value = 0;
+      polar.value = Math.PI / 2;
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [view2D]);
 
   useEffect(() => {
     if (!focusStarId) return;
@@ -150,9 +163,22 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     .onStart(() => {
       savedAz.value = azimuth.value;
       savedPolar.value = polar.value;
+      savedTX.value = targetX.value;
+      savedTY.value = targetY.value;
       focusActive.value = 0;
+      if (flat.value === 0) {
+        targetX.value = 0;
+        targetY.value = 0;
+        targetZ.value = 0;
+      }
     })
     .onUpdate((e) => {
+      if (flat.value === 1) {
+        const k = radius.value * 0.0016;
+        targetX.value = savedTX.value - e.translationX * k;
+        targetY.value = savedTY.value + e.translationY * k;
+        return;
+      }
       const k = 0.005;
       azimuth.value = savedAz.value - e.translationX * k;
       polar.value = clamp(savedPolar.value - e.translationY * k, POLAR_MIN, POLAR_MAX);
@@ -184,6 +210,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               azimuth={azimuth}
               polar={polar}
               radius={radius}
+              flat={flat}
               targetX={targetX}
               targetY={targetY}
               targetZ={targetZ}
@@ -227,6 +254,7 @@ function OrbitRig({
   azimuth,
   polar,
   radius,
+  flat,
   targetX,
   targetY,
   targetZ,
@@ -244,6 +272,7 @@ function OrbitRig({
   azimuth: { value: number };
   polar: { value: number };
   radius: { value: number };
+  flat: { value: number };
   targetX: { value: number };
   targetY: { value: number };
   targetZ: { value: number };
@@ -271,6 +300,12 @@ function OrbitRig({
       radius.value = fromRadius.value + (toRadius.value - fromRadius.value) * e;
     }
     const sinP = Math.sin(polar.value);
+    if (flat.value === 1) {
+      camera.position.set(targetX.value, targetY.value, targetZ.value + radius.value);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(targetX.value, targetY.value, targetZ.value);
+      return;
+    }
     const x = targetX.value + radius.value * sinP * Math.sin(azimuth.value);
     const y = targetY.value + radius.value * Math.cos(polar.value);
     const z = targetZ.value + radius.value * sinP * Math.cos(azimuth.value);

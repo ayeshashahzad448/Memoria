@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import { Camera, MapPin, Mic, Search, Sparkles, Users, X } from 'lucide-react-native';
+import { Camera, MapPin, Mic, Box, Square, Search, Sparkles, Users, X } from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
@@ -39,6 +39,7 @@ export default function CosmosTab() {
   const [forgeIds, setForgeIds] = useState<string[]>([]);
   const [forgeName, setForgeName] = useState('');
   const [tutorialVisible, setTutorialVisible] = useState(false);
+  const [view2D, setView2D] = useState(false);
   // Local focus target handed to the canvas to animate toward (from search).
   const [canvasFocusId, setCanvasFocusId] = useState<string | null>(null);
 
@@ -112,6 +113,7 @@ export default function CosmosTab() {
         selectedStarId={selectedStar?.id}
         forgingStarIds={forgeIds}
         focusStarId={canvasFocusId}
+        view2D={view2D}
         onTapStar={onTapStar}
         onTapEmpty={() => setSelectedStar(null)}
       />
@@ -125,6 +127,21 @@ export default function CosmosTab() {
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setView2D((v) => !v);
+              }}
+              hitSlop={8}
+            >
+              <GlassCard contentClassName="h-11 w-11 items-center justify-center">
+                {view2D ? (
+                  <Square size={22} color={ACCENT} strokeWidth={2.1} />
+                ) : (
+                  <Box size={22} color={ACCENT} strokeWidth={2.1} />
+                )}
+              </GlassCard>
+            </Pressable>
             <Pressable onPress={() => router.push('/search')} hitSlop={8}>
               <GlassCard contentClassName="h-11 w-11 items-center justify-center">
                 <Search size={24} color={ACCENT} strokeWidth={2.1} />

@@ -25,6 +25,8 @@ interface CosmosCanvasProps {
   forgingStarIds: string[];
   /** A star to smoothly orbit/zoom toward and focus (e.g. coming from search). */
   focusStarId?: string | null;
+  /** When true, lock the camera to a flat front-on view (pan + zoom only). */
+  view2D?: boolean;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -146,6 +148,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     selectedStarId,
     forgingStarIds,
     focusStarId,
+    view2D = false,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -175,6 +178,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const savedAz = useSharedValue(0);
   const savedPolar = useSharedValue(0);
   const savedRadius = useSharedValue(0);
+  const savedTX = useSharedValue(0);
+  const savedTY = useSharedValue(0);
   // Focus animation (0..1) and its endpoints.
   const focusT = useSharedValue(1);
   const focusActive = useSharedValue(0);
@@ -186,6 +191,17 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const toY = useSharedValue(0);
   const toZ = useSharedValue(0);
   const toRadius = useSharedValue(20);
+  // Mirror the 2D flag into a shared value the worklets/frame loop can read.
+  const flat = useSharedValue(view2D ? 1 : 0);
+  useEffect(() => {
+    flat.value = view2D ? 1 : 0;
+    if (view2D) {
+      // Reset to a clean front-on framing when entering 2D.
+      azimuth.value = 0;
+      polar.value = Math.PI / 2;
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [view2D]);
 
   // When asked to focus a star, ease the orbit target onto it and zoom in.
   useEffect(() => {
@@ -208,15 +224,32 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusStarId, placed]);
 
-  // Drag rotates the orbit; one finger only so it doesn't fight pinch.
+  // Drag rotates the orbit (3D) or translates the view (2D). One finger only so
+  // it doesn't fight pinch.
   const pan = Gesture.Pan()
     .maxPointers(1)
     .onStart(() => {
       savedAz.value = azimuth.value;
       savedPolar.value = polar.value;
+      savedTX.value = targetX.value;
+      savedTY.value = targetY.value;
       focusActive.value = 0; // user takes over
+      if (flat.value === 0) {
+        // Free orbit: stop pivoting around the last focused star — recenter the
+        // look target on the cosmos so dragging explores the whole scene.
+        targetX.value = 0;
+        targetY.value = 0;
+        targetZ.value = 0;
+      }
     })
     .onUpdate((e) => {
+      if (flat.value === 1) {
+        // 2D: pan translates the view across the flattened star map.
+        const k = radius.value * 0.0016;
+        targetX.value = savedTX.value - e.translationX * k;
+        targetY.value = savedTY.value + e.translationY * k;
+        return;
+      }
       const k = 0.005;
       azimuth.value = savedAz.value - e.translationX * k;
       polar.value = clamp(savedPolar.value - e.translationY * k, POLAR_MIN, POLAR_MAX);
@@ -255,6 +288,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               azimuth={azimuth}
               polar={polar}
               radius={radius}
+              flat={flat}
               targetX={targetX}
               targetY={targetY}
               targetZ={targetZ}
@@ -299,6 +333,7 @@ function OrbitRig({
   azimuth,
   polar,
   radius,
+  flat,
   targetX,
   targetY,
   targetZ,
@@ -316,6 +351,7 @@ function OrbitRig({
   azimuth: { value: number };
   polar: { value: number };
   radius: { value: number };
+  flat: { value: number };
   targetX: { value: number };
   targetY: { value: number };
   targetZ: { value: number };
@@ -344,6 +380,13 @@ function OrbitRig({
       radius.value = fromRadius.value + (toRadius.value - fromRadius.value) * e;
     }
     const sinP = Math.sin(polar.value);
+    if (flat.value === 1) {
+      // 2D: lock to a straight front-on view (camera on +z looking at target).
+      camera.position.set(targetX.value, targetY.value, targetZ.value + radius.value);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(targetX.value, targetY.value, targetZ.value);
+      return;
+    }
     const x = targetX.value + radius.value * sinP * Math.sin(azimuth.value);
     const y = targetY.value + radius.value * Math.cos(polar.value);
     const z = targetZ.value + radius.value * sinP * Math.cos(azimuth.value);
