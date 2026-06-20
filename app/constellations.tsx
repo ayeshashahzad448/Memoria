@@ -51,7 +51,10 @@ export default function ConstellationsScreen() {
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-3 pb-12">
         <View className="mb-3 flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+            hitSlop={12}
+          >
             <ArrowLeft size={22} color={MUTED} />
           </Pressable>
           <Text className="text-starlight font-display text-2xl font-bold">Constellations</Text>

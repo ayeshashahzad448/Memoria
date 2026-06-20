@@ -7,7 +7,6 @@ import * as Haptics from 'expo-haptics';
 import {
   Camera,
   ChevronDown,
-  Link2,
   MapPin,
   Mic,
   Plus,
@@ -37,6 +36,8 @@ export default function CosmosTab() {
   const createConstellation = useMemoria((s) => s.createConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
+  const focusStarId = useMemoria((s) => s.focusStarId);
+  const focusStar = useMemoria((s) => s.focusStar);
 
   const stars = useMemo(
     () => allStars.filter((s) => s.cosmosId === activeCosmosId),
@@ -53,11 +54,29 @@ export default function CosmosTab() {
   const [forgeName, setForgeName] = useState('');
   const [showConstellations, setShowConstellations] = useState(false);
   const [tutorialVisible, setTutorialVisible] = useState(false);
+  // Local focus target handed to the canvas to animate toward (from search).
+  const [canvasFocusId, setCanvasFocusId] = useState<string | null>(null);
 
   // Show the guided coachmark once for first-time users.
   useEffect(() => {
     if (!hasSeenTutorial) setTutorialVisible(true);
   }, [hasSeenTutorial]);
+
+  // When search asks to focus a star, select it so its HUD card appears and
+  // hand the id to the canvas so it animates the pan/zoom. Then clear the
+  // store request so re-selecting the same star later works again.
+  useEffect(() => {
+    if (!focusStarId) return;
+    const target = stars.find((s) => s.id === focusStarId);
+    if (target) {
+      setForging(false);
+      setSelectedStar(target);
+      // Toggle through null first so re-focusing the same star always re-fires.
+      setCanvasFocusId(null);
+      requestAnimationFrame(() => setCanvasFocusId(target.id));
+    }
+    focusStar(null);
+  }, [focusStarId, stars, focusStar]);
 
   const dismissTutorial = () => {
     setTutorialVisible(false);
@@ -118,6 +137,7 @@ export default function CosmosTab() {
         showAllConstellations={showConstellations}
         selectedStarId={selectedStar?.id}
         forgingStarIds={forgeIds}
+        focusStarId={canvasFocusId}
         onTapStar={onTapStar}
         onTapEmpty={() => setSelectedStar(null)}
       />
@@ -132,30 +152,47 @@ export default function CosmosTab() {
             </GlassCard>
           </Pressable>
           <View className="flex-row items-center gap-2">
-            {/* Constellations toggle — reveals all group lines. */}
+            {/* Constellations toggle — clearly shows on/off state. */}
             <Pressable onPress={toggleConstellations} hitSlop={8}>
               <GlassCard
                 contentClassName="h-11 flex-row items-center gap-2 px-3.5"
                 style={
-                  showConstellations ? { borderColor: `${colorFor('violet').hex}99` } : undefined
+                  showConstellations
+                    ? {
+                        borderColor: `${colorFor('violet').hex}AA`,
+                        backgroundColor: `${colorFor('violet').hex}1F`,
+                      }
+                    : undefined
                 }
               >
                 <Spline
-                  size={17}
+                  size={18}
                   color={showConstellations ? colorFor('violet').hex : MUTED}
-                  strokeWidth={showConstellations ? 2.2 : 1.8}
+                  strokeWidth={showConstellations ? 2.4 : 1.8}
                 />
                 <Text
                   className="text-xs font-semibold"
                   style={{ color: showConstellations ? colorFor('violet').hex : MUTED }}
                 >
-                  Lines
+                  Constellations
                 </Text>
+                {/* Switch-style pill makes on/off obvious. */}
+                <View
+                  className="h-4 w-7 justify-center rounded-full px-0.5"
+                  style={{
+                    backgroundColor: showConstellations
+                      ? colorFor('violet').hex
+                      : 'rgba(255,255,255,0.18)',
+                    alignItems: showConstellations ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  <View className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0B0C10' }} />
+                </View>
               </GlassCard>
             </Pressable>
             <Pressable onPress={() => router.push('/search')} hitSlop={8}>
               <GlassCard contentClassName="h-11 w-11 items-center justify-center">
-                <Search size={18} color={ACCENT} />
+                <Search size={24} color={ACCENT} strokeWidth={2.1} />
               </GlassCard>
             </Pressable>
           </View>
@@ -214,9 +251,8 @@ export default function CosmosTab() {
         <View className="pb-safe-offset-24 absolute inset-x-0 bottom-0 flex-row items-center justify-center gap-3 px-4">
           {stars.length >= 2 && (
             <Pressable onPress={beginForge}>
-              <GlassCard contentClassName="flex-row items-center gap-2 px-5 py-3.5">
-                <Link2 size={16} color={ACCENT} />
-                <Text className="text-starlight">Connect</Text>
+              <GlassCard contentClassName="px-5 py-3.5">
+                <Text className="text-starlight font-medium">Connect</Text>
               </GlassCard>
             </Pressable>
           )}
@@ -241,16 +277,22 @@ export default function CosmosTab() {
           </Pressable>
           {stars.length >= 2 && (
             <Pressable onPress={() => router.push('/constellations')}>
-              <GlassCard contentClassName="flex-row items-center gap-2 px-5 py-3.5">
-                <Spline size={16} color={colorFor('violet').hex} />
-                <Text className="text-starlight">Groups</Text>
+              <GlassCard contentClassName="px-5 py-3.5">
+                <Text className="text-starlight font-medium">Constellations</Text>
               </GlassCard>
             </Pressable>
           )}
         </View>
       )}
 
-      {tutorialVisible && <CosmosTutorial onDone={dismissTutorial} />}
+      {tutorialVisible && (
+        <CosmosTutorial
+          onDone={dismissTutorial}
+          onCreate={() =>
+            router.push({ pathname: '/star/create', params: { cosmosId: activeCosmosId } })
+          }
+        />
+      )}
     </View>
   );
 }

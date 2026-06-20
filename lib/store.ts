@@ -53,6 +53,8 @@ interface MemoriaState {
   tier: AccountTier;
   /** Active cosmos: 'personal' or a shared cosmos id. */
   activeCosmosId: string;
+  /** Transient: a star the cosmos should pan to and focus (e.g. from search). Not persisted. */
+  focusStarId: string | null;
   /** Editable user profile. */
   profile: UserProfile;
 
@@ -67,6 +69,8 @@ interface MemoriaState {
   setActiveCosmos: (id: string) => void;
   setTier: (tier: AccountTier) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
+  /** Request the cosmos to pan to and focus a star. Pass null to clear. */
+  focusStar: (id: string | null) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -108,6 +112,7 @@ export const useMemoria = create<MemoriaState>()(
       isAuthed: false,
       tier: 'free',
       activeCosmosId: PERSONAL_COSMOS,
+      focusStarId: null,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -124,6 +129,7 @@ export const useMemoria = create<MemoriaState>()(
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
       setTier: (tier) => set({ tier }),
       updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
+      focusStar: (id) => set({ focusStarId: id }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);

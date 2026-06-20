@@ -30,6 +30,8 @@ interface CosmosCanvasProps {
   selectedStarId?: string;
   /** Star ids the user has multi-selected for forging. */
   forgingStarIds: string[];
+  /** A star to smoothly pan/zoom to and focus (e.g. coming from search). */
+  focusStarId?: string | null;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -68,6 +70,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
+    focusStarId,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -125,6 +128,23 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const focusTick = useCallback(() => {
     void Haptics.selectionAsync();
   }, []);
+
+  // Smoothly pan/zoom to a requested star (e.g. tapped from search).
+  useEffect(() => {
+    if (!focusStarId) return;
+    const target = placed.find((p) => p.star.id === focusStarId);
+    if (!target) return;
+    const s = toScreen(target.star.x, target.star.y);
+    const targetScale = 1.6;
+    // Center the star: tx + s.x * scale = width/2.
+    const nextTx = width / 2 - s.x * targetScale;
+    const nextTy = height / 2 - s.y * targetScale;
+    scale.value = withTiming(targetScale, { duration: 650, easing: Easing.out(Easing.cubic) });
+    tx.value = withTiming(nextTx, { duration: 650, easing: Easing.out(Easing.cubic) });
+    ty.value = withTiming(nextTy, { duration: 650, easing: Easing.out(Easing.cubic) });
+    focusTick();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusStarId, placed, toScreen, width, height]);
 
   const transform = useDerivedValue(() => [
     { translateX: tx.value },
@@ -242,9 +262,9 @@ function MemoryStarShape({
   // A portion of stars are "steady" (almost no twinkle), like a real sky.
   const liveliness = 0.35 + seed(`${star.id}-live`) * 0.65;
 
-  // Twinkle = gentle, slow brightness shimmer. Hybrid star: a small bright
-  // white-blue core sits inside a faint colored halo, so emotion stays legible
-  // while the point of light reads as realistic.
+  // Twinkle = gentle, slow brightness shimmer. A real star is a tight bright
+  // point with a faint bloom; the emotion color tints the bloom subtly rather
+  // than surrounding the star with an obvious colored disc.
   const twinkle = (t: number): number => {
     'worklet';
     const a = Math.sin((t * rate + phase) * Math.PI * 2);
@@ -254,28 +274,58 @@ function MemoryStarShape({
     return Math.pow(mixed, 1.4) * liveliness;
   };
 
-  const haloRadius = useDerivedValue(() => {
-    return radius + 7 + (isSelected || isForging ? 6 : 0) + twinkle(clock.value) * 1.5;
-  });
-
-  const coreOpacity = useDerivedValue(() => 0.82 + 0.18 * twinkle(clock.value));
-
-  const haloOpacity = useDerivedValue(() => {
-    const base = isSelected || isForging ? 0.4 : 0.2;
-    return base + 0.12 * twinkle(clock.value);
-  });
+  const active = isSelected || isForging;
 
   // White-blue core radius: small and tight, scaled gently by memory weight.
-  const coreR = Math.max(radius * 0.5, MIN_STAR_RADIUS * 0.6);
+  const coreR = Math.max(radius * 0.42, MIN_STAR_RADIUS * 0.7);
+  // Tight colored bloom — a soft glow hugging the core, not a wide disc.
+  const bloomR = coreR + Math.max(2.5, radius * 0.5) + (active ? 4 : 0);
+  // Faint diffraction glint length, scaled to brightness of the star.
+  const spikeLen = coreR + radius * 0.9 + 4;
+
+  const coreOpacity = useDerivedValue(() => 0.85 + 0.15 * twinkle(clock.value));
+
+  const bloomOpacity = useDerivedValue(() => {
+    const base = active ? 0.5 : 0.32;
+    return base + 0.16 * twinkle(clock.value);
+  });
+
+  const bloomScale = useDerivedValue(() => bloomR + twinkle(clock.value) * 1.2);
+
+  // Diffraction spikes fade with twinkle so brighter moments sparkle.
+  const spikeOpacity = useDerivedValue(
+    () => (0.18 + 0.32 * twinkle(clock.value)) * (active ? 1.4 : 1),
+  );
 
   return (
     <Group>
-      {/* Faint colored halo (emotion) */}
-      <Circle cx={pos.x} cy={pos.y} r={haloRadius} color={color} opacity={haloOpacity}>
-        <Blur blur={Math.max(7, radius)} />
+      {/* Tight colored bloom (emotion tint), hugging the star */}
+      <Circle cx={pos.x} cy={pos.y} r={bloomScale} color={color} opacity={bloomOpacity}>
+        <Blur blur={Math.max(3, radius * 0.6)} />
       </Circle>
+      {/* Subtle diffraction glint — thin cross that makes it read as a real star */}
+      <Group opacity={spikeOpacity}>
+        <Line
+          p1={vec(pos.x - spikeLen, pos.y)}
+          p2={vec(pos.x + spikeLen, pos.y)}
+          color="#EAF2FF"
+          style="stroke"
+          strokeWidth={0.7}
+        >
+          <Blur blur={0.6} />
+        </Line>
+        <Line
+          p1={vec(pos.x, pos.y - spikeLen)}
+          p2={vec(pos.x, pos.y + spikeLen)}
+          color="#EAF2FF"
+          style="stroke"
+          strokeWidth={0.7}
+        >
+          <Blur blur={0.6} />
+        </Line>
+      </Group>
       {/* Selection / forging ring */}
-      {(isSelected || isForging) && (
+      {active && (
         <Circle
           cx={pos.x}
           cy={pos.y}
@@ -283,12 +333,12 @@ function MemoryStarShape({
           color={isForging ? '#FFE066' : '#FFFFFF'}
           style="stroke"
           strokeWidth={1.5}
-          opacity={0.8}
+          opacity={0.85}
         />
       )}
       {/* Soft white-blue inner bloom */}
-      <Circle cx={pos.x} cy={pos.y} r={coreR + 2.5} color="#CFE3FF" opacity={coreOpacity}>
-        <Blur blur={2} />
+      <Circle cx={pos.x} cy={pos.y} r={coreR + 1.5} color="#CFE3FF" opacity={coreOpacity}>
+        <Blur blur={1.4} />
       </Circle>
       {/* Bright white core */}
       <Circle cx={pos.x} cy={pos.y} r={coreR} color="#FFFFFF" opacity={coreOpacity} />
@@ -321,7 +371,6 @@ function ConstellationLines({
     <Group>
       {constellations.map((c) => {
         const isVisible = showAll || c.starIds.some((id) => revealed.has(id));
-        if (!isVisible) return null;
         // Connect chronologically: order by the star's date.
         const ordered = [...c.starIds]
           .map((id) => byId.get(id))
@@ -339,22 +388,42 @@ function ConstellationLines({
             p2: toScreen(ordered[i + 1].star.x, ordered[i + 1].star.y),
           });
         }
-        return (
-          <Group key={c.id}>
-            {segments.map((seg) => (
-              <Line
-                key={seg.key}
-                p1={vec(seg.p1.x, seg.p1.y)}
-                p2={vec(seg.p2.x, seg.p2.y)}
-                color="#9D5CFF"
-                style="stroke"
-                strokeWidth={0.9}
-                opacity={0.5}
-              />
-            ))}
-          </Group>
-        );
+        return <ConstellationGroup key={c.id} segments={segments} visible={isVisible} />;
       })}
+    </Group>
+  );
+}
+
+/** A single constellation's line segments, with opacity that fades in/out. */
+function ConstellationGroup({
+  segments,
+  visible,
+}: {
+  segments: { key: string; p1: { x: number; y: number }; p2: { x: number; y: number } }[];
+  visible: boolean;
+}) {
+  const progress = useSharedValue(visible ? 1 : 0);
+  useEffect(() => {
+    progress.value = withTiming(visible ? 1 : 0, {
+      duration: visible ? 600 : 350,
+      easing: Easing.inOut(Easing.cubic),
+    });
+  }, [visible, progress]);
+
+  const lineOpacity = useDerivedValue(() => 0.55 * progress.value);
+
+  return (
+    <Group opacity={lineOpacity}>
+      {segments.map((seg) => (
+        <Line
+          key={seg.key}
+          p1={vec(seg.p1.x, seg.p1.y)}
+          p2={vec(seg.p2.x, seg.p2.y)}
+          color="#9D5CFF"
+          style="stroke"
+          strokeWidth={0.8}
+        />
+      ))}
     </Group>
   );
 }

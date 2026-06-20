@@ -26,6 +26,7 @@ export default function SearchTab() {
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
+  const focusStar = useMemoria((s) => s.focusStar);
 
   const stars = useMemo(
     () => allStars.filter((s) => s.cosmosId === activeCosmosId),
@@ -68,8 +69,12 @@ export default function SearchTab() {
     });
   }, [stars, keywords, locationFilter, range, userFilter, constFilter, constellations]);
 
-  const open = (star: MemoryStar) =>
-    router.push({ pathname: '/star/[id]', params: { id: star.id } });
+  // Take the user to the star in their cosmos: request the focus, then switch
+  // to the Cosmos tab where it pans/zooms in and opens its card.
+  const open = (star: MemoryStar) => {
+    focusStar(star.id);
+    router.navigate('/(tabs)');
+  };
 
   const toggleUser = (id: string) =>
     setUserFilter((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));

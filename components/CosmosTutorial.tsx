@@ -44,15 +44,17 @@ const STEPS: Step[] = [
  * background and walks the user through the three core interactions, closing
  * the gulf of evaluation before they create their first star.
  */
-export function CosmosTutorial({ onDone }: { onDone: () => void }) {
+export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCreate: () => void }) {
   const [index, setIndex] = useState(0);
   const step = STEPS[index];
   const isLast = index === STEPS.length - 1;
   const Icon = step.icon;
 
   const next = () => {
-    if (isLast) onDone();
-    else setIndex((i) => i + 1);
+    if (isLast) {
+      onDone();
+      onCreate();
+    } else setIndex((i) => i + 1);
   };
 
   return (
@@ -64,14 +66,14 @@ export function CosmosTutorial({ onDone }: { onDone: () => void }) {
       {/* Scrim */}
       <Pressable className="absolute inset-0 bg-black/75" onPress={next} />
 
-      {/* Spotlight hint near the + button */}
+      {/* Spotlight hint exactly over the + button */}
       {step.anchor === 'bottom' && (
         <View
           className="pb-safe-offset-24 absolute inset-x-0 bottom-0 items-center"
           pointerEvents="none"
         >
           <View
-            className="h-20 w-20 rounded-full border-2"
+            className="h-16 w-16 rounded-full border-2"
             style={{
               borderColor: ACCENT,
               shadowColor: ACCENT,

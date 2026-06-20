@@ -1,12 +1,13 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text } from 'heroui-native';
-import { Orbit, Search, History, User, UsersRound } from 'lucide-react-native';
+import { Orbit, Plus, Search, History, User, UsersRound } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { colorFor } from '@/lib/memoria';
+import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -42,6 +43,8 @@ export default function TabsLayout() {
 }
 
 function GlassTabBar({ state, navigation }: BottomTabBarProps) {
+  const router = useRouter();
+  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
   // Render in the requested visual order regardless of route registration order.
   const ordered = TABS.map((tab) => {
     const index = state.routes.findIndex((r) => r.name === tab.name);
@@ -89,6 +92,12 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                 icon={Icon}
                 focused={focused}
                 onPress={onPress}
+                onCreate={() =>
+                  router.push({
+                    pathname: '/star/create',
+                    params: { cosmosId: activeCosmosId || PERSONAL_COSMOS },
+                  })
+                }
               />
             );
           }
@@ -121,15 +130,20 @@ function CenterTab({
   icon: Icon,
   focused,
   onPress,
+  onCreate,
 }: {
   label: string;
   icon: LucideIcon;
   focused: boolean;
   onPress: () => void;
+  onCreate: () => void;
 }) {
+  // When Cosmos is the active tab, the center button becomes a create (+)
+  // affordance so adding a memory is always one tap away from the cosmos.
+  const DisplayIcon = focused ? Plus : Icon;
   return (
     <Pressable
-      onPress={onPress}
+      onPress={focused ? onCreate : onPress}
       hitSlop={6}
       className="flex-1 items-center justify-end gap-1"
       style={{ marginTop: -26 }}
@@ -149,7 +163,11 @@ function CenterTab({
           className="h-[52px] w-[52px] items-center justify-center rounded-full"
           style={{ backgroundColor: focused ? `${ACCENT}26` : 'rgba(255,255,255,0.05)' }}
         >
-          <Icon size={26} color={focused ? ACCENT : '#C8D0F5'} strokeWidth={focused ? 2.4 : 1.9} />
+          <DisplayIcon
+            size={26}
+            color={focused ? ACCENT : '#C8D0F5'}
+            strokeWidth={focused ? 2.6 : 1.9}
+          />
         </View>
       </View>
       <Text
@@ -157,7 +175,7 @@ function CenterTab({
         style={{ color: focused ? ACCENT : '#C8D0F5' }}
         numberOfLines={1}
       >
-        {label}
+        {focused ? 'Create' : label}
       </Text>
     </Pressable>
   );

@@ -23,6 +23,7 @@ interface CosmosCanvasProps {
   showAllConstellations?: boolean;
   selectedStarId?: string;
   forgingStarIds: string[];
+  focusStarId?: string | null;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -59,6 +60,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
+    focusStarId,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -90,6 +92,21 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
+
+  // Smoothly pan/zoom to a requested star (e.g. tapped from search).
+  useEffect(() => {
+    if (!focusStarId) return;
+    const target = placed.find((p) => p.star.id === focusStarId);
+    if (!target) return;
+    const s = toScreen(target.star.x, target.star.y);
+    const targetScale = 1.6;
+    const nextTx = width / 2 - s.x * targetScale;
+    const nextTy = height / 2 - s.y * targetScale;
+    scale.value = withTiming(targetScale, { duration: 650, easing: Easing.out(Easing.cubic) });
+    tx.value = withTiming(nextTx, { duration: 650, easing: Easing.out(Easing.cubic) });
+    ty.value = withTiming(nextTy, { duration: 650, easing: Easing.out(Easing.cubic) });
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusStarId, placed, toScreen, width, height]);
 
   const pan = Gesture.Pan()
     .onStart(() => {
@@ -133,9 +150,16 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   }, [placed]);
 
   const lines = useMemo(() => {
-    const segs: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+    const segs: {
+      key: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      visible: boolean;
+    }[] = [];
     for (const c of constellations) {
-      if (!showAllConstellations && !c.starIds.some((id) => revealed.has(id))) continue;
+      const visible = showAllConstellations || c.starIds.some((id) => revealed.has(id));
       const ordered = [...c.starIds]
         .map((id) => byId.get(id))
         .filter((p): p is (typeof placed)[number] => Boolean(p))
@@ -149,6 +173,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
           y1: p1.y,
           x2: p2.x,
           y2: p2.y,
+          visible,
         });
       }
     }
@@ -214,7 +239,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             height: d.r * 2,
             borderRadius: d.r,
             backgroundColor: '#DCE6FF',
-            opacity: 0.22,
+            opacity: 0.16,
           }}
         />
       ))}
@@ -224,28 +249,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       />
       <GestureDetector gesture={gesture}>
         <Animated.View style={[{ flex: 1 }, worldStyle]}>
-          {lines.map((seg) => {
-            const dx = seg.x2 - seg.x1;
-            const dy = seg.y2 - seg.y1;
-            const len = Math.hypot(dx, dy);
-            const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-            return (
-              <View
-                key={seg.key}
-                style={{
-                  position: 'absolute',
-                  left: seg.x1,
-                  top: seg.y1,
-                  width: len,
-                  height: 1,
-                  backgroundColor: '#9D5CFF',
-                  opacity: 0.5,
-                  transform: [{ rotateZ: `${angle}deg` }],
-                  transformOrigin: '0 0',
-                }}
-              />
-            );
-          })}
+          {lines.map((seg) => (
+            <LineSeg key={seg.key} seg={seg} />
+          ))}
 
           {placed.map((p) => (
             <StarDot
@@ -261,6 +267,44 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
         </Animated.View>
       </GestureDetector>
     </View>
+  );
+}
+
+function LineSeg({
+  seg,
+}: {
+  seg: { x1: number; y1: number; x2: number; y2: number; visible: boolean };
+}) {
+  const dx = seg.x2 - seg.x1;
+  const dy = seg.y2 - seg.y1;
+  const len = Math.hypot(dx, dy);
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const progress = useSharedValue(seg.visible ? 1 : 0);
+  useEffect(() => {
+    progress.value = withTiming(seg.visible ? 1 : 0, {
+      duration: seg.visible ? 600 : 350,
+      easing: Easing.inOut(Easing.cubic),
+    });
+  }, [seg.visible, progress]);
+
+  const style = useAnimatedStyle(() => ({ opacity: 0.55 * progress.value }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: seg.x1,
+          top: seg.y1,
+          width: len,
+          height: 1,
+          backgroundColor: '#9D5CFF',
+          transform: [{ rotateZ: `${angle}deg` }],
+          transformOrigin: '0 0',
+        },
+        style,
+      ]}
+    />
   );
 }
 
@@ -284,6 +328,7 @@ function StarDot({
   const rate = 0.5 + seed(`${star.id}-rate`) * 0.7;
   const liveliness = 0.35 + seed(`${star.id}-live`) * 0.65;
   const clock = useSharedValue(phase);
+  const active = isSelected || isForging;
 
   const started = useRef(false);
   useEffect(() => {
@@ -296,30 +341,38 @@ function StarDot({
     );
   });
 
-  const haloStyle = useAnimatedStyle(() => {
-    const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
-    const b = Math.sin((clock.value * rate * 1.7 + phase * 1.7) * Math.PI * 2);
-    const twinkle = Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
-    const gr = radius + 7 + (isSelected || isForging ? 6 : 0) + twinkle * 1.5;
+  // Tight core + hugging colored bloom, like a real star point.
+  const coreR = Math.max(radius * 0.42, MIN_STAR_RADIUS * 0.7);
+  const bloomR = coreR + Math.max(2.5, radius * 0.5) + (active ? 4 : 0);
+  const spikeLen = coreR + radius * 0.9 + 4;
+
+  const twinkleAt = (c: number) => {
+    'worklet';
+    const a = Math.sin((c * rate + phase) * Math.PI * 2);
+    const b = Math.sin((c * rate * 1.7 + phase * 1.7) * Math.PI * 2);
+    return Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
+  };
+
+  const bloomStyle = useAnimatedStyle(() => {
+    const t = twinkleAt(clock.value);
+    const gr = bloomR + t * 1.2;
     return {
       width: gr * 2,
       height: gr * 2,
       borderRadius: gr,
       marginLeft: -gr,
       marginTop: -gr,
-      opacity: (isSelected || isForging ? 0.4 : 0.2) + 0.12 * twinkle,
+      opacity: (active ? 0.5 : 0.32) + 0.16 * t,
     };
   });
 
-  const coreR = Math.max(radius * 0.5, MIN_STAR_RADIUS * 0.6);
-  const bloomR = coreR + 2.5;
+  const coreStyle = useAnimatedStyle(() => ({ opacity: 0.85 + 0.15 * twinkleAt(clock.value) }));
 
-  const coreStyle = useAnimatedStyle(() => {
-    const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
-    const b = Math.sin((clock.value * rate * 1.7 + phase * 1.7) * Math.PI * 2);
-    const twinkle = Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
-    return { opacity: 0.82 + 0.18 * twinkle };
-  });
+  const spikeStyle = useAnimatedStyle(() => ({
+    opacity: (0.18 + 0.32 * twinkleAt(clock.value)) * (active ? 1.4 : 1),
+  }));
+
+  const bloomR2 = coreR + 1.5;
 
   return (
     <Pressable
@@ -327,9 +380,36 @@ function StarDot({
       hitSlop={12}
       style={{ position: 'absolute', left: pos.x, top: pos.y }}
     >
-      {/* Faint colored halo */}
-      <Animated.View style={[{ position: 'absolute', backgroundColor: color }, haloStyle]} />
-      {(isSelected || isForging) && (
+      {/* Tight colored bloom (emotion tint) */}
+      <Animated.View style={[{ position: 'absolute', backgroundColor: color }, bloomStyle]} />
+      {/* Diffraction glint cross */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: spikeLen * 2,
+            height: 1,
+            marginLeft: -spikeLen,
+            marginTop: -0.5,
+            backgroundColor: '#EAF2FF',
+          },
+          spikeStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: 1,
+            height: spikeLen * 2,
+            marginLeft: -0.5,
+            marginTop: -spikeLen,
+            backgroundColor: '#EAF2FF',
+          },
+          spikeStyle,
+        ]}
+      />
+      {active && (
         <View
           style={{
             position: 'absolute',
@@ -340,20 +420,20 @@ function StarDot({
             marginTop: -(radius + 10),
             borderWidth: 1.5,
             borderColor: isForging ? '#FFE066' : '#FFFFFF',
-            opacity: 0.8,
+            opacity: 0.85,
           }}
         />
       )}
-      {/* Soft white-blue bloom */}
+      {/* Soft white-blue inner bloom */}
       <Animated.View
         style={[
           {
             position: 'absolute',
-            width: bloomR * 2,
-            height: bloomR * 2,
-            borderRadius: bloomR,
-            marginLeft: -bloomR,
-            marginTop: -bloomR,
+            width: bloomR2 * 2,
+            height: bloomR2 * 2,
+            borderRadius: bloomR2,
+            marginLeft: -bloomR2,
+            marginTop: -bloomR2,
             backgroundColor: '#CFE3FF',
           },
           coreStyle,
