@@ -2,35 +2,16 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chip, Input, Label, Text, TextField } from 'heroui-native';
-import {
-  format,
-  isSameDay,
-  addMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-} from 'date-fns';
-import { ChevronLeft, ChevronRight, MapPin, Search as SearchIcon } from 'lucide-react-native';
+import { format, isSameDay } from 'date-fns';
+import { CalendarDays, MapPin, Search as SearchIcon } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
+import { WheelDatePicker } from '@/components/WheelDatePicker';
 import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
 
 const MUTED = '#94A3B8';
-const ACCENT = '#45F3FF';
-const WEEKDAYS = [
-  { key: 'sun', label: 'S' },
-  { key: 'mon', label: 'M' },
-  { key: 'tue', label: 'T' },
-  { key: 'wed', label: 'W' },
-  { key: 'thu', label: 'T' },
-  { key: 'fri', label: 'F' },
-  { key: 'sat', label: 'S' },
-];
 
 export default function SearchTab() {
   const router = useRouter();
@@ -51,7 +32,6 @@ export default function SearchTab() {
   const [keywords, setKeywords] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [userFilter, setUserFilter] = useState<string[]>([]);
   const [constFilter, setConstFilter] = useState<string | null>(null);
 
@@ -59,18 +39,6 @@ export default function SearchTab() {
     const ids = new Set<string>();
     for (const s of stars) s.taggedUserIds.forEach((id) => ids.add(id));
     return [...ids].map((id) => userById(id)).filter(Boolean);
-  }, [stars]);
-
-  const calendarDays = useMemo(() => {
-    const gridStart = startOfWeek(startOfMonth(calendarMonth));
-    const gridEnd = endOfWeek(endOfMonth(calendarMonth));
-    return eachDayOfInterval({ start: gridStart, end: gridEnd });
-  }, [calendarMonth]);
-
-  const starDays = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of stars) set.add(format(new Date(s.date), 'yyyy-MM-dd'));
-    return set;
   }, [stars]);
 
   const filtered = useMemo(() => {
@@ -134,67 +102,18 @@ export default function SearchTab() {
                 </Pressable>
               ) : null}
             </View>
-            <GlassCard contentClassName="gap-3 p-4">
-              <View className="flex-row items-center justify-between">
+            <GlassCard contentClassName="gap-2 p-4">
+              {!selectedDate ? (
                 <Pressable
-                  hitSlop={10}
-                  onPress={() => setCalendarMonth((m) => addMonths(m, -1))}
-                  className="h-8 w-8 items-center justify-center rounded-full"
+                  onPress={() => setSelectedDate(new Date())}
+                  className="flex-row items-center justify-center gap-2 py-2"
                 >
-                  <ChevronLeft size={18} color={MUTED} />
+                  <CalendarDays size={18} color={MUTED} />
+                  <Text className="text-muted text-sm">Pick a date to filter by</Text>
                 </Pressable>
-                <Text className="text-starlight font-display text-base font-semibold">
-                  {format(calendarMonth, 'MMMM yyyy')}
-                </Text>
-                <Pressable
-                  hitSlop={10}
-                  onPress={() => setCalendarMonth((m) => addMonths(m, 1))}
-                  className="h-8 w-8 items-center justify-center rounded-full"
-                >
-                  <ChevronRight size={18} color={MUTED} />
-                </Pressable>
-              </View>
-
-              <View className="flex-row">
-                {WEEKDAYS.map((d) => (
-                  <View key={d.key} className="flex-1 items-center">
-                    <Text className="text-muted text-[11px]">{d.label}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View className="flex-row flex-wrap">
-                {calendarDays.map((day) => {
-                  const inMonth = isSameMonth(day, calendarMonth);
-                  const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-                  const hasMemory = starDays.has(format(day, 'yyyy-MM-dd'));
-                  return (
-                    <View key={day.toISOString()} className="w-[14.28%] items-center py-0.5">
-                      <Pressable
-                        onPress={() => setSelectedDate(isSelected ? null : day)}
-                        className="h-9 w-9 items-center justify-center rounded-full"
-                        style={isSelected ? { backgroundColor: ACCENT } : undefined}
-                      >
-                        <Text
-                          className="text-sm"
-                          style={{
-                            color: isSelected ? '#0B0C10' : inMonth ? '#F8FAFC' : '#475569',
-                            fontWeight: isSelected ? '700' : '400',
-                          }}
-                        >
-                          {format(day, 'd')}
-                        </Text>
-                        {hasMemory && !isSelected ? (
-                          <View
-                            className="absolute bottom-1 h-1 w-1 rounded-full"
-                            style={{ backgroundColor: ACCENT }}
-                          />
-                        ) : null}
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
+              ) : (
+                <WheelDatePicker value={selectedDate} onChange={setSelectedDate} />
+              )}
             </GlassCard>
             {selectedDate ? (
               <Text className="text-muted text-xs">
