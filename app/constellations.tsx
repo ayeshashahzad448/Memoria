@@ -3,9 +3,10 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, Link2, Sparkles, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, ChevronRight, Link2, Sparkles, Trash2 } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
+import { ConstellationPreview } from '@/components/ConstellationPreview';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
 
@@ -20,6 +21,7 @@ export default function ConstellationsScreen() {
   const createConstellation = useMemoria((s) => s.createConstellation);
   const removeConstellation = useMemoria((s) => s.removeConstellation);
   const suggestConstellations = useMemoria((s) => s.suggestConstellations);
+  const focusConstellation = useMemoria((s) => s.focusConstellation);
 
   const stars = useMemo(
     () => allStars.filter((s) => s.cosmosId === activeCosmosId),
@@ -47,21 +49,32 @@ export default function ConstellationsScreen() {
     setDismissed((p) => [...p, id]);
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
+
+  // Open this constellation in the cosmos: ask the cosmos to frame + draw it,
+  // then return to the cosmos tab so the animation plays.
+  const openInCosmos = (id: string) => {
+    void Haptics.selectionAsync();
+    focusConstellation(id);
+    goBack();
+  };
+
   return (
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-3 pb-12">
         <View className="mb-3 flex-row items-center gap-3">
-          <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
-            hitSlop={12}
-          >
-            <ArrowLeft size={22} color={MUTED} />
+          <Pressable onPress={goBack} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+            <View className="border-glass-border h-10 w-10 items-center justify-center rounded-full border">
+              <ArrowLeft size={20} color={MUTED} />
+            </View>
           </Pressable>
           <Text className="text-starlight font-display text-2xl font-bold">Constellations</Text>
         </View>
         <Text className="text-muted mb-6 text-sm leading-5">
-          Connect related memories into constellations. Toggle Constellations in your cosmos to
-          reveal the glowing lines.
+          Tap a constellation to fly to it in your cosmos and watch the lines draw.
         </Text>
 
         {/* AI suggestions */}
@@ -109,44 +122,49 @@ export default function ConstellationsScreen() {
         ) : (
           <View className="gap-2.5">
             {constellations.map((c) => {
-              const members = c.starIds.map((id) => starById.get(id)).filter(Boolean);
+              const members = c.starIds
+                .map((id) => starById.get(id))
+                .filter((m): m is NonNullable<typeof m> => Boolean(m));
               return (
-                <GlassCard key={c.id} contentClassName="gap-2.5 p-4">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1 flex-row items-center gap-2">
-                      <Link2 size={15} color={ACCENT} />
-                      <Text className="text-starlight flex-1 font-semibold" numberOfLines={1}>
-                        {c.name}
-                      </Text>
-                    </View>
-                    <Pressable onPress={() => removeConstellation(c.id)} hitSlop={10}>
-                      <Trash2 size={16} color={MUTED} />
-                    </Pressable>
-                  </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    {members.map((m) => (
+                <Pressable key={c.id} onPress={() => openInCosmos(c.id)}>
+                  <GlassCard contentClassName="gap-3 p-4">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 flex-row items-center gap-2">
+                        <Link2 size={15} color={ACCENT} />
+                        <Text className="text-starlight flex-1 font-semibold" numberOfLines={1}>
+                          {c.name}
+                        </Text>
+                      </View>
                       <Pressable
-                        key={m!.id}
-                        onPress={() =>
-                          router.push({ pathname: '/star/[id]', params: { id: m!.id } })
-                        }
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          removeConstellation(c.id);
+                        }}
+                        hitSlop={10}
                       >
-                        <View className="border-glass-border flex-row items-center gap-1.5 rounded-full border px-3 py-1.5">
-                          <View
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: colorFor(m!.colorKey).hex }}
-                          />
-                          <Text className="text-starlight text-xs" numberOfLines={1}>
-                            {m!.title}
-                          </Text>
-                        </View>
+                        <Trash2 size={16} color={MUTED} />
                       </Pressable>
-                    ))}
-                  </View>
-                  <Text className="text-muted text-[11px]">
-                    {c.origin === 'suggested' ? 'Suggested constellation' : 'Created by you'}
-                  </Text>
-                </GlassCard>
+                    </View>
+
+                    {/* Mini map of the constellation shape */}
+                    {members.length > 0 && (
+                      <View className="border-glass-border bg-background/40 overflow-hidden rounded-xl border">
+                        <ConstellationPreview members={members} height={104} />
+                      </View>
+                    )}
+
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-muted text-[11px]">
+                        {members.length} memories ·{' '}
+                        {c.origin === 'suggested' ? 'Suggested' : 'Created by you'}
+                      </Text>
+                      <View className="flex-row items-center gap-1">
+                        <Text className="text-accent text-xs font-medium">View in cosmos</Text>
+                        <ChevronRight size={14} color={ACCENT} />
+                      </View>
+                    </View>
+                  </GlassCard>
+                </Pressable>
               );
             })}
           </View>

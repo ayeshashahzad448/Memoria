@@ -39,6 +39,8 @@ export default function CosmosTab() {
   const completeTutorial = useMemoria((s) => s.completeTutorial);
   const focusStarId = useMemoria((s) => s.focusStarId);
   const focusStar = useMemoria((s) => s.focusStar);
+  const focusConstellationId = useMemoria((s) => s.focusConstellationId);
+  const focusConstellation = useMemoria((s) => s.focusConstellation);
 
   // The central Cosmos is always the user's personal universe. Shared cosmos
   // spaces live in the Shared tab.
@@ -145,14 +147,31 @@ export default function CosmosTab() {
     setForgeName('');
   };
 
-  // Smoothly zoom out to show every memory linked in a constellation.
-  const viewConstellation = (starIds: string[]) => {
+  // Smoothly zoom out to show every memory linked in a constellation, then
+  // play the glowing line-draw animation.
+  const viewConstellation = (starIds: string[], constellationId?: string) => {
     void Haptics.selectionAsync();
     setSelectedStar(null);
+    setForging(false);
+    setAddStarTarget(null);
     // Re-fire even if the same group is requested again.
     setFitIds(null);
-    requestAnimationFrame(() => setFitIds([...starIds]));
+    setDrawId(null);
+    requestAnimationFrame(() => {
+      setFitIds([...starIds]);
+      if (constellationId) requestAnimationFrame(() => setDrawId(constellationId));
+    });
   };
+
+  // When the Constellations list asks to view a constellation, frame + draw it.
+  useEffect(() => {
+    if (!focusConstellationId) return;
+    const target = constellations.find((c) => c.id === focusConstellationId);
+    if (target) viewConstellation(target.starIds, target.id);
+    focusConstellation(null);
+    // viewConstellation is stable enough for this transient trigger.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusConstellationId, constellations, focusConstellation]);
 
   // Constellations a given star is NOT already part of (candidates to add to).
   const addCandidates = useMemo(() => {
@@ -417,7 +436,7 @@ function HudCard({
   onOpen: () => void;
   onAdd: () => void;
   onCreate: () => void;
-  onView: (starIds: string[]) => void;
+  onView: (starIds: string[], constellationId?: string) => void;
   canConnect: boolean;
   onClose: () => void;
 }) {
@@ -492,7 +511,7 @@ function HudCard({
                 key={g.id}
                 onPress={(e) => {
                   e.stopPropagation?.();
-                  onView(g.starIds);
+                  onView(g.starIds, g.id);
                 }}
                 className="border-glass-border flex-row items-center justify-center gap-2 rounded-xl border py-2.5"
               >

@@ -66,6 +66,8 @@ interface MemoriaState {
   activeCosmosId: string;
   /** Transient: a star the cosmos should pan to and focus (e.g. from search). Not persisted. */
   focusStarId: string | null;
+  /** Transient: a constellation the cosmos should frame and draw (e.g. from the Constellations list). Not persisted. */
+  focusConstellationId: string | null;
   /** Editable user profile. */
   profile: UserProfile;
   /** Accessibility / app preferences. */
@@ -90,6 +92,8 @@ interface MemoriaState {
   removeFriend: (id: string) => void;
   /** Request the cosmos to pan to and focus a star. Pass null to clear. */
   focusStar: (id: string | null) => void;
+  /** Request the cosmos to frame and draw a constellation. Pass null to clear. */
+  focusConstellation: (id: string | null) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -138,6 +142,7 @@ export const useMemoria = create<MemoriaState>()(
       tier: 'free',
       activeCosmosId: PERSONAL_COSMOS,
       focusStarId: null,
+      focusConstellationId: null,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -171,6 +176,7 @@ export const useMemoria = create<MemoriaState>()(
       removeFriend: (id) =>
         set((state) => ({ friendIds: state.friendIds.filter((f) => f !== id) })),
       focusStar: (id) => set({ focusStarId: id }),
+      focusConstellation: (id) => set({ focusConstellationId: id }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);
