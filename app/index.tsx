@@ -80,8 +80,8 @@ export default function Index() {
           <Text
             style={{
               fontFamily: wordmarkFamily(),
-              fontSize: 60,
-              letterSpacing: 4,
+              fontSize: 44,
+              letterSpacing: 2,
               color: '#F8FAFC',
             }}
           >

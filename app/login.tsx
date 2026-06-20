@@ -36,8 +36,8 @@ export default function LoginScreen() {
             <Text
               style={{
                 fontFamily: wordmarkFamily(),
-                fontSize: 44,
-                letterSpacing: 3,
+                fontSize: 38,
+                letterSpacing: 2,
                 color: '#F8FAFC',
               }}
             >

@@ -1,13 +1,21 @@
 # Fonts
 
-Drop the **Mokoto** font file here as:
+The Memoria wordmark uses **Orbitron** (loaded via `@expo-google-fonts/orbitron`)
+as a freely-available, Mokoto-like geometric sci-fi display face. No local file
+is required — it loads on native and web automatically.
+
+## Using the real Mokoto instead
+
+If you have a Mokoto license, drop the file here as:
 
 ```
 assets/fonts/Mokoto.ttf
 ```
 
-(A `.ttf` or `.otf` is fine — if you use `.otf`, rename the require in `lib/fonts.ts` accordingly.)
+Then in `lib/fonts.ts`:
 
-Once the file is present, the Memoria wordmark on the splash screen and the
-sign-in screen will automatically render in Mokoto. Until then, the app falls
-back to the Space Grotesk display font so nothing breaks.
+- set `MOKOTO_FAMILY = 'Mokoto'`
+- add `Mokoto: require('@/assets/fonts/Mokoto.ttf')` to `getMokotoFontMap()`
+- point `injectMokotoWebFont()` at the bundled asset URL
+
+The wordmark will then render in Mokoto across the splash and auth screens.

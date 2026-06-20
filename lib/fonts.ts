@@ -1,55 +1,54 @@
 import { Platform } from 'react-native';
+import { Orbitron_700Bold, Orbitron_800ExtraBold } from '@expo-google-fonts/orbitron';
 
 /**
- * Mokoto wordmark font handling.
+ * Memoria wordmark font.
  *
- * The Mokoto font is a custom/commercial font. Once you drop the file into
- * `assets/fonts/Mokoto.ttf`, follow the two TODO markers below to activate it.
- * Until then the wordmark uses the Space Grotesk display family as a fallback so
- * the bundle never fails on a missing asset (Metro resolves `require` statically,
- * so we cannot reference a file that does not exist yet).
+ * The original Mokoto is a commercial font. As a close, freely available
+ * alternative we use Orbitron — a wide, squarish, geometric sci-fi display
+ * face with the same techno/futuristic character as Mokoto. It loads on both
+ * native (expo-font) and web (Google Fonts) without needing a local file.
  */
 
 /** The font family name registered for the Memoria wordmark. */
-export const MOKOTO_FAMILY = 'Mokoto';
+export const MOKOTO_FAMILY = 'Orbitron';
 
-/** Display fallback used until the Mokoto file is supplied. */
+/** Display fallback used if the wordmark family ever fails to load. */
 export const MOKOTO_FALLBACK = 'Space Grotesk';
 
+/** Whether the wordmark font is wired up. */
+export const MOKOTO_AVAILABLE = true;
+
 /**
- * Returns the font map to merge into `useFonts`. Empty until the file is added.
- *
- * TODO(Mokoto): after adding `assets/fonts/Mokoto.ttf`, replace the body with:
- *   return { [MOKOTO_FAMILY]: require('@/assets/fonts/Mokoto.ttf') };
+ * Returns the font map to merge into `useFonts`. Registers Orbitron weights
+ * plus a clean `'Orbitron'` alias so `fontFamily: 'Orbitron'` resolves on native.
  */
 export function getMokotoFontMap(): Record<string, number> {
-  return {};
+  return {
+    Orbitron_700Bold,
+    Orbitron_800ExtraBold,
+    Orbitron: Orbitron_800ExtraBold,
+  };
 }
 
-/** Whether the real Mokoto font is wired up (flip to true once the file is added + required above). */
-export const MOKOTO_AVAILABLE = false;
-
 /**
- * The fontFamily string to use for the wordmark. Resolves to Mokoto when loaded,
- * otherwise the display fallback.
+ * The fontFamily string to use for the wordmark. Resolves to Orbitron when
+ * loaded, otherwise the display fallback.
  */
 export function wordmarkFamily(): string {
   return MOKOTO_AVAILABLE ? MOKOTO_FAMILY : MOKOTO_FALLBACK;
 }
 
 /**
- * Injects an @font-face for web so the wordmark can use Mokoto in the browser.
- *
- * TODO(Mokoto): after adding the file, uncomment the require + style injection below.
+ * Injects a Google Fonts link for web so the wordmark can use Orbitron in the browser.
  */
 export function injectMokotoWebFont(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-  if (!MOKOTO_AVAILABLE) return;
-  // const asset = require('@/assets/fonts/Mokoto.ttf') as { uri?: string } | string;
-  // const uri = typeof asset === 'string' ? asset : asset?.uri;
-  // if (!uri || document.getElementById('mokoto-font-face')) return;
-  // const style = document.createElement('style');
-  // style.id = 'mokoto-font-face';
-  // style.textContent = `@font-face{font-family:'${MOKOTO_FAMILY}';src:url('${uri}');font-display:swap;}`;
-  // document.head.appendChild(style);
+  if (document.getElementById('memoria-wordmark-font')) return;
+  const link = document.createElement('link');
+  link.id = 'memoria-wordmark-font';
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&display=swap';
+  link.crossOrigin = 'anonymous';
+  document.head.appendChild(link);
 }
