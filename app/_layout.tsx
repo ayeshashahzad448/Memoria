@@ -169,6 +169,7 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b0c10' } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
+        <Stack.Screen name="login" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="constellations" />

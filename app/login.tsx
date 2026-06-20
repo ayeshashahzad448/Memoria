@@ -9,17 +9,13 @@ import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { wordmarkFamily } from '@/lib/fonts';
 import { useMemoria } from '@/lib/store';
 
-export default function SignUpScreen() {
+export default function LoginScreen() {
   const router = useRouter();
   const signIn = useMemoria((s) => s.signIn);
-  const updateProfile = useMemoria((s) => s.updateProfile);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const enter = () => {
-    const trimmed = name.trim();
-    if (trimmed) updateProfile({ displayName: trimmed });
     signIn();
     router.replace('/(tabs)');
   };
@@ -47,27 +43,11 @@ export default function SignUpScreen() {
             >
               Memoria
             </Text>
-            <Text className="text-starlight font-display mt-2 text-xl">Create your account</Text>
+            <Text className="text-starlight font-display mt-2 text-xl">Welcome back</Text>
           </View>
 
           <GlassCard contentClassName="gap-5 p-6">
-            <Text className="text-muted text-center text-xs leading-5">
-              By signing up you confirm that you have read and accept the{' '}
-              <Text className="text-starlight text-xs font-semibold">Terms of Service</Text> and{' '}
-              <Text className="text-starlight text-xs font-semibold">Privacy Policy</Text>.
-            </Text>
-
             <View className="gap-4">
-              <TextField>
-                <Text className="text-starlight mb-1.5 text-sm font-semibold">Name</Text>
-                <Input
-                  placeholder="Your name"
-                  autoCapitalize="words"
-                  value={name}
-                  onChangeText={setName}
-                />
-              </TextField>
-
               <TextField>
                 <Text className="text-starlight mb-1.5 text-sm font-semibold">Email</Text>
                 <Input
@@ -80,7 +60,12 @@ export default function SignUpScreen() {
               </TextField>
 
               <TextField>
-                <Text className="text-starlight mb-1.5 text-sm font-semibold">Password</Text>
+                <View className="mb-1.5 flex-row items-center justify-between">
+                  <Text className="text-starlight text-sm font-semibold">Password</Text>
+                  <Pressable hitSlop={8}>
+                    <Text className="text-accent text-sm">Forgot?</Text>
+                  </Pressable>
+                </View>
                 <Input
                   placeholder="••••••••"
                   secureTextEntry
@@ -91,7 +76,7 @@ export default function SignUpScreen() {
             </View>
 
             <Button onPress={enter} className="mt-1">
-              Sign Up
+              Log In
             </Button>
 
             <View className="flex-row items-center gap-3 py-0.5">
@@ -111,12 +96,12 @@ export default function SignUpScreen() {
           </GlassCard>
 
           <Text className="text-muted mt-6 text-center text-sm leading-5">
-            Already have an account?{' '}
+            New to Memoria?{' '}
             <Text
               className="text-accent text-sm font-semibold"
-              onPress={() => router.push('/login')}
+              onPress={() => router.replace('/auth')}
             >
-              Log in.
+              Sign up.
             </Text>
           </Text>
         </ScrollView>

@@ -8,6 +8,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -15,48 +17,43 @@ import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { wordmarkFamily } from '@/lib/fonts';
 import { useMemoria } from '@/lib/store';
 
+const WORDMARK = 'Memoria';
+
 /**
- * Cold-open splash: the Memoria wordmark glows in over a drifting starfield,
- * holds, then cross-fades out as we route to auth / onboarding / cosmos.
+ * Cold-open splash: the Memoria wordmark types in letter by letter over a
+ * drifting starfield, holds, then cross-fades out as we route onward.
  */
 export default function Index() {
   const isAuthed = useMemoria((s) => s.isAuthed);
   const hasOnboarded = useMemoria((s) => s.hasOnboarded);
   const [done, setDone] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
 
-  const intro = useSharedValue(0); // 0 -> 1 wordmark reveal
   const outro = useSharedValue(0); // 0 -> 1 fade the splash out
 
+  // Type the wordmark out one character at a time.
   useEffect(() => {
-    intro.value = withTiming(1, { duration: 1400, easing: Easing.out(Easing.cubic) });
+    const perLetter = 170;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let i = 1; i <= WORDMARK.length; i++) {
+      timers.push(setTimeout(() => setVisibleCount(i), i * perLetter));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    const holdAfterTyping = WORDMARK.length * 170 + 650;
     outro.value = withDelay(
-      2100,
-      withTiming(1, { duration: 700, easing: Easing.inOut(Easing.cubic) }),
+      holdAfterTyping,
+      withTiming(1, { duration: 650, easing: Easing.inOut(Easing.cubic) }),
     );
-    const timer = setTimeout(() => setDone(true), 2850);
+    const timer = setTimeout(() => setDone(true), holdAfterTyping + 700);
     return () => clearTimeout(timer);
-  }, [intro, outro]);
+  }, [outro]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: interpolate(outro.value, [0, 1], [1, 0]),
-  }));
-
-  const wordStyle = useAnimatedStyle(() => ({
-    opacity: intro.value,
-    transform: [
-      { scale: interpolate(intro.value, [0, 1], [0.86, 1]) },
-      { translateY: interpolate(outro.value, [0, 1], [0, -18]) },
-    ],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(intro.value, [0, 0.6, 1], [0, 0.5, 0.28]),
-    transform: [{ scale: interpolate(intro.value, [0, 1], [0.6, 1.15]) }],
-  }));
-
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(intro.value, [0.5, 1], [0, 1]),
-    transform: [{ translateY: interpolate(intro.value, [0.5, 1], [8, 0]) }],
+    transform: [{ translateY: interpolate(outro.value, [0, 1], [0, -16]) }],
   }));
 
   if (done) {
@@ -65,38 +62,44 @@ export default function Index() {
     return <Redirect href="/(tabs)" />;
   }
 
+  const shown = WORDMARK.slice(0, visibleCount);
+  const showCaret = visibleCount < WORDMARK.length;
+
   return (
     <View className="bg-void-deep flex-1">
       <StarfieldBackground variant="drift" />
       <Animated.View className="flex-1 items-center justify-center px-8" style={containerStyle}>
-        {/* Soft radial glow behind the wordmark */}
-        <Animated.View
-          pointerEvents="none"
-          className="bg-accent/30 absolute h-56 w-56 rounded-full"
-          style={[{ shadowColor: '#45F3FF', shadowOpacity: 0.9, shadowRadius: 60 }, glowStyle]}
-        />
-        <Animated.Text
-          style={[
-            {
+        <View className="flex-row items-center">
+          <Text
+            style={{
               fontFamily: wordmarkFamily(),
-              fontSize: 64,
+              fontSize: 60,
               letterSpacing: 4,
               color: '#F8FAFC',
-              textShadowColor: '#45F3FF',
-              textShadowRadius: 24,
-              textShadowOffset: { width: 0, height: 0 },
-            },
-            wordStyle,
-          ]}
-        >
-          Memoria
-        </Animated.Text>
-        <Animated.View style={taglineStyle}>
-          <Text className="text-muted mt-3 text-center tracking-widest">
-            A cosmos of your memories
+            }}
+          >
+            {shown}
           </Text>
-        </Animated.View>
+          {showCaret ? <Caret /> : null}
+        </View>
       </Animated.View>
     </View>
   );
+}
+
+/** Blinking type cursor that sits at the end of the typed wordmark. */
+function Caret() {
+  const blink = useSharedValue(1);
+  useEffect(() => {
+    blink.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 420, easing: Easing.linear }),
+        withTiming(1, { duration: 420, easing: Easing.linear }),
+      ),
+      -1,
+      false,
+    );
+  }, [blink]);
+  const style = useAnimatedStyle(() => ({ opacity: blink.value }));
+  return <Animated.View style={style} className="bg-accent ml-2 h-12 w-1.5 rounded-full" />;
 }
