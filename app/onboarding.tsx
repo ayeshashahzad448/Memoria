@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Text } from 'heroui-native';
 import Animated, { Easing, FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { SparkPulse } from '@/components/SparkPulse';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { useMemoria } from '@/lib/store';
 
@@ -55,8 +54,7 @@ export default function Onboarding() {
             <Text className="text-starlight font-display mb-10 text-center text-2xl font-semibold">
               create your first star
             </Text>
-            <SparkPulse />
-            <Text className="text-muted mt-10 text-center text-sm">Tap anywhere to begin</Text>
+            <Text className="text-muted mt-2 text-center text-sm">Tap anywhere to begin</Text>
           </Animated.View>
         </Pressable>
       )}
