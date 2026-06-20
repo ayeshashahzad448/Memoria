@@ -212,7 +212,12 @@ export default function CosmosTab() {
               Navigate Your{'\n'}Universe
             </Text>
           </View>
-          <View className="flex-row items-center gap-2">
+          <View className="items-end gap-2">
+            <Pressable onPress={() => router.push('/search')} hitSlop={8}>
+              <GlassCard contentClassName="h-11 w-11 items-center justify-center">
+                <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+              </GlassCard>
+            </Pressable>
             <Pressable
               onPress={() => {
                 void Haptics.selectionAsync();
@@ -226,11 +231,6 @@ export default function CosmosTab() {
                 ) : (
                   <Box width={22} height={22} color={ACCENT} strokeWidth={2.1} />
                 )}
-              </GlassCard>
-            </Pressable>
-            <Pressable onPress={() => router.push('/search')} hitSlop={8}>
-              <GlassCard contentClassName="h-11 w-11 items-center justify-center">
-                <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
               </GlassCard>
             </Pressable>
           </View>
