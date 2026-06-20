@@ -14,8 +14,6 @@ interface Step {
   icon: LucideIcon;
   title: string;
   body: string;
-  /** Where the spotlight hint sits: bottom (the + button) or center. */
-  anchor: 'bottom' | 'center';
 }
 
 const STEPS: Step[] = [
@@ -23,19 +21,16 @@ const STEPS: Step[] = [
     icon: Plus,
     title: 'Anchor a memory',
     body: 'Tap the Cosmos button below to add an Echo — a memory that becomes a star in your cosmos.',
-    anchor: 'bottom',
   },
   {
     icon: Type,
     title: 'Your words shape the star',
     body: 'Type your story. The more you write, the larger and brighter your star becomes.',
-    anchor: 'center',
   },
   {
     icon: Hand,
     title: 'Explore the void',
     body: 'Pinch to zoom and drag to explore. Your universe expands as your memories grow.',
-    anchor: 'center',
   },
 ];
 
@@ -67,24 +62,6 @@ export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCre
     >
       {/* Scrim */}
       <Pressable className="absolute inset-0 bg-black/75" onPress={next} />
-
-      {/* Spotlight hint exactly over the + button */}
-      {step.anchor === 'bottom' && (
-        <View
-          className="pb-safe-offset-24 absolute inset-x-0 bottom-0 items-center"
-          pointerEvents="none"
-        >
-          <View
-            className="h-16 w-16 rounded-full border-2"
-            style={{
-              borderColor: ACCENT,
-              shadowColor: ACCENT,
-              shadowOpacity: 0.9,
-              shadowRadius: 20,
-            }}
-          />
-        </View>
-      )}
 
       {/* Card */}
       <View className="absolute inset-x-0 top-1/2 -mt-24 px-7">
