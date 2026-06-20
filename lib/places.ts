@@ -47,9 +47,25 @@ export async function searchPlaces(query: string): Promise<PlacesResult> {
       } catch {
         /* ignore parse failure */
       }
+      const lower = detail.toLowerCase();
+      // Google returns this when the Places API (New) is not enabled / billing is off
+      // for the project. Translate the wall of text into a plain instruction.
+      if (
+        res.status === 403 ||
+        lower.includes('has not been used') ||
+        lower.includes('is disabled') ||
+        lower.includes('permission_denied') ||
+        lower.includes('billing')
+      ) {
+        return {
+          predictions: [],
+          error:
+            'Location search is turned off for this app. Enable the "Places API (New)" and billing in Google Cloud, then try again. You can still type a place above.',
+        };
+      }
       return {
         predictions: [],
-        error: detail || `Place search failed (${String(res.status)}).`,
+        error: detail || `Place search failed (${String(res.status)}). You can still type a place above.`,
       };
     }
     const raw: unknown = await res.json();
