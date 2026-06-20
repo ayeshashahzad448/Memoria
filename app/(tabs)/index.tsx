@@ -205,7 +205,7 @@ export default function CosmosTab() {
       />
 
       {/* Top bar */}
-      <View className="pt-safe-offset-20 absolute inset-x-0 top-0 px-4">
+      <View className="pt-safe-offset-12 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
             <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
@@ -255,7 +255,7 @@ export default function CosmosTab() {
       {/* Connecting animation banner */}
       {drawId && (
         <View
-          className="pt-safe-offset-20 absolute inset-x-0 top-0 items-center"
+          className="pt-safe-offset-12 absolute inset-x-0 top-0 items-center"
           pointerEvents="none"
         >
           <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
@@ -267,7 +267,7 @@ export default function CosmosTab() {
 
       {/* Exit constellation view */}
       {fitIds && !drawId && !selectedStar && !forging && (
-        <View className="pt-safe-offset-20 absolute inset-x-0 top-0 items-center">
+        <View className="pt-safe-offset-12 absolute inset-x-0 top-0 items-center">
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync();
