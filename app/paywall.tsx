@@ -21,7 +21,7 @@ import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes, totalMediaBytes } from '@/li
 import { type BillingPeriod, PLAN_PRICING, type PlanId, purchasePlan } from '@/lib/iap';
 
 const ACCENT = colorFor('cyan').hex;
-const VIOLET = '#A56BFF';
+const VIOLET = '#C29BFF';
 const MUTED = '#94A3B8';
 
 interface PlanDef {
@@ -49,7 +49,7 @@ const PLANS: PlanDef[] = [
   },
   {
     id: 'personal',
-    header: 'Personal Legacy',
+    header: 'Premium',
     accent: ACCENT,
     cta: 'Unlock My Cosmos',
     recommended: true,
@@ -64,13 +64,13 @@ const PLANS: PlanDef[] = [
   },
   {
     id: 'family',
-    header: 'Family Cosmos',
+    header: 'Family Plan',
     accent: VIOLET,
     cta: 'Begin Family Legacy',
     monthly: PLAN_PRICING.family.monthly,
     yearly: PLAN_PRICING.family.yearly,
     features: [
-      'Everything in Personal Legacy',
+      'Everything in Premium',
       'Invite up to 5 family members on one plan',
       'Create a unified shared cosmos archive',
       'Cross-generational legacy preservation tools',
