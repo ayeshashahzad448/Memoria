@@ -122,7 +122,7 @@ export default function CosmosTab() {
       <View className="pt-safe-offset-2 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
-            <Text className="text-starlight font-display text-lg font-semibold">
+            <Text className="text-starlight font-display text-2xl font-semibold">
               Navigate Your Universe
             </Text>
           </View>
@@ -162,7 +162,7 @@ export default function CosmosTab() {
 
       {/* HUD card on tap */}
       {selectedStar && !forging && (
-        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 px-4">
+        <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
           <HudCard
             star={selectedStar}
             onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
@@ -173,7 +173,7 @@ export default function CosmosTab() {
 
       {/* Forge controls */}
       {forging && (
-        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 px-4">
+        <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
           <GlassCard contentClassName="gap-3 p-5">
             <Text className="text-starlight font-semibold">New constellation</Text>
             <Text className="text-muted text-xs">
@@ -200,7 +200,7 @@ export default function CosmosTab() {
 
       {/* Bottom action row */}
       {!selectedStar && !forging && stars.length >= 2 && (
-        <View className="pb-safe-offset-24 absolute inset-x-0 bottom-0 flex-row items-center justify-center gap-3 px-4">
+        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 flex-row items-center justify-between px-8">
           <Pressable onPress={beginForge}>
             <GlassCard contentClassName="px-5 py-3.5">
               <Text className="text-starlight font-medium">Connect</Text>

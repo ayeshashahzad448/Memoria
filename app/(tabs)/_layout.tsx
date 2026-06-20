@@ -70,7 +70,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         />
         <View className="bg-void/70 absolute inset-0" />
       </View>
-      <View className="pb-safe-offset-1.5 flex-row items-end px-2 pt-2">
+      <View className="pb-safe-offset-4 flex-row items-end px-2 pt-2.5">
         {ordered.map(({ tab, route, index }) => {
           const focused = state.index === index;
           const Icon = tab.icon;
