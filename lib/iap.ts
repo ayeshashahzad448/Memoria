@@ -31,8 +31,8 @@ export const PRODUCT_IDS: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, 
 
 /** Placeholder display prices until live store pricing is fetched. */
 export const PLAN_PRICING: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, string>> = {
-  personal: { monthly: '£3.15', yearly: '£31.59' },
-  family: { monthly: '£7.89', yearly: '£78.99' },
+  personal: { monthly: '£2.99', yearly: '£29.99' },
+  family: { monthly: '£7.99', yearly: '£79.99' },
 };
 
 export interface IapProduct {
