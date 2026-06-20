@@ -61,6 +61,17 @@ function clampAxis(raw: number, bound: number): number {
   return raw;
 }
 
+/**
+ * Translation bound for the current zoom. When zoomed in, content is larger
+ * than the screen so the user must be able to pan farther to reach the edges;
+ * the allowance grows with (scale - 1) times half the viewport.
+ */
+function boundFor(base: number, scl: number, viewport: number): number {
+  'worklet';
+  const extra = scl > 1 ? (scl - 1) * (viewport / 2) : 0;
+  return base + extra;
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
   const {
     stars,
@@ -112,16 +123,33 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const pinchFocalX = useSharedValue(0);
   const pinchFocalY = useSharedValue(0);
   const clock = useSharedValue(0);
+  // Selection / forging state mirrored into shared values so tapping a star
+  // does NOT re-render every MemoryStarShape (which recreates Skia nodes mid-
+  // animation and crashes the native reconciler). The star reads these on the
+  // UI thread to drive its selection ring opacity.
+  const selectedIdSV = useSharedValue<string | null>(selectedStarId ?? null);
+  const forgingIdsSV = useSharedValue<string[]>(forgingStarIds);
+  useEffect(() => {
+    selectedIdSV.value = selectedStarId ?? null;
+  }, [selectedStarId, selectedIdSV]);
+  useEffect(() => {
+    forgingIdsSV.value = forgingStarIds;
+  }, [forgingStarIds, forgingIdsSV]);
   // Last sector index crossed, used to fire a light haptic on a new sector.
   const lastSector = useSharedValue(0);
   // Pan bounds mirrored into shared values so gesture worklets read a stable
   // value instead of a render-scoped closure that can change mid-gesture.
   const boundX = useSharedValue(boundsX);
   const boundY = useSharedValue(boundsY);
+  // Viewport mirrored so worklets can compute scale-aware bounds.
+  const vpW = useSharedValue(width);
+  const vpH = useSharedValue(height);
   useEffect(() => {
     boundX.value = boundsX;
     boundY.value = boundsY;
-  }, [boundsX, boundsY, boundX, boundY]);
+    vpW.value = width;
+    vpH.value = height;
+  }, [boundsX, boundsY, boundX, boundY, width, height, vpW, vpH]);
 
   // Continuous twinkle clock on the UI thread (loops 0 -> 1 forever).
   const clockStarted = useRef(false);
@@ -174,9 +202,12 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     })
     .onUpdate((e) => {
       // Hard clamp inside the boundary — no rubber-band so release can't snap
-      // from beyond the edge back toward an unexpected spot.
-      tx.value = clampAxis(savedTx.value + e.translationX, boundX.value);
-      ty.value = clampAxis(savedTy.value + e.translationY, boundY.value);
+      // from beyond the edge back toward an unexpected spot. Bounds grow with
+      // zoom so panning while zoomed in doesn't get pulled back to center.
+      const bx = boundFor(boundX.value, scale.value, vpW.value);
+      const by = boundFor(boundY.value, scale.value, vpH.value);
+      tx.value = clampAxis(savedTx.value + e.translationX, bx);
+      ty.value = clampAxis(savedTy.value + e.translationY, by);
       // Haptic pulse when gliding into a freshly generated sector.
       const sector = Math.round(Math.hypot(tx.value, ty.value) / sectorSize);
       if (sector !== lastSector.value) {
@@ -188,15 +219,17 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       // Weightless momentum that decays to a stop, clamped to the boundary.
       // Plain clamp (no rubberBandEffect, no completion callback re-animating
       // the value) avoids the crash and the snap-to-center on release.
+      const bx = boundFor(boundX.value, scale.value, vpW.value);
+      const by = boundFor(boundY.value, scale.value, vpH.value);
       tx.value = withDecay({
         velocity: e.velocityX,
         deceleration: 0.997,
-        clamp: [-boundX.value, boundX.value],
+        clamp: [-bx, bx],
       });
       ty.value = withDecay({
         velocity: e.velocityY,
         deceleration: 0.997,
-        clamp: [-boundY.value, boundY.value],
+        clamp: [-by, by],
       });
     });
 
@@ -219,14 +252,20 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       const focusShiftY = e.focalY - pinchFocalY.value;
       const nextTx = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
       const nextTy = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
-      tx.value = clampAxis(nextTx, boundX.value);
-      ty.value = clampAxis(nextTy, boundY.value);
+      // Use scale-aware bounds so zooming in doesn't drag content to center.
+      const bx = boundFor(boundX.value, nextScale, vpW.value);
+      const by = boundFor(boundY.value, nextScale, vpH.value);
+      tx.value = clampAxis(nextTx, bx);
+      ty.value = clampAxis(nextTy, by);
       scale.value = nextScale;
     })
     .onEnd(() => {
-      // Ease any out-of-bounds translation back inside after a pinch.
-      const cx = clampAxis(tx.value, boundX.value);
-      const cy = clampAxis(ty.value, boundY.value);
+      // Ease any out-of-bounds translation back inside after a pinch, using
+      // the final scale's bounds so an in-bounds view never relocates.
+      const bx = boundFor(boundX.value, scale.value, vpW.value);
+      const by = boundFor(boundY.value, scale.value, vpH.value);
+      const cx = clampAxis(tx.value, bx);
+      const cy = clampAxis(ty.value, by);
       if (cx !== tx.value) tx.value = withSpring(cx, { damping: 18, stiffness: 120 });
       if (cy !== ty.value) ty.value = withSpring(cy, { damping: 18, stiffness: 120 });
     });
@@ -278,8 +317,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               placed={p}
               clock={clock}
               toScreen={toScreen}
-              isSelected={p.star.id === selectedStarId}
-              isForging={forgingStarIds.includes(p.star.id)}
+              selectedId={selectedIdSV}
+              forgingIds={forgingIdsSV}
             />
           ))}
         </Group>
@@ -292,19 +331,20 @@ function MemoryStarShape({
   placed,
   clock,
   toScreen,
-  isSelected,
-  isForging,
+  selectedId,
+  forgingIds,
 }: {
   placed: PlacedStar;
   clock: SharedValue<number>;
   toScreen: (x: number, y: number) => { x: number; y: number };
-  isSelected: boolean;
-  isForging: boolean;
+  selectedId: SharedValue<string | null>;
+  forgingIds: SharedValue<string[]>;
 }) {
   const { star, radius } = placed;
   const pos = toScreen(star.x, star.y);
   const color = colorFor(star.colorKey).hex;
   const phase = seed(star.id);
+  const starId = star.id;
   // Each star twinkles at its own slow rate. Most stars barely shimmer.
   const rate = 0.5 + seed(`${star.id}-rate`) * 0.7;
   // A portion of stars are "steady" (almost no twinkle), like a real sky.
@@ -322,38 +362,57 @@ function MemoryStarShape({
     return Math.pow(mixed, 1.4) * liveliness;
   };
 
-  const active = isSelected || isForging;
+  // Selection state read on the UI thread so taps never re-render this node.
+  const isActive = useDerivedValue(() => {
+    const sel = selectedId.value === starId;
+    let forg = false;
+    const ids = forgingIds.value;
+    for (let i = 0; i < ids.length; i += 1) {
+      if (ids[i] === starId) {
+        forg = true;
+        break;
+      }
+    }
+    return sel || forg ? 1 : 0;
+  });
+  const isForgingSV = useDerivedValue(() => {
+    const ids = forgingIds.value;
+    for (let i = 0; i < ids.length; i += 1) {
+      if (ids[i] === starId) return 1;
+    }
+    return 0;
+  });
 
   // White-blue core radius: small and tight, scaled gently by memory weight.
   const coreR = Math.max(radius * 0.42, MIN_STAR_RADIUS * 0.7);
   // Tight colored bloom — a soft glow hugging the core, not a wide disc.
-  const bloomR = coreR + Math.max(2.5, radius * 0.5) + (active ? 4 : 0);
+  // Radius is STATIC (animating r on a blurred circle is the fragile path that
+  // crashes Skia in Expo Go); only opacity animates.
+  const bloomR = coreR + Math.max(2.5, radius * 0.5);
   // Faint diffraction glint length, scaled to brightness of the star.
   const spikeLen = coreR + radius * 0.9 + 4;
 
   const coreOpacity = useDerivedValue(() => 0.85 + 0.15 * twinkle(clock.value));
 
   const bloomOpacity = useDerivedValue(() => {
-    const base = active ? 0.5 : 0.32;
+    const base = isActive.value ? 0.5 : 0.32;
     return base + 0.16 * twinkle(clock.value);
   });
 
-  const bloomScale = useDerivedValue(() => bloomR + twinkle(clock.value) * 1.2);
-
   // Diffraction spikes fade with twinkle so brighter moments sparkle.
   const spikeOpacity = useDerivedValue(
-    () => (0.18 + 0.32 * twinkle(clock.value)) * (active ? 1.4 : 1),
+    () => (0.18 + 0.32 * twinkle(clock.value)) * (isActive.value ? 1.4 : 1),
   );
 
   // The selection ring is always mounted (opacity 0 when inactive) so the
-  // Skia node tree never changes shape on tap — adding/removing nodes mid-
-  // animation crashes the native Skia reconciler.
-  const ringOpacity = useDerivedValue(() => (active ? 0.85 : 0));
+  // Skia node tree never changes shape on tap.
+  const ringOpacity = useDerivedValue(() => (isActive.value ? 0.85 : 0));
+  const ringColor = useDerivedValue(() => (isForgingSV.value ? '#FFE066' : '#FFFFFF'));
 
   return (
     <Group>
       {/* Tight colored bloom (emotion tint), hugging the star */}
-      <Circle cx={pos.x} cy={pos.y} r={bloomScale} color={color} opacity={bloomOpacity}>
+      <Circle cx={pos.x} cy={pos.y} r={bloomR} color={color} opacity={bloomOpacity}>
         <Blur blur={Math.max(3, radius * 0.6)} />
       </Circle>
       {/* Subtle diffraction glint — thin cross that makes it read as a real star */}
@@ -383,7 +442,7 @@ function MemoryStarShape({
         cx={pos.x}
         cy={pos.y}
         r={radius + 10}
-        color={isForging ? '#FFE066' : '#FFFFFF'}
+        color={ringColor}
         style="stroke"
         strokeWidth={1.5}
         opacity={ringOpacity}
