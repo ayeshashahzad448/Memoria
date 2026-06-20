@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
@@ -13,12 +13,14 @@ import {
   Plus,
   Search,
   Sparkles,
+  Spline,
   Users,
   X,
 } from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
+import { CosmosTutorial } from '@/components/CosmosTutorial';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
@@ -33,6 +35,8 @@ export default function CosmosTab() {
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
   const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
   const createConstellation = useMemoria((s) => s.createConstellation);
+  const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
+  const completeTutorial = useMemoria((s) => s.completeTutorial);
 
   const stars = useMemo(
     () => allStars.filter((s) => s.cosmosId === activeCosmosId),
@@ -47,6 +51,18 @@ export default function CosmosTab() {
   const [forging, setForging] = useState(false);
   const [forgeIds, setForgeIds] = useState<string[]>([]);
   const [forgeName, setForgeName] = useState('');
+  const [showConstellations, setShowConstellations] = useState(false);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+
+  // Show the guided coachmark once for first-time users.
+  useEffect(() => {
+    if (!hasSeenTutorial) setTutorialVisible(true);
+  }, [hasSeenTutorial]);
+
+  const dismissTutorial = () => {
+    setTutorialVisible(false);
+    completeTutorial();
+  };
 
   const cosmosName = useMemo(() => {
     if (activeCosmosId === PERSONAL_COSMOS) return 'Your cosmos';
@@ -88,12 +104,18 @@ export default function CosmosTab() {
     setForgeName('');
   };
 
+  const toggleConstellations = () => {
+    void Haptics.selectionAsync();
+    setShowConstellations((v) => !v);
+  };
+
   return (
     <View className="bg-void flex-1">
       <CosmosCanvas
         stars={stars}
         constellations={constellations}
         revealedStarIds={revealedStarIds}
+        showAllConstellations={showConstellations}
         selectedStarId={selectedStar?.id}
         forgingStarIds={forgeIds}
         onTapStar={onTapStar}
@@ -109,16 +131,39 @@ export default function CosmosTab() {
               <ChevronDown size={16} color={MUTED} />
             </GlassCard>
           </Pressable>
-          <Pressable onPress={() => router.push('/search')} hitSlop={8}>
-            <GlassCard contentClassName="h-11 w-11 items-center justify-center">
-              <Search size={18} color={ACCENT} />
-            </GlassCard>
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            {/* Constellations toggle — reveals all group lines. */}
+            <Pressable onPress={toggleConstellations} hitSlop={8}>
+              <GlassCard
+                contentClassName="h-11 flex-row items-center gap-2 px-3.5"
+                style={
+                  showConstellations ? { borderColor: `${colorFor('violet').hex}99` } : undefined
+                }
+              >
+                <Spline
+                  size={17}
+                  color={showConstellations ? colorFor('violet').hex : MUTED}
+                  strokeWidth={showConstellations ? 2.2 : 1.8}
+                />
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: showConstellations ? colorFor('violet').hex : MUTED }}
+                >
+                  Lines
+                </Text>
+              </GlassCard>
+            </Pressable>
+            <Pressable onPress={() => router.push('/search')} hitSlop={8}>
+              <GlassCard contentClassName="h-11 w-11 items-center justify-center">
+                <Search size={18} color={ACCENT} />
+              </GlassCard>
+            </Pressable>
+          </View>
         </View>
       </View>
 
       {/* Empty state hint */}
-      {stars.length === 0 && (
+      {stars.length === 0 && !tutorialVisible && (
         <View className="absolute inset-0 items-center justify-center px-10" pointerEvents="none">
           <Text className="text-muted text-center leading-6">
             Your cosmos is waiting. Tap the plus button to add your first memory.
@@ -141,19 +186,23 @@ export default function CosmosTab() {
       {forging && (
         <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 px-4">
           <GlassCard contentClassName="gap-3 p-5">
-            <Text className="text-starlight font-semibold">New group</Text>
+            <Text className="text-starlight font-semibold">New constellation</Text>
             <Text className="text-muted text-xs">
               Tap two or more memories to connect them in order. {forgeIds.length} selected.
             </Text>
             <TextField>
-              <Input placeholder="Name this group" value={forgeName} onChangeText={setForgeName} />
+              <Input
+                placeholder="Name this constellation"
+                value={forgeName}
+                onChangeText={setForgeName}
+              />
             </TextField>
             <View className="flex-row gap-3">
               <Button variant="ghost" className="flex-1" onPress={cancelForge}>
                 Cancel
               </Button>
               <Button className="flex-1" isDisabled={forgeIds.length < 2} onPress={confirmForge}>
-                Create group
+                Connect
               </Button>
             </View>
           </GlassCard>
@@ -167,7 +216,7 @@ export default function CosmosTab() {
             <Pressable onPress={beginForge}>
               <GlassCard contentClassName="flex-row items-center gap-2 px-5 py-3.5">
                 <Link2 size={16} color={ACCENT} />
-                <Text className="text-starlight">Group</Text>
+                <Text className="text-starlight">Connect</Text>
               </GlassCard>
             </Pressable>
           )}
@@ -190,8 +239,18 @@ export default function CosmosTab() {
               <Plus size={30} color="#0b0c10" strokeWidth={2.5} />
             </View>
           </Pressable>
+          {stars.length >= 2 && (
+            <Pressable onPress={() => router.push('/constellations')}>
+              <GlassCard contentClassName="flex-row items-center gap-2 px-5 py-3.5">
+                <Spline size={16} color={colorFor('violet').hex} />
+                <Text className="text-starlight">Groups</Text>
+              </GlassCard>
+            </Pressable>
+          )}
         </View>
       )}
+
+      {tutorialVisible && <CosmosTutorial onDone={dismissTutorial} />}
     </View>
   );
 }

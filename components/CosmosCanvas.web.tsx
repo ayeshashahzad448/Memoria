@@ -6,17 +6,21 @@ import Animated, {
   clamp,
   useAnimatedStyle,
   useSharedValue,
+  withDecay,
   withRepeat,
+  withSpring,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
-import { colorFor, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
+import { colorFor, panBoundsForCount, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
 
 interface CosmosCanvasProps {
   stars: MemoryStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
+  showAllConstellations?: boolean;
   selectedStarId?: string;
   forgingStarIds: string[];
   onTapStar: (star: MemoryStar) => void;
@@ -35,6 +39,13 @@ function seed(str: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
+/** Snap a pan offset back inside the elastic boundary with a soft spring. */
+function settleAxis(value: SharedValue<number>, bound: number) {
+  'worklet';
+  if (value.value > bound) value.value = withSpring(bound, { damping: 18, stiffness: 120 });
+  else if (value.value < -bound) value.value = withSpring(-bound, { damping: 18, stiffness: 120 });
+}
+
 /**
  * Web fallback for the cosmos. Skia's CanvasKit does not bundle for web here,
  * so stars and constellation lines are rendered with Views while keeping
@@ -45,6 +56,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     stars,
     constellations,
     revealedStarIds,
+    showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
     onTapStar,
@@ -52,6 +64,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   } = props;
   const { width, height } = useWindowDimensions();
   const span = Math.max(width, height) * 1.15;
+  const boundsX = panBoundsForCount(stars.length, width);
+  const boundsY = panBoundsForCount(stars.length, height);
 
   const placed = useMemo(
     () =>
@@ -83,8 +97,18 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       savedTy.value = ty.value;
     })
     .onUpdate((e) => {
-      tx.value = savedTx.value + e.translationX;
-      ty.value = savedTy.value + e.translationY;
+      const rawX = savedTx.value + e.translationX;
+      const rawY = savedTy.value + e.translationY;
+      tx.value = rawX > boundsX || rawX < -boundsX ? savedTx.value + e.translationX * 0.4 : rawX;
+      ty.value = rawY > boundsY || rawY < -boundsY ? savedTy.value + e.translationY * 0.4 : rawY;
+    })
+    .onEnd((e) => {
+      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.997 }, () =>
+        settleAxis(tx, boundsX),
+      );
+      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.997 }, () =>
+        settleAxis(ty, boundsY),
+      );
     });
 
   const pinch = Gesture.Pinch()
@@ -111,7 +135,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const lines = useMemo(() => {
     const segs: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
     for (const c of constellations) {
-      if (!c.starIds.some((id) => revealed.has(id))) continue;
+      if (!showAllConstellations && !c.starIds.some((id) => revealed.has(id))) continue;
       const ordered = [...c.starIds]
         .map((id) => byId.get(id))
         .filter((p): p is (typeof placed)[number] => Boolean(p))
@@ -129,7 +153,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       }
     }
     return segs;
-  }, [constellations, revealed, byId, toScreen]);
+  }, [constellations, revealed, byId, toScreen, showAllConstellations]);
 
   const band = useMemo(() => {
     const arr: { id: string; x: number; y: number; r: number; o: number }[] = [];

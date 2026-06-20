@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from 'heroui-native';
-import { History, MapPin } from 'lucide-react-native';
+import { History, MapPin, Sparkles } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
@@ -31,23 +31,26 @@ export default function ThrowbacksTab() {
   return (
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
-        <Text className="text-starlight font-display text-3xl font-bold">Throwbacks</Text>
+        <Text className="text-starlight font-display text-3xl font-bold">Recall</Text>
         <Text className="text-muted mt-1 mb-6 text-sm leading-5">
-          Memories that resurface from years past, brought back for you to revisit.
+          Anniversaries and highlights resurfaced from years past, brought back for you to revisit.
         </Text>
 
         {throwbacks.length === 0 ? (
           <GlassCard contentClassName="items-center gap-2 p-6">
             <History size={22} color={MUTED} />
             <Text className="text-muted text-center text-sm leading-5">
-              No throwbacks yet. As your memories age, the ones from this day in years past will
-              appear here.
+              Nothing to recall yet. As your memories age, anniversaries and highlights from years
+              past will appear here.
             </Text>
           </GlassCard>
         ) : (
           <View className="gap-3">
             {throwbacks.map((tb) => {
               const color = colorFor(tb.star.colorKey);
+              const isAnniversary = tb.kind === 'anniversary';
+              const Icon = isAnniversary ? History : Sparkles;
+              const tint = isAnniversary ? ACCENT : colorFor('amber').hex;
               return (
                 <Pressable
                   key={tb.id}
@@ -57,8 +60,11 @@ export default function ThrowbacksTab() {
                 >
                   <GlassCard contentClassName="gap-2 p-5">
                     <View className="flex-row items-center gap-2">
-                      <History size={14} color={ACCENT} />
-                      <Text className="text-accent text-xs font-semibold tracking-wide uppercase">
+                      <Icon size={14} color={tint} />
+                      <Text
+                        className="text-xs font-semibold tracking-wide uppercase"
+                        style={{ color: tint }}
+                      >
                         {tb.headline}
                       </Text>
                     </View>

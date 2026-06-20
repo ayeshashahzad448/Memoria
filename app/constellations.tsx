@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
 import * as Haptics from 'expo-haptics';
-import { Link2, Sparkles, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Link2, Sparkles, Trash2 } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
@@ -12,7 +12,7 @@ import { colorFor } from '@/lib/memoria';
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
 
-export default function ConstellationsTab() {
+export default function ConstellationsScreen() {
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
@@ -39,10 +39,7 @@ export default function ConstellationsTab() {
   const [dismissed, setDismissed] = useState<string[]>([]);
   const visibleSuggestions = suggestions.filter((s) => !dismissed.includes(s.id));
 
-  const starById = useMemo(() => {
-    const m = new Map(stars.map((s) => [s.id, s]));
-    return m;
-  }, [stars]);
+  const starById = useMemo(() => new Map(stars.map((s) => [s.id, s])), [stars]);
 
   const accept = (id: string, reason: string, starIds: string[]) => {
     createConstellation(reason, starIds, 'suggested');
@@ -52,10 +49,16 @@ export default function ConstellationsTab() {
 
   return (
     <View className="bg-void flex-1">
-      <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
-        <Text className="text-starlight font-display text-3xl font-bold">Groups</Text>
-        <Text className="text-muted mt-1 mb-6 text-sm leading-5">
-          Connect related memories into groups. Tap a memory in your cosmos to reveal its lines.
+      <ScrollView contentContainerClassName="px-5 pt-safe-offset-3 pb-12">
+        <View className="mb-3 flex-row items-center gap-3">
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <ArrowLeft size={22} color={MUTED} />
+          </Pressable>
+          <Text className="text-starlight font-display text-2xl font-bold">Constellations</Text>
+        </View>
+        <Text className="text-muted mb-6 text-sm leading-5">
+          Connect related memories into constellations. Toggle Constellations in your cosmos to
+          reveal the glowing lines.
         </Text>
 
         {/* AI suggestions */}
@@ -83,7 +86,7 @@ export default function ConstellationsTab() {
                     className="flex-1"
                     onPress={() => accept(s.id, s.reason, s.starIds)}
                   >
-                    Create group
+                    Create
                   </Button>
                 </View>
               </GlassCard>
@@ -91,13 +94,13 @@ export default function ConstellationsTab() {
           </View>
         )}
 
-        {/* Existing groups */}
-        <Text className="text-starlight mb-2.5 font-semibold">Your groups</Text>
+        {/* Existing constellations */}
+        <Text className="text-starlight mb-2.5 font-semibold">Your constellations</Text>
         {constellations.length === 0 ? (
           <GlassCard contentClassName="items-center gap-2 p-6">
             <Link2 size={22} color={MUTED} />
             <Text className="text-muted text-center text-sm leading-5">
-              No groups yet. From your cosmos, tap Group and pick two or more memories to connect.
+              No constellations yet. From your cosmos, tap Connect and pick two or more memories.
             </Text>
           </GlassCard>
         ) : (
@@ -138,7 +141,7 @@ export default function ConstellationsTab() {
                     ))}
                   </View>
                   <Text className="text-muted text-[11px]">
-                    {c.origin === 'suggested' ? 'Suggested group' : 'Created by you'}
+                    {c.origin === 'suggested' ? 'Suggested constellation' : 'Created by you'}
                   </Text>
                 </GlassCard>
               );

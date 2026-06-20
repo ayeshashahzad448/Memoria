@@ -92,11 +92,20 @@ export interface ConstellationSuggestion {
 
 export type AccountTier = 'free' | 'premium';
 
+export interface UserProfile {
+  displayName: string;
+  bio: string;
+  /** Star color key used to tint the avatar. */
+  avatarColorKey: StarColorKey;
+}
+
 export interface Throwback {
   id: string;
   /** Headline line, e.g. "On this day in 2020". */
   headline: string;
   /** Supporting detail, e.g. "You were at Regent's Park". */
   detail: string;
+  /** Anniversary = exact "X years ago today"; highlight = surfaced older memory. */
+  kind: 'anniversary' | 'highlight';
   star: MemoryStar;
 }

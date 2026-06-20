@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button, Separator, Text } from 'heroui-native';
-import { ChevronRight, Cloud, LogOut, Sparkles, Users } from 'lucide-react-native';
+import { Button, Input, Label, Separator, Text, TextArea, TextField } from 'heroui-native';
+import { Check, ChevronRight, Cloud, LogOut, Pencil, Sparkles, Users } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StorageBar, storageLabel } from '@/components/StorageBar';
 import { useMemoria } from '@/lib/store';
-import { CURRENT_USER, colorFor } from '@/lib/memoria';
+import { CURRENT_USER, STAR_COLORS, colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, totalMediaBytes } from '@/lib/storage';
+import type { StarColorKey } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -17,15 +18,41 @@ export default function ProfileTab() {
   const router = useRouter();
   const stars = useMemoria((s) => s.stars);
   const tier = useMemoria((s) => s.tier);
+  const profile = useMemoria((s) => s.profile);
   const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
   const signOut = useMemoria((s) => s.signOut);
   const setTier = useMemoria((s) => s.setTier);
+  const updateProfile = useMemoria((s) => s.updateProfile);
 
   const isPremium = tier === 'premium';
   const used = useMemo(() => totalMediaBytes(stars), [stars]);
   const ratio = used / FREE_LIMIT_BYTES;
   const atLimit = !isPremium && used >= FREE_LIMIT_BYTES;
   const warning = !isPremium && ratio >= WARN_RATIO && !atLimit;
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(profile.displayName);
+  const [bio, setBio] = useState(profile.bio);
+  const [avatarColorKey, setAvatarColorKey] = useState<StarColorKey>(profile.avatarColorKey);
+
+  const avatarHex = colorFor(avatarColorKey).hex;
+  const initial = (profile.displayName || CURRENT_USER.name).slice(0, 1).toUpperCase();
+
+  const startEdit = () => {
+    setName(profile.displayName);
+    setBio(profile.bio);
+    setAvatarColorKey(profile.avatarColorKey);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    updateProfile({
+      displayName: name.trim() || CURRENT_USER.name,
+      bio: bio.trim(),
+      avatarColorKey,
+    });
+    setEditing(false);
+  };
 
   const onSignOut = () => {
     signOut();
@@ -34,32 +61,107 @@ export default function ProfileTab() {
 
   return (
     <View className="bg-void flex-1">
-      <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
+      <ScrollView
+        contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
+        keyboardShouldPersistTaps="handled"
+      >
         <Text className="text-starlight font-display text-3xl font-bold">Profile</Text>
 
         {/* Identity */}
-        <GlassCard className="mt-5" contentClassName="flex-row items-center gap-4 p-5">
-          <View
-            className="h-14 w-14 items-center justify-center rounded-full"
-            style={{ backgroundColor: ACCENT }}
-          >
-            <Text className="text-void text-xl font-bold">
-              {CURRENT_USER.name.slice(0, 1).toUpperCase()}
-            </Text>
-          </View>
-          <View className="flex-1">
-            <Text className="text-starlight text-lg font-semibold">{CURRENT_USER.name}</Text>
-            <Text className="text-muted text-xs">@{CURRENT_USER.handle}</Text>
-          </View>
-          <View
-            className="rounded-full border px-3 py-1"
-            style={{ borderColor: isPremium ? ACCENT : 'rgba(140,147,184,0.4)' }}
-          >
-            <Text className="text-xs font-semibold" style={{ color: isPremium ? ACCENT : MUTED }}>
-              {isPremium ? 'Premium' : 'Free'}
-            </Text>
-          </View>
-        </GlassCard>
+        {editing ? (
+          <GlassCard className="mt-5" contentClassName="gap-4 p-5">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-14 w-14 items-center justify-center rounded-full"
+                style={{ backgroundColor: colorFor(avatarColorKey).hex }}
+              >
+                <Text className="text-void text-xl font-bold">
+                  {(name || CURRENT_USER.name).slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+              <View className="flex-1 gap-2">
+                <Label>Avatar color</Label>
+                <View className="flex-row flex-wrap gap-2">
+                  {STAR_COLORS.map((c) => (
+                    <Pressable key={c.key} onPress={() => setAvatarColorKey(c.key)} hitSlop={4}>
+                      <View
+                        className="h-7 w-7 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: c.hex,
+                          borderWidth: avatarColorKey === c.key ? 2 : 0,
+                          borderColor: '#FFFFFF',
+                        }}
+                      >
+                        {avatarColorKey === c.key && (
+                          <Check size={14} color="#0b0c10" strokeWidth={3} />
+                        )}
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <TextField>
+              <Label>Display name</Label>
+              <Input placeholder="Your name" value={name} onChangeText={setName} />
+            </TextField>
+
+            <TextField>
+              <Label>Bio</Label>
+              <TextArea
+                placeholder="A short line about you"
+                value={bio}
+                onChangeText={setBio}
+                numberOfLines={3}
+              />
+            </TextField>
+
+            <View className="flex-row gap-3">
+              <Button variant="ghost" className="flex-1" onPress={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" onPress={saveEdit}>
+                <Button.Label>Save</Button.Label>
+              </Button>
+            </View>
+          </GlassCard>
+        ) : (
+          <GlassCard className="mt-5" contentClassName="gap-3 p-5">
+            <View className="flex-row items-center gap-4">
+              <View
+                className="h-14 w-14 items-center justify-center rounded-full"
+                style={{ backgroundColor: avatarHex }}
+              >
+                <Text className="text-void text-xl font-bold">{initial}</Text>
+              </View>
+              <View className="flex-1">
+                <Text className="text-starlight text-lg font-semibold">
+                  {profile.displayName || CURRENT_USER.name}
+                </Text>
+                <Text className="text-muted text-xs">@{CURRENT_USER.handle}</Text>
+              </View>
+              <View
+                className="rounded-full border px-3 py-1"
+                style={{ borderColor: isPremium ? ACCENT : 'rgba(140,147,184,0.4)' }}
+              >
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: isPremium ? ACCENT : MUTED }}
+                >
+                  {isPremium ? 'Premium' : 'Free'}
+                </Text>
+              </View>
+            </View>
+            {profile.bio.length > 0 && (
+              <Text className="text-muted text-sm leading-5">{profile.bio}</Text>
+            )}
+            <Pressable onPress={startEdit} hitSlop={6} className="flex-row items-center gap-2">
+              <Pencil size={14} color={ACCENT} />
+              <Text className="text-accent text-sm font-medium">Edit profile</Text>
+            </Pressable>
+          </GlassCard>
+        )}
 
         {/* Storage capacity */}
         <Text className="text-muted mt-7 mb-2.5 text-xs font-semibold tracking-widest uppercase">

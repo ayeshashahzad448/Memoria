@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text } from 'heroui-native';
-import { Orbit, Search, Spline, History, User } from 'lucide-react-native';
+import { Orbit, Search, History, User, UsersRound } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
@@ -19,11 +19,10 @@ interface TabDef {
   center?: boolean;
 }
 
-// Left-to-right order requested by the user. Cosmos sits in the middle as the
-// raised, glowing primary view.
+// Left-to-right order: Recall, Shared, Cosmos (center, primary), Search, Profile.
 const TABS: TabDef[] = [
-  { name: 'throwbacks', label: 'Throwbacks', icon: History },
-  { name: 'constellations', label: 'Groups', icon: Spline },
+  { name: 'throwbacks', label: 'Recall', icon: History },
+  { name: 'shared', label: 'Shared', icon: UsersRound },
   { name: 'index', label: 'Cosmos', icon: Orbit, center: true },
   { name: 'search', label: 'Search', icon: Search },
   { name: 'profile', label: 'Profile', icon: User },

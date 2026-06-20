@@ -32,6 +32,19 @@ export function radiusForText(text: string): number {
   return MIN_STAR_RADIUS + (MAX_STAR_RADIUS - MIN_STAR_RADIUS) * t;
 }
 
+/**
+ * Soft pan boundary: the explorable universe expands with memory density so a
+ * user with few stars can't drift into an endless empty void. Returns the max
+ * pan distance (in screen px) allowed in each direction before elastic snap-back.
+ */
+export function panBoundsForCount(count: number, viewport: number): number {
+  // 0 stars -> tight; grows and saturates as the cosmos fills out.
+  const t = 1 - Math.exp(-count / 8);
+  const min = viewport * 0.35;
+  const max = viewport * 1.6;
+  return min + (max - min) * t;
+}
+
 /** Local-first mock directory of taggable users (stands in for a backend search). */
 export const CURRENT_USER: MemoriaUser = {
   id: 'u-me',

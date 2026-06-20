@@ -167,6 +167,7 @@ function RootNavigator() {
         <Stack.Screen name="auth" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="constellations" />
         <Stack.Screen
           name="star/create"
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}

@@ -3,24 +3,30 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { Canvas, Circle, Group, Line, Blur, Fill, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import {
   Easing,
+  runOnJS,
   useDerivedValue,
   useSharedValue,
+  withDecay,
   withRepeat,
+  withSpring,
   withTiming,
   clamp,
   type SharedValue,
 } from 'react-native-reanimated';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
-import { colorFor, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
+import { colorFor, panBoundsForCount, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
 
 interface CosmosCanvasProps {
   stars: MemoryStar[];
   constellations: Constellation[];
   /** Star ids whose constellation lines should be visible. */
   revealedStarIds: string[];
+  /** When true, all constellation lines are revealed (Constellations toggle). */
+  showAllConstellations?: boolean;
   selectedStarId?: string;
   /** Star ids the user has multi-selected for forging. */
   forgingStarIds: string[];
@@ -47,11 +53,19 @@ function seed(str: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
+/** Snap a pan offset back inside the elastic boundary with a soft spring. */
+function settleAxis(value: SharedValue<number>, bound: number) {
+  'worklet';
+  if (value.value > bound) value.value = withSpring(bound, { damping: 18, stiffness: 120 });
+  else if (value.value < -bound) value.value = withSpring(-bound, { damping: 18, stiffness: 120 });
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
   const {
     stars,
     constellations,
     revealedStarIds,
+    showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
     onTapStar,
@@ -61,6 +75,13 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
 
   // World extent: normalized -1..1 mapped to a span larger than the screen.
   const span = Math.max(width, height) * 1.15;
+
+  // Elastic pan boundary that expands with memory density.
+  const boundsX = panBoundsForCount(stars.length, width);
+  const boundsY = panBoundsForCount(stars.length, height);
+  // Width of one "sector" used to fire a light haptic when crossing into newly
+  // revealed procedural space.
+  const sectorSize = Math.max(width, height) * 0.6;
 
   const placed = useMemo<PlacedStar[]>(
     () =>
@@ -87,6 +108,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
   const clock = useSharedValue(0);
+  // Last sector index crossed, used to fire a light haptic on a new sector.
+  const lastSector = useSharedValue(0);
 
   // Continuous twinkle clock on the UI thread (loops 0 -> 1 forever).
   const clockStarted = useRef(false);
@@ -95,6 +118,13 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     clockStarted.current = true;
     clock.value = withRepeat(withTiming(6, { duration: 15000, easing: Easing.linear }), -1, false);
   });
+
+  const lightTick = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+  const focusTick = useCallback(() => {
+    void Haptics.selectionAsync();
+  }, []);
 
   const transform = useDerivedValue(() => [
     { translateX: tx.value },
@@ -108,8 +138,26 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       savedTy.value = ty.value;
     })
     .onUpdate((e) => {
-      tx.value = savedTx.value + e.translationX;
-      ty.value = savedTy.value + e.translationY;
+      // Loose, fluid drag with rubber-banding once past the soft boundary.
+      const rawX = savedTx.value + e.translationX;
+      const rawY = savedTy.value + e.translationY;
+      tx.value = rawX > boundsX || rawX < -boundsX ? savedTx.value + e.translationX * 0.4 : rawX;
+      ty.value = rawY > boundsY || rawY < -boundsY ? savedTy.value + e.translationY * 0.4 : rawY;
+      // Haptic pulse when gliding into a freshly generated sector.
+      const sector = Math.round(Math.hypot(tx.value, ty.value) / sectorSize);
+      if (sector !== lastSector.value) {
+        lastSector.value = sector;
+        runOnJS(lightTick)();
+      }
+    })
+    .onEnd((e) => {
+      // Weightless momentum: glide to a stop, then settle inside the boundary.
+      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.997 }, () =>
+        settleAxis(tx, boundsX),
+      );
+      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.997 }, () =>
+        settleAxis(ty, boundsY),
+      );
     });
 
   const pinch = Gesture.Pinch()
@@ -135,8 +183,10 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
         hitDist = d;
       }
     }
-    if (hit) onTapStar(hit);
-    else onTapEmpty();
+    if (hit) {
+      runOnJS(focusTick)();
+      runOnJS(onTapStar)(hit);
+    } else runOnJS(onTapEmpty)();
   });
 
   const gesture = Gesture.Simultaneous(Gesture.Race(tap, pan), pinch);
@@ -151,6 +201,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             placed={placed}
             constellations={constellations}
             revealedStarIds={revealedStarIds}
+            showAll={showAllConstellations}
             toScreen={toScreen}
           />
           {placed.map((p) => (
@@ -249,11 +300,13 @@ function ConstellationLines({
   placed,
   constellations,
   revealedStarIds,
+  showAll,
   toScreen,
 }: {
   placed: PlacedStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
+  showAll: boolean;
   toScreen: (x: number, y: number) => { x: number; y: number };
 }) {
   const byId = useMemo(() => {
@@ -267,7 +320,7 @@ function ConstellationLines({
   return (
     <Group>
       {constellations.map((c) => {
-        const isVisible = c.starIds.some((id) => revealed.has(id));
+        const isVisible = showAll || c.starIds.some((id) => revealed.has(id));
         if (!isVisible) return null;
         // Connect chronologically: order by the star's date.
         const ordered = [...c.starIds]

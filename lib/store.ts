@@ -9,6 +9,7 @@ import type {
   SharedCosmos,
   Throwback,
   AccountTier,
+  UserProfile,
 } from '@/lib/types';
 import { CURRENT_USER, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
@@ -19,6 +20,16 @@ let counter = 0;
 function uid(prefix: string): string {
   counter += 1;
   return `${prefix}-${Date.now().toString(36)}-${counter}`;
+}
+
+/** Deterministic pseudo-random in [0,1) from a string seed. */
+function seedNum(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
 }
 
 export interface NewStarInput {
@@ -35,11 +46,15 @@ export interface NewStarInput {
 
 interface MemoriaState {
   hasOnboarded: boolean;
+  /** Whether the in-cosmos coachmark tutorial has been shown. */
+  hasSeenTutorial: boolean;
   isAuthed: boolean;
   /** Account tier; gates cloud storage. */
   tier: AccountTier;
   /** Active cosmos: 'personal' or a shared cosmos id. */
   activeCosmosId: string;
+  /** Editable user profile. */
+  profile: UserProfile;
 
   stars: MemoryStar[];
   constellations: Constellation[];
@@ -48,8 +63,10 @@ interface MemoriaState {
   signIn: () => void;
   signOut: () => void;
   completeOnboarding: () => void;
+  completeTutorial: () => void;
   setActiveCosmos: (id: string) => void;
   setTier: (tier: AccountTier) => void;
+  updateProfile: (patch: Partial<UserProfile>) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -87,9 +104,15 @@ export const useMemoria = create<MemoriaState>()(
   persist(
     (set, get) => ({
       hasOnboarded: false,
+      hasSeenTutorial: false,
       isAuthed: false,
       tier: 'free',
       activeCosmosId: PERSONAL_COSMOS,
+      profile: {
+        displayName: CURRENT_USER.name,
+        bio: '',
+        avatarColorKey: 'cyan',
+      },
       stars: [],
       constellations: [],
       sharedCosmoses: [],
@@ -97,8 +120,10 @@ export const useMemoria = create<MemoriaState>()(
       signIn: () => set({ isAuthed: true }),
       signOut: () => set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
       completeOnboarding: () => set({ hasOnboarded: true }),
+      completeTutorial: () => set({ hasSeenTutorial: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
       setTier: (tier) => set({ tier }),
+      updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);
@@ -257,44 +282,62 @@ export const useMemoria = create<MemoriaState>()(
         const todayDay = now.getDate();
         const thisYear = now.getFullYear();
 
-        const throwbacks: Throwback[] = [];
-        for (const s of stars) {
+        const olderStars = stars.filter((s) => {
           const d = new Date(s.date);
-          if (Number.isNaN(d.getTime())) continue;
-          const yearsAgo = thisYear - d.getFullYear();
-          if (yearsAgo < 1) continue;
-          // "On this day" — same calendar day, within a 2-day window.
+          return !Number.isNaN(d.getTime()) && thisYear - d.getFullYear() >= 1;
+        });
+
+        const anniversaries: Throwback[] = [];
+        const usedIds = new Set<string>();
+        for (const s of olderStars) {
+          const d = new Date(s.date);
           const sameMonth = d.getMonth() === todayMonth;
           const dayDelta = Math.abs(d.getDate() - todayDay);
           if (!sameMonth || dayDelta > 2) continue;
-
+          const yearsAgo = thisYear - d.getFullYear();
           const where = s.location?.name ? ` at ${s.location.name}` : '';
-          throwbacks.push({
-            id: `tb-${s.id}`,
-            headline: `On this day in ${d.getFullYear()}`,
+          anniversaries.push({
+            id: `tb-anniv-${s.id}`,
+            headline: yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`,
             detail: `${s.title}${where}`,
+            kind: 'anniversary',
             star: s,
           });
+          usedIds.add(s.id);
         }
 
-        // If nothing lands on today, surface the oldest memories as "from the archive".
-        if (throwbacks.length === 0) {
-          const oldest = [...stars]
-            .filter((s) => thisYear - new Date(s.date).getFullYear() >= 1)
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(0, 3);
-          for (const s of oldest) {
-            const d = new Date(s.date);
-            const where = s.location?.name ? ` at ${s.location.name}` : '';
-            throwbacks.push({
-              id: `tb-${s.id}`,
-              headline: `A memory from ${d.getFullYear()}`,
-              detail: `${s.title}${where}`,
-              star: s,
-            });
-          }
+        // Weighted shuffle of remaining older memories as random highlights.
+        // Older memories are weighted slightly higher so deeper history resurfaces.
+        const pool = olderStars.filter((s) => !usedIds.has(s.id));
+        const weighted = pool
+          .map((s) => {
+            const yearsAgo = thisYear - new Date(s.date).getFullYear();
+            const richness = s.photos.length + s.voiceNotes.length + s.story.length / 200;
+            const weight = (1 + yearsAgo * 0.5 + richness) * (0.5 + seedNum(s.id));
+            return { s, weight };
+          })
+          .sort((a, b) => b.weight - a.weight);
+
+        const highlights: Throwback[] = weighted.slice(0, 5).map(({ s }) => {
+          const d = new Date(s.date);
+          const where = s.location?.name ? ` at ${s.location.name}` : '';
+          return {
+            id: `tb-hl-${s.id}`,
+            headline: `Highlight from ${d.getFullYear()}`,
+            detail: `${s.title}${where}`,
+            kind: 'highlight',
+            star: s,
+          };
+        });
+
+        // Blend: anniversaries lead, then weave in highlights up to a cap.
+        const blended: Throwback[] = [...anniversaries];
+        const cap = 8;
+        for (const h of highlights) {
+          if (blended.length >= cap) break;
+          blended.push(h);
         }
-        return throwbacks;
+        return blended;
       },
     }),
     {
@@ -302,9 +345,11 @@ export const useMemoria = create<MemoriaState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         hasOnboarded: state.hasOnboarded,
+        hasSeenTutorial: state.hasSeenTutorial,
         isAuthed: state.isAuthed,
         tier: state.tier,
         activeCosmosId: state.activeCosmosId,
+        profile: state.profile,
         stars: state.stars,
         constellations: state.constellations,
         sharedCosmoses: state.sharedCosmoses,
