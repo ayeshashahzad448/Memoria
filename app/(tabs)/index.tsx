@@ -4,7 +4,18 @@ import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import { Camera, MapPin, Mic, Box, Square, Search, Sparkles, Users, X } from 'lucide-react-native';
+import {
+  Camera,
+  MapPin,
+  Mic,
+  Box,
+  Square,
+  Search,
+  Sparkles,
+  Spline,
+  Users,
+  X,
+} from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
@@ -84,10 +95,10 @@ export default function CosmosTab() {
     setSelectedStar(star);
   };
 
-  const beginForge = () => {
+  const beginForge = (seedStarId?: string) => {
     setSelectedStar(null);
     setForging(true);
-    setForgeIds([]);
+    setForgeIds(seedStarId ? [seedStarId] : []);
     setForgeName('');
   };
 
@@ -122,8 +133,8 @@ export default function CosmosTab() {
       <View className="pt-safe-offset-2 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
-            <Text className="text-starlight font-display text-2xl font-semibold">
-              Navigate Your Universe
+            <Text className="text-starlight font-display text-2xl leading-7 font-semibold">
+              Navigate Your{'\n'}Universe
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
@@ -166,6 +177,8 @@ export default function CosmosTab() {
           <HudCard
             star={selectedStar}
             onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
+            onConnect={() => beginForge(selectedStar.id)}
+            canConnect={stars.length >= 2}
             onClose={() => setSelectedStar(null)}
           />
         </View>
@@ -177,7 +190,7 @@ export default function CosmosTab() {
           <GlassCard contentClassName="gap-3 p-5">
             <Text className="text-starlight font-semibold">New constellation</Text>
             <Text className="text-muted text-xs">
-              Tap two or more memories to connect them in order. {forgeIds.length} selected.
+              Tap the memories to connect them in order. {forgeIds.length} selected.
             </Text>
             <TextField>
               <Input
@@ -200,12 +213,7 @@ export default function CosmosTab() {
 
       {/* Bottom action row */}
       {!selectedStar && !forging && stars.length >= 2 && (
-        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 flex-row items-center justify-between px-8">
-          <Pressable onPress={beginForge}>
-            <GlassCard contentClassName="px-5 py-3.5">
-              <Text className="text-starlight font-medium">Connect</Text>
-            </GlassCard>
-          </Pressable>
+        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 flex-row items-center justify-center px-8">
           <Pressable onPress={() => router.push('/constellations')}>
             <GlassCard contentClassName="px-5 py-3.5">
               <Text className="text-starlight font-medium">Constellations</Text>
@@ -229,10 +237,14 @@ export default function CosmosTab() {
 function HudCard({
   star,
   onOpen,
+  onConnect,
+  canConnect,
   onClose,
 }: {
   star: MemoryStar;
   onOpen: () => void;
+  onConnect: () => void;
+  canConnect: boolean;
   onClose: () => void;
 }) {
   const color = colorFor(star.colorKey);
@@ -297,6 +309,19 @@ function HudCard({
             <Text className="text-accent text-xs">Open memory</Text>
           </View>
         </View>
+
+        {canConnect && (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onConnect();
+            }}
+            className="border-glass-border mt-1 flex-row items-center justify-center gap-2 rounded-xl border py-2.5"
+          >
+            <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+            <Text className="text-accent text-sm font-medium">Add to constellation</Text>
+          </Pressable>
+        )}
       </GlassCard>
     </Pressable>
   );
