@@ -196,6 +196,14 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="star/dissolve"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
           name="cosmos-spaces"
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />

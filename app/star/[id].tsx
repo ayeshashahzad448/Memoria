@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, Separator, Text } from 'heroui-native';
+import { Button, Dialog, Separator, Text } from 'heroui-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { format } from 'date-fns';
 import {
@@ -12,6 +12,7 @@ import {
   Pencil,
   Sparkles,
   Sun,
+  Trash2,
   Users,
   Weight,
 } from 'lucide-react-native';
@@ -31,7 +32,7 @@ export default function StarDetail() {
   const id = params.id;
   const justCreated = params.justCreated === '1';
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
-  const removeStar = useMemoria((s) => s.removeStar);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const stats = useMemo(() => (star ? starStatsForStar(star) : null), [star]);
 
@@ -211,15 +212,41 @@ export default function StarDetail() {
 
         <Separator className="my-7" />
 
-        <Button
-          variant="danger-soft"
-          onPress={() => {
-            removeStar(star.id);
-            router.back();
-          }}
-        >
-          Delete memory
-        </Button>
+        <Dialog isOpen={confirmOpen} onOpenChange={setConfirmOpen}>
+          <Dialog.Trigger asChild>
+            <Button variant="danger-soft">
+              <Trash2 size={16} color={colorFor('rose').hex} />
+              <Button.Label>Delete memory</Button.Label>
+            </Button>
+          </Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Overlay />
+            <Dialog.Content>
+              <Dialog.Close variant="ghost" />
+              <View className="mb-5 gap-1.5">
+                <Dialog.Title>Let this memory fade?</Dialog.Title>
+                <Dialog.Description>
+                  {`"${star.title}" will scatter into stardust and leave your cosmos. This can't be undone.`}
+                </Dialog.Description>
+              </View>
+              <View className="flex-row justify-end gap-3">
+                <Button variant="ghost" size="sm" onPress={() => setConfirmOpen(false)}>
+                  Keep it
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onPress={() => {
+                    setConfirmOpen(false);
+                    router.replace({ pathname: '/star/dissolve', params: { id: star.id } });
+                  }}
+                >
+                  Delete
+                </Button>
+              </View>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog>
       </ScrollView>
     </View>
   );
