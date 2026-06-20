@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chip, Input, Label, Text, TextField } from 'heroui-native';
 import { format, isSameDay } from 'date-fns';
-import { CalendarDays, MapPin, Search as SearchIcon } from 'lucide-react-native';
+import { CalendarDays, MapPin, Search as SearchIcon, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { WheelDatePicker } from '@/components/WheelDatePicker';
@@ -77,8 +77,19 @@ export default function SearchTab() {
         contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-starlight font-display text-3xl font-bold">Search</Text>
-        <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1">
+            <Text className="text-starlight font-display text-3xl font-bold">Search</Text>
+            <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
+          </View>
+          <Pressable
+            onPress={() => router.navigate('/(tabs)')}
+            hitSlop={12}
+            className="bg-surface border-border h-9 w-9 items-center justify-center rounded-full border"
+          >
+            <X size={18} color={MUTED} />
+          </Pressable>
+        </View>
 
         <View className="gap-4">
           <TextField>
