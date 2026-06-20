@@ -31,6 +31,7 @@ import {
 
 import { initPostHog } from '@/lib/posthog';
 import { reportErrorToParent } from '@/lib/reportPreviewError';
+import { getMokotoFontMap, injectMokotoWebFont } from '@/lib/fonts';
 
 /**
  * Custom ErrorBoundary that reports React render errors to the parent window (Bilt preview iframe)
@@ -67,6 +68,7 @@ export default function RootLayout() {
     // Clean family aliases so `fontFamily: 'Space Grotesk' | 'Lora'` resolves on native too.
     'Space Grotesk': SpaceGrotesk_600SemiBold,
     Lora: Lora_400Regular,
+    ...getMokotoFontMap(),
   });
 
   // Report uncaught JS errors and unhandled promise rejections to parent (Bilt preview iframe)
@@ -110,6 +112,8 @@ export default function RootLayout() {
         link.crossOrigin = 'anonymous';
         document.head.appendChild(link);
       }
+
+      injectMokotoWebFont();
 
       // Note: The @import in global.css and the link tag above ensure Inter font loads
       // expo-font will register the font family names (Inter_400Regular, etc.)

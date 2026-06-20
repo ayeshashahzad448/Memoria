@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button, Input, Label, Text, TextField } from 'heroui-native';
+import { Apple } from 'lucide-react-native';
+import { Button, Input, Text, TextField } from 'heroui-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
+import { wordmarkFamily } from '@/lib/fonts';
 import { useMemoria } from '@/lib/store';
 
 export default function AuthScreen() {
@@ -15,7 +17,7 @@ export default function AuthScreen() {
 
   const enter = () => {
     signIn();
-    router.replace('/');
+    router.replace('/(tabs)');
   };
 
   return (
@@ -28,53 +30,88 @@ export default function AuthScreen() {
         <ScrollView
           contentContainerClassName="flex-grow justify-center px-6 py-12"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View className="mb-8 items-center">
-            <Text className="text-starlight font-display text-5xl font-bold tracking-tight">
+          <View className="mb-7 items-center">
+            <Text
+              style={{
+                fontFamily: wordmarkFamily(),
+                fontSize: 44,
+                letterSpacing: 3,
+                color: '#F8FAFC',
+                textShadowColor: '#45F3FF',
+                textShadowRadius: 18,
+                textShadowOffset: { width: 0, height: 0 },
+              }}
+            >
               Memoria
             </Text>
-            <Text className="text-muted mt-2 text-center">
-              A cosmos of your memories, kept luminous.
-            </Text>
+            <Text className="text-starlight font-display mt-2 text-xl">Sign in</Text>
           </View>
 
-          <GlassCard contentClassName="gap-4 p-6">
-            <TextField>
-              <Label>Email</Label>
-              <Input
-                placeholder="you@stars.space"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </TextField>
-            <TextField>
-              <Label>Password</Label>
-              <Input
-                placeholder="••••••••"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              />
-            </TextField>
+          <GlassCard contentClassName="gap-5 p-6">
+            <Text className="text-muted text-center text-xs leading-5">
+              By signing up or continuing you confirm that you have read and accept the{' '}
+              <Text className="text-starlight text-xs font-semibold">Terms of Service</Text> and{' '}
+              <Text className="text-starlight text-xs font-semibold">Privacy Policy</Text>.
+            </Text>
+
+            <View className="gap-4">
+              <TextField>
+                <Text className="text-starlight mb-1.5 text-sm font-semibold">
+                  Email or Username
+                </Text>
+                <Input
+                  placeholder="you@stars.space"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </TextField>
+
+              <TextField>
+                <View className="mb-1.5 flex-row items-center justify-between">
+                  <Text className="text-starlight text-sm font-semibold">Password</Text>
+                  <Pressable hitSlop={8}>
+                    <Text className="text-accent text-sm">Forgot?</Text>
+                  </Pressable>
+                </View>
+                <Input
+                  placeholder="••••••••"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
+              </TextField>
+            </View>
 
             <Button onPress={enter} className="mt-1">
-              Create account
+              Sign In
             </Button>
 
-            <View className="flex-row items-center gap-3 py-1">
+            <View className="flex-row items-center gap-3 py-0.5">
               <View className="bg-glass-border h-px flex-1" />
-              <Text className="text-muted text-xs">or continue with</Text>
+              <Text className="text-muted text-xs">or</Text>
               <View className="bg-glass-border h-px flex-1" />
             </View>
 
-            <OAuthButton label="Continue with Apple" onPress={enter} />
-            <OAuthButton label="Continue with Google" onPress={enter} />
+            <View className="gap-3">
+              <OAuthButton label="Continue with Google" onPress={enter}>
+                <GoogleGlyph />
+              </OAuthButton>
+              <OAuthButton label="Continue with Apple" onPress={enter}>
+                <Apple size={18} color="#F8FAFC" fill="#F8FAFC" />
+              </OAuthButton>
+            </View>
           </GlassCard>
 
-          <Text className="text-muted mt-6 text-center text-xs">
-            By continuing you agree to keep your memories among the stars.
+          <Text className="text-muted mt-6 text-center text-xs leading-5">
+            Need an account? Use the Google or Apple buttons above, or{' '}
+            <Text className="text-starlight text-xs font-semibold" onPress={enter}>
+              sign up with email
+            </Text>
+            .
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -82,13 +119,42 @@ export default function AuthScreen() {
   );
 }
 
-function OAuthButton({ label, onPress }: { label: string; onPress: () => void }) {
+function OAuthButton({
+  label,
+  onPress,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  children?: React.ReactNode;
+}) {
   return (
     <Pressable
       onPress={onPress}
       className="border-glass-border bg-starlight/5 active:bg-starlight/10 flex-row items-center justify-center gap-3 rounded-2xl border py-3.5"
     >
+      {children}
       <Text className="text-starlight font-medium">{label}</Text>
     </Pressable>
+  );
+}
+
+/** Minimal multi-color Google "G" ring built from a 4-color border (no external logo asset). */
+function GoogleGlyph() {
+  return (
+    <View className="h-[18px] w-[18px] items-center justify-center">
+      <View
+        style={{
+          height: 18,
+          width: 18,
+          borderRadius: 9,
+          borderWidth: 3,
+          borderTopColor: '#EA4335',
+          borderLeftColor: '#FBBC05',
+          borderRightColor: '#4285F4',
+          borderBottomColor: '#34A853',
+        }}
+      />
+    </View>
   );
 }
