@@ -715,6 +715,9 @@ function ConstellationLines({
           .filter((p): p is PlacedStar => Boolean(p));
         if (ordered.length < 2) return null;
         const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
+        // Close the loop: with 3+ stars, connect the last star back to the
+        // first so the constellation forms a closed shape (no trailing gap).
+        if (ordered.length > 2) pts.push(new THREE.Vector3(...ordered[0].pos));
         return (
           <ConstellationLine
             key={c.id}
