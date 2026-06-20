@@ -60,43 +60,82 @@ function seed(str: string): number {
 }
 
 // ---- Shared sprite textures (created once) --------------------------------
+//
+// These are built procedurally into a pixel buffer (THREE.DataTexture) so they
+// work identically on native (no DOM) and web — never reference `document` or
+// an HTML <canvas> here, which crashes in React Native.
 
-/** Soft radial glow texture used for the colored halo around each star. */
-function makeGlowTexture(): THREE.Texture {
-  const size = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
-  grad.addColorStop(0.55, 'rgba(255,255,255,0.16)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
+/** A radial gradient stop: distance from center (0..1) -> alpha (0..1). */
+type GradientStop = { at: number; alpha: number };
+
+/**
+ * Build a square RGBA DataTexture whose alpha falls off radially according to
+ * the supplied stops (linearly interpolated). RGB stays white; tinting is done
+ * via the SpriteMaterial color.
+ */
+function makeRadialTexture(size: number, stops: GradientStop[], rgb: [number, number, number]) {
+  const data = new Uint8Array(size * size * 4);
+  const center = (size - 1) / 2;
+  const maxDist = size / 2;
+  const [r, g, b] = rgb;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = x - center;
+      const dy = y - center;
+      const dist = Math.min(1, Math.sqrt(dx * dx + dy * dy) / maxDist);
+      // Interpolate alpha across the stops.
+      let alpha = 0;
+      for (let i = 0; i < stops.length - 1; i += 1) {
+        const s0 = stops[i];
+        const s1 = stops[i + 1];
+        if (dist >= s0.at && dist <= s1.at) {
+          const f = s1.at === s0.at ? 0 : (dist - s0.at) / (s1.at - s0.at);
+          alpha = s0.alpha + (s1.alpha - s0.alpha) * f;
+          break;
+        }
+      }
+      if (dist <= stops[0].at) alpha = stops[0].alpha;
+      if (dist >= stops[stops.length - 1].at) alpha = stops[stops.length - 1].alpha;
+      const idx = (y * size + x) * 4;
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = b;
+      data[idx + 3] = Math.round(alpha * 255);
+    }
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   return tex;
 }
 
+/** Soft radial glow texture used for the colored halo around each star. */
+function makeGlowTexture(): THREE.Texture {
+  return makeRadialTexture(
+    128,
+    [
+      { at: 0, alpha: 1 },
+      { at: 0.25, alpha: 0.55 },
+      { at: 0.55, alpha: 0.16 },
+      { at: 1, alpha: 0 },
+    ],
+    [255, 255, 255],
+  );
+}
+
 /** Tight bright core texture (white point). */
 function makeCoreTexture(): THREE.Texture {
-  const size = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.4, 'rgba(232,242,255,0.95)');
-  grad.addColorStop(0.75, 'rgba(207,227,255,0.35)');
-  grad.addColorStop(1, 'rgba(207,227,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  return tex;
+  return makeRadialTexture(
+    64,
+    [
+      { at: 0, alpha: 1 },
+      { at: 0.4, alpha: 0.95 },
+      { at: 0.75, alpha: 0.35 },
+      { at: 1, alpha: 0 },
+    ],
+    [240, 247, 255],
+  );
 }
 
 export function CosmosCanvas(props: CosmosCanvasProps) {
