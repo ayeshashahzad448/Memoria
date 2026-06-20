@@ -10,7 +10,6 @@ import Animated, {
   withRepeat,
   withSpring,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
@@ -39,21 +38,11 @@ function seed(str: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-/** Snap a pan offset back inside the elastic boundary with a soft spring. */
-function settleAxis(value: SharedValue<number>, bound: number) {
+/** Clamp a value into [-bound, bound]. */
+function clampAxis(raw: number, bound: number): number {
   'worklet';
-  if (value.value > bound) value.value = withSpring(bound, { damping: 18, stiffness: 120 });
-  else if (value.value < -bound) value.value = withSpring(-bound, { damping: 18, stiffness: 120 });
-}
-
-/**
- * Rubber-band a raw offset past a soft boundary so the world resists, not
- * teleports, when dragged beyond its bounds.
- */
-function rubberBand(raw: number, bound: number): number {
-  'worklet';
-  if (raw > bound) return bound + (raw - bound) * 0.4;
-  if (raw < -bound) return -bound + (raw + bound) * 0.4;
+  if (raw > bound) return bound;
+  if (raw < -bound) return -bound;
   return raw;
 }
 
@@ -103,6 +92,12 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const savedTy = useSharedValue(0);
   const pinchFocalX = useSharedValue(0);
   const pinchFocalY = useSharedValue(0);
+  const boundX = useSharedValue(boundsX);
+  const boundY = useSharedValue(boundsY);
+  useEffect(() => {
+    boundX.value = boundsX;
+    boundY.value = boundsY;
+  }, [boundsX, boundsY, boundX, boundY]);
 
   // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
   useEffect(() => {
@@ -127,28 +122,20 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       savedTy.value = ty.value;
     })
     .onUpdate((e) => {
-      tx.value = rubberBand(savedTx.value + e.translationX, boundsX);
-      ty.value = rubberBand(savedTy.value + e.translationY, boundsY);
+      tx.value = clampAxis(savedTx.value + e.translationX, boundX.value);
+      ty.value = clampAxis(savedTy.value + e.translationY, boundY.value);
     })
     .onEnd((e) => {
-      tx.value = withDecay(
-        {
-          velocity: e.velocityX,
-          deceleration: 0.997,
-          clamp: [-boundsX, boundsX],
-          rubberBandEffect: true,
-        },
-        () => settleAxis(tx, boundsX),
-      );
-      ty.value = withDecay(
-        {
-          velocity: e.velocityY,
-          deceleration: 0.997,
-          clamp: [-boundsY, boundsY],
-          rubberBandEffect: true,
-        },
-        () => settleAxis(ty, boundsY),
-      );
+      tx.value = withDecay({
+        velocity: e.velocityX,
+        deceleration: 0.997,
+        clamp: [-boundX.value, boundX.value],
+      });
+      ty.value = withDecay({
+        velocity: e.velocityY,
+        deceleration: 0.997,
+        clamp: [-boundY.value, boundY.value],
+      });
     });
 
   const pinch = Gesture.Pinch()
@@ -164,13 +151,17 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       const ratio = nextScale / savedScale.value;
       const focusShiftX = e.focalX - pinchFocalX.value;
       const focusShiftY = e.focalY - pinchFocalY.value;
-      tx.value = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
-      ty.value = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
+      const nextTx = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
+      const nextTy = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
+      tx.value = clampAxis(nextTx, boundX.value);
+      ty.value = clampAxis(nextTy, boundY.value);
       scale.value = nextScale;
     })
     .onEnd(() => {
-      settleAxis(tx, boundsX);
-      settleAxis(ty, boundsY);
+      const cx = clampAxis(tx.value, boundX.value);
+      const cy = clampAxis(ty.value, boundY.value);
+      if (cx !== tx.value) tx.value = withSpring(cx, { damping: 18, stiffness: 120 });
+      if (cy !== ty.value) ty.value = withSpring(cy, { damping: 18, stiffness: 120 });
     });
 
   const gesture = Gesture.Simultaneous(pan, pinch);
