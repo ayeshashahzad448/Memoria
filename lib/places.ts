@@ -8,15 +8,25 @@ export interface PlacePrediction {
   secondary: string;
 }
 
+export interface PlacesResult {
+  predictions: PlacePrediction[];
+  /** Set when the request failed (vs. simply no matches). User-facing, plain language. */
+  error?: string;
+}
+
 export const placesEnabled = Boolean(API_KEY);
 
 /**
  * Google Places Autocomplete (New). Returns a small list of place predictions.
- * Falls back to an empty list when no key is configured or the request fails.
+ *
+ * NOTE: the `:autocomplete` endpoint does NOT accept an `X-Goog-FieldMask`
+ * header — sending one returns HTTP 400. The autocomplete response shape is
+ * fixed, so we only send the API key.
  */
-export async function searchPlaces(query: string): Promise<PlacePrediction[]> {
+export async function searchPlaces(query: string): Promise<PlacesResult> {
   const q = query.trim();
-  if (!API_KEY || q.length < 2) return [];
+  if (!API_KEY) return { predictions: [], error: 'Location search is not configured.' };
+  if (q.length < 2) return { predictions: [] };
 
   try {
     const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
@@ -24,12 +34,24 @@ export async function searchPlaces(query: string): Promise<PlacePrediction[]> {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': API_KEY,
-        'X-Goog-FieldMask':
-          'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat',
       },
       body: JSON.stringify({ input: q }),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const errRaw: unknown = await res.json();
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- narrowing error body
+        const errBody = errRaw as { error?: { message?: string } };
+        detail = errBody.error?.message ?? '';
+      } catch {
+        /* ignore parse failure */
+      }
+      return {
+        predictions: [],
+        error: detail || `Place search failed (${String(res.status)}).`,
+      };
+    }
     const raw: unknown = await res.json();
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- narrowing from unknown to typed API response shape
     const data = raw as {
@@ -44,7 +66,7 @@ export async function searchPlaces(query: string): Promise<PlacePrediction[]> {
         };
       }[];
     };
-    return (data.suggestions ?? [])
+    const predictions = (data.suggestions ?? [])
       .map((s) => s.placePrediction)
       .filter((p): p is NonNullable<typeof p> => Boolean(p))
       .map((p) => ({
@@ -52,8 +74,9 @@ export async function searchPlaces(query: string): Promise<PlacePrediction[]> {
         primary: p.structuredFormat?.mainText?.text ?? p.text?.text ?? 'Place',
         secondary: p.structuredFormat?.secondaryText?.text ?? '',
       }));
+    return { predictions };
   } catch {
-    return [];
+    return { predictions: [], error: 'Could not reach location search. Check your connection.' };
   }
 }
 

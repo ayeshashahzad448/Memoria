@@ -457,6 +457,7 @@ export function LocationPicker({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlacePrediction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -464,12 +465,14 @@ export function LocationPicker({
     if (debounce.current) clearTimeout(debounce.current);
     if (query.trim().length < 2) {
       setResults([]);
+      setError(null);
       return;
     }
     debounce.current = setTimeout(() => {
       setLoading(true);
       void searchPlaces(query).then((r) => {
-        setResults(r);
+        setResults(r.predictions);
+        setError(r.error ?? null);
         setLoading(false);
       });
     }, 320);
@@ -480,6 +483,7 @@ export function LocationPicker({
     onChange(resolved);
     setQuery('');
     setResults([]);
+    setError(null);
   };
 
   const useManual = () => {
@@ -537,6 +541,9 @@ export function LocationPicker({
               {p.secondary ? <Text className="text-muted text-xs">{p.secondary}</Text> : null}
             </Pressable>
           ))}
+          {error && !loading ? (
+            <Text className="text-warning text-xs">{`${error} You can still type a place above.`}</Text>
+          ) : null}
         </>
       )}
     </View>
