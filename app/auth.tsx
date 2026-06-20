@@ -36,7 +36,7 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="mb-7 items-center">
+          <View className="mb-14 items-center">
             <Text
               style={{
                 fontFamily: wordmarkFamily(),
