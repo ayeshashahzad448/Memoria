@@ -21,7 +21,7 @@ import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes, totalMediaBytes } from '@/li
 import { type BillingPeriod, PLAN_PRICING, type PlanId, purchasePlan } from '@/lib/iap';
 
 const ACCENT = colorFor('cyan').hex;
-const VIOLET = colorFor('violet').hex;
+const VIOLET = '#A56BFF';
 const MUTED = '#94A3B8';
 
 interface PlanDef {
@@ -259,7 +259,7 @@ function PlanCard({
   onChoose: () => void;
 }) {
   const isFree = plan.id === 'free';
-  const price = isFree ? '$0' : period === 'monthly' ? plan.monthly : plan.yearly;
+  const price = isFree ? '£0' : period === 'monthly' ? plan.monthly : plan.yearly;
   const cadence = isFree ? 'forever' : period === 'monthly' ? 'month' : 'year';
 
   return (
