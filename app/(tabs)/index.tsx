@@ -205,7 +205,7 @@ export default function CosmosTab() {
       />
 
       {/* Top bar */}
-      <View className="pt-safe-offset-8 absolute inset-x-0 top-0 px-4">
+      <View className="pt-safe-offset-20 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
             <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
@@ -222,15 +222,15 @@ export default function CosmosTab() {
             >
               <GlassCard contentClassName="h-11 w-11 items-center justify-center">
                 {view2D ? (
-                  <Square size={22} color={ACCENT} strokeWidth={2.1} />
+                  <Square width={22} height={22} color={ACCENT} strokeWidth={2.1} />
                 ) : (
-                  <Box size={22} color={ACCENT} strokeWidth={2.1} />
+                  <Box width={22} height={22} color={ACCENT} strokeWidth={2.1} />
                 )}
               </GlassCard>
             </Pressable>
             <Pressable onPress={() => router.push('/search')} hitSlop={8}>
               <GlassCard contentClassName="h-11 w-11 items-center justify-center">
-                <Search size={24} color={ACCENT} strokeWidth={2.1} />
+                <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
               </GlassCard>
             </Pressable>
           </View>
