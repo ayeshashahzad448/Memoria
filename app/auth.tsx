@@ -71,7 +71,7 @@ export default function SignUpScreen() {
               <TextField>
                 <Text className="text-starlight mb-1.5 text-sm font-semibold">Email</Text>
                 <Input
-                  placeholder="you@stars.space"
+                  placeholder="you123@gmail.com"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={email}
