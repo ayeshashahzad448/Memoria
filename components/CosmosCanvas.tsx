@@ -867,7 +867,8 @@ function ConstellationLine({
     if (headMat.opacity > 0) headMat.opacity = 0;
     const target = visible ? 0.55 : 0;
     mat.color.set('#9D5CFF');
-    mat.opacity += (target - mat.opacity) * Math.min(1, delta * 5);
+    // Slow, gentle fade-in/out when a star reveals its constellation (~1.2s).
+    mat.opacity += (target - mat.opacity) * Math.min(1, delta * 1.4);
   });
 
   return (
@@ -878,7 +879,7 @@ function ConstellationLine({
           ref={matRef}
           color="#9D5CFF"
           transparent
-          opacity={visible ? 0.55 : 0}
+          opacity={0}
           depthWrite={false}
         />
       </line>
