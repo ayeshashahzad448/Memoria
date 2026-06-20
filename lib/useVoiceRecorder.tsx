@@ -13,46 +13,133 @@ export interface RecordingResult {
   durationSec: number;
 }
 
+type PermissionState = 'unknown' | 'granted' | 'denied';
+
+export interface VoiceRecorderApi {
+  isSupported: boolean;
+  permission: PermissionState;
+  isRecording: boolean;
+  start: () => Promise<void>;
+  stop: () => Promise<RecordingResult | null>;
+}
+
+const IS_WEB = Platform.OS === 'web';
+
 /**
- * Thin wrapper around expo-audio recording with permission handling and a
- * graceful web fallback (recording is unsupported on web in this build).
+ * Recording wrapper around expo-audio on native, with a browser MediaRecorder
+ * fallback on web so voice notes work in the web preview too. Platform is fixed
+ * per build, so the hooks below run unconditionally within their branch.
  */
-export function useVoiceRecorder() {
-  const isSupported = Platform.OS !== 'web';
+export function useVoiceRecorder(): VoiceRecorderApi {
+  // expo-audio hooks must run on every render; on web the recorder is a no-op.
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const state = useAudioRecorderState(recorder);
   const startedAt = useRef<number | null>(null);
-  const [granted, setGranted] = useState(false);
+  const [permission, setPermission] = useState<PermissionState>('unknown');
+
+  // Web fallback state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const resolveRef = useRef<((r: RecordingResult | null) => void) | null>(null);
+  const [webRecording, setWebRecording] = useState(false);
+
+  const webSupported =
+    IS_WEB &&
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices?.getUserMedia &&
+    typeof MediaRecorder !== 'undefined';
 
   useEffect(() => {
-    if (!isSupported) return;
+    if (IS_WEB) return;
     void (async () => {
-      const status = await AudioModule.requestRecordingPermissionsAsync();
-      setGranted(status.granted);
-      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      const status = await AudioModule.getRecordingPermissionsAsync();
+      setPermission(status.granted ? 'granted' : 'unknown');
+      if (status.granted) {
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      }
     })();
-  }, [isSupported]);
+  }, []);
 
-  const start = useCallback(async () => {
-    if (!isSupported || !granted) return;
+  const startNative = useCallback(async () => {
+    let ok = permission === 'granted';
+    if (!ok) {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      ok = status.granted;
+      setPermission(status.granted ? 'granted' : 'denied');
+      if (status.granted) {
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      }
+    }
+    if (!ok) return;
     await recorder.prepareToRecordAsync();
     recorder.record();
     startedAt.current = Date.now();
-  }, [isSupported, granted, recorder]);
+  }, [permission, recorder]);
 
-  const stop = useCallback(async (): Promise<RecordingResult | null> => {
-    if (!isSupported) return null;
+  const stopNative = useCallback(async (): Promise<RecordingResult | null> => {
     await recorder.stop();
     const durationSec = startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0;
     startedAt.current = null;
     if (!recorder.uri) return null;
     return { uri: recorder.uri, durationSec };
-  }, [isSupported, recorder]);
+  }, [recorder]);
+
+  const startWeb = useCallback(async () => {
+    if (!webSupported) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      setPermission('granted');
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        const uri = URL.createObjectURL(blob);
+        const durationSec = startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0;
+        startedAt.current = null;
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        resolveRef.current?.({ uri, durationSec });
+        resolveRef.current = null;
+      };
+      mediaRecorderRef.current = rec;
+      rec.start();
+      startedAt.current = Date.now();
+      setWebRecording(true);
+    } catch {
+      setPermission('denied');
+    }
+  }, [webSupported]);
+
+  const stopWeb = useCallback(async (): Promise<RecordingResult | null> => {
+    const rec = mediaRecorderRef.current;
+    if (!rec || rec.state === 'inactive') return null;
+    setWebRecording(false);
+    return new Promise<RecordingResult | null>((resolve) => {
+      resolveRef.current = resolve;
+      rec.stop();
+    });
+  }, []);
+
+  if (IS_WEB) {
+    return {
+      isSupported: webSupported,
+      permission,
+      isRecording: webRecording,
+      start: startWeb,
+      stop: stopWeb,
+    };
+  }
 
   return {
-    isSupported: isSupported && granted,
+    isSupported: true,
+    permission,
     isRecording: state.isRecording,
-    start,
-    stop,
+    start: startNative,
+    stop: stopNative,
   };
 }

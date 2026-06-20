@@ -1,4 +1,4 @@
-import { Pressable, Platform, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from 'heroui-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Pause, Play } from 'lucide-react-native';
@@ -10,11 +10,10 @@ const ACCENT = colorFor('cyan').hex;
 
 /** Plays a recorded voice note. Web shows a static row (recording is device-only). */
 export function VoiceNotePlayer({ note, index }: { note: VoiceNote; index: number }) {
-  const player = useAudioPlayer(Platform.OS === 'web' ? undefined : { uri: note.uri });
+  const player = useAudioPlayer({ uri: note.uri });
   const status = useAudioPlayerStatus(player);
 
   const toggle = () => {
-    if (Platform.OS === 'web') return;
     if (status.playing) {
       player.pause();
     } else {

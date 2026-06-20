@@ -320,8 +320,7 @@ export function VoiceRecorder({
   onUpgrade: () => void;
   onChange: (n: VoiceNote[]) => void;
 }) {
-  const { isRecording, isSupported, start, stop } = useVoiceRecorder();
-  const elapsed = useRef(0);
+  const { isRecording, isSupported, permission, start, stop } = useVoiceRecorder();
 
   const toggle = async () => {
     if (atLimit && !isRecording) {
@@ -337,7 +336,6 @@ export function VoiceRecorder({
         ]);
       }
     } else {
-      elapsed.current = Date.now();
       await start();
     }
   };
@@ -351,7 +349,13 @@ export function VoiceRecorder({
         <Label>{`Voice notes (${notes.length}/${MAX_VOICE})`}</Label>
       </View>
       {!isSupported && (
-        <Text className="text-muted text-xs">Voice recording works on a phone.</Text>
+        <Text className="text-muted text-xs">Voice recording is not available on this device.</Text>
+      )}
+      {isSupported && permission === 'denied' && (
+        <Text className="text-warning text-xs">
+          Microphone access is blocked. Enable it in your device or browser settings, then try
+          again.
+        </Text>
       )}
       <View className="gap-2">
         {notes.map((n, i) => (
