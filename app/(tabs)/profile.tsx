@@ -1,25 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Label, Separator, Text, TextArea, TextField } from 'heroui-native';
-import { Check, ChevronRight, Cloud, LogOut, Pencil, Sparkles, Users } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, Check, Cloud, LogOut, Pencil, Sparkles, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StorageBar, storageLabel } from '@/components/StorageBar';
 import { useMemoria } from '@/lib/store';
-import { CURRENT_USER, STAR_COLORS, colorFor } from '@/lib/memoria';
+import { CURRENT_USER, DIRECTORY_USERS, STAR_COLORS, colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, totalMediaBytes } from '@/lib/storage';
 import type { StarColorKey } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
 
+const FRIENDS = DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id);
+
 export default function ProfileTab() {
   const router = useRouter();
   const stars = useMemoria((s) => s.stars);
   const tier = useMemoria((s) => s.tier);
   const profile = useMemoria((s) => s.profile);
-  const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
   const signOut = useMemoria((s) => s.signOut);
   const setTier = useMemoria((s) => s.setTier);
   const updateProfile = useMemoria((s) => s.updateProfile);
@@ -34,15 +36,27 @@ export default function ProfileTab() {
   const [name, setName] = useState(profile.displayName);
   const [bio, setBio] = useState(profile.bio);
   const [avatarColorKey, setAvatarColorKey] = useState<StarColorKey>(profile.avatarColorKey);
+  const [avatarUri, setAvatarUri] = useState<string | undefined>(profile.avatarUri);
 
-  const avatarHex = colorFor(avatarColorKey).hex;
+  const avatarHex = colorFor(profile.avatarColorKey).hex;
   const initial = (profile.displayName || CURRENT_USER.name).slice(0, 1).toUpperCase();
 
   const startEdit = () => {
     setName(profile.displayName);
     setBio(profile.bio);
     setAvatarColorKey(profile.avatarColorKey);
+    setAvatarUri(profile.avatarUri);
     setEditing(true);
+  };
+
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
   };
 
   const saveEdit = () => {
@@ -50,6 +64,7 @@ export default function ProfileTab() {
       displayName: name.trim() || CURRENT_USER.name,
       bio: bio.trim(),
       avatarColorKey,
+      avatarUri,
     });
     setEditing(false);
   };
@@ -70,22 +85,50 @@ export default function ProfileTab() {
         {/* Identity */}
         {editing ? (
           <GlassCard className="mt-5" contentClassName="gap-4 p-5">
-            <View className="flex-row items-center gap-3">
-              <View
-                className="h-14 w-14 items-center justify-center rounded-full"
-                style={{ backgroundColor: colorFor(avatarColorKey).hex }}
-              >
-                <Text className="text-void text-xl font-bold">
-                  {(name || CURRENT_USER.name).slice(0, 1).toUpperCase()}
-                </Text>
-              </View>
-              <View className="flex-1 gap-2">
+            <View className="items-center gap-3">
+              <Pressable onPress={pickAvatar} hitSlop={6}>
+                <View
+                  className="h-20 w-20 items-center justify-center overflow-hidden rounded-full"
+                  style={{ backgroundColor: avatarUri ? '#1F2833' : colorFor(avatarColorKey).hex }}
+                >
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={{ width: 80, height: 80 }} />
+                  ) : (
+                    <Text className="text-void text-2xl font-bold">
+                      {(name || CURRENT_USER.name).slice(0, 1).toUpperCase()}
+                    </Text>
+                  )}
+                  <View
+                    className="absolute right-0 bottom-0 h-7 w-7 items-center justify-center rounded-full border-2"
+                    style={{ backgroundColor: ACCENT, borderColor: '#0B0C10' }}
+                  >
+                    <Camera size={14} color="#0b0c10" strokeWidth={2.4} />
+                  </View>
+                </View>
+              </Pressable>
+              {avatarUri ? (
+                <Pressable
+                  onPress={() => setAvatarUri(undefined)}
+                  hitSlop={6}
+                  className="flex-row items-center gap-1.5"
+                >
+                  <X size={13} color={MUTED} />
+                  <Text className="text-muted text-xs font-medium">Remove photo</Text>
+                </Pressable>
+              ) : (
+                <Text className="text-muted text-xs">Tap to add a profile photo</Text>
+              )}
+            </View>
+
+            {/* Color avatar fallback (used when no photo is set) */}
+            {!avatarUri && (
+              <View className="gap-2">
                 <Label>Avatar color</Label>
                 <View className="flex-row flex-wrap gap-2">
                   {STAR_COLORS.map((c) => (
                     <Pressable key={c.key} onPress={() => setAvatarColorKey(c.key)} hitSlop={4}>
                       <View
-                        className="h-7 w-7 items-center justify-center rounded-full"
+                        className="h-8 w-8 items-center justify-center rounded-full"
                         style={{
                           backgroundColor: c.hex,
                           borderWidth: avatarColorKey === c.key ? 2 : 0,
@@ -100,7 +143,7 @@ export default function ProfileTab() {
                   ))}
                 </View>
               </View>
-            </View>
+            )}
 
             <TextField>
               <Label>Display name</Label>
@@ -130,10 +173,14 @@ export default function ProfileTab() {
           <GlassCard className="mt-5" contentClassName="gap-3 p-5">
             <View className="flex-row items-center gap-4">
               <View
-                className="h-14 w-14 items-center justify-center rounded-full"
-                style={{ backgroundColor: avatarHex }}
+                className="h-14 w-14 items-center justify-center overflow-hidden rounded-full"
+                style={{ backgroundColor: profile.avatarUri ? '#1F2833' : avatarHex }}
               >
-                <Text className="text-void text-xl font-bold">{initial}</Text>
+                {profile.avatarUri ? (
+                  <Image source={{ uri: profile.avatarUri }} style={{ width: 56, height: 56 }} />
+                ) : (
+                  <Text className="text-void text-xl font-bold">{initial}</Text>
+                )}
               </View>
               <View className="flex-1">
                 <Text className="text-starlight text-lg font-semibold">
@@ -196,22 +243,26 @@ export default function ProfileTab() {
           )}
         </GlassCard>
 
-        {/* Spaces */}
+        {/* Friends */}
         <Text className="text-muted mt-7 mb-2.5 text-xs font-semibold tracking-widest uppercase">
-          Spaces
+          Friends
         </Text>
-        <Pressable onPress={() => router.push('/cosmos-spaces')}>
-          <GlassCard contentClassName="flex-row items-center gap-3 p-5">
-            <Users size={18} color={ACCENT} />
-            <View className="flex-1">
-              <Text className="text-starlight font-medium">Shared cosmos spaces</Text>
-              <Text className="text-muted text-xs">
-                {sharedCosmoses.length} space{sharedCosmoses.length === 1 ? '' : 's'}
-              </Text>
+        <GlassCard contentClassName="p-2">
+          {FRIENDS.map((u, i) => (
+            <View key={u.id}>
+              {i > 0 && <Separator />}
+              <View className="flex-row items-center gap-3 px-3 py-3">
+                <View className="bg-nebula-base h-10 w-10 items-center justify-center rounded-full">
+                  <Text className="text-lg">{u.avatar}</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-starlight font-medium">{u.name}</Text>
+                  <Text className="text-muted text-xs">@{u.handle}</Text>
+                </View>
+              </View>
             </View>
-            <ChevronRight size={18} color={MUTED} />
-          </GlassCard>
-        </Pressable>
+          ))}
+        </GlassCard>
 
         <Separator className="my-7" />
 

@@ -1,15 +1,15 @@
 import type { StarColor, StarColorKey, MemoriaUser } from '@/lib/types';
 
-/** Emotion color palette for the star glow grid — Midnight Aurora resonance accents. */
+/**
+ * Emotion color palette for the star glow grid — Midnight Aurora resonance
+ * accents. Each color maps to an emotion the memory evokes.
+ */
 export const STAR_COLORS: StarColor[] = [
   { key: 'cyan', label: 'Cyan', emotion: 'Calm', hex: '#45F3FF' },
   { key: 'rose', label: 'Rose', emotion: 'Love', hex: '#FF2A6D' },
   { key: 'amber', label: 'Amber', emotion: 'Nostalgia', hex: '#FFC75F' },
   { key: 'violet', label: 'Violet', emotion: 'Wonder', hex: '#7A04EB' },
   { key: 'emerald', label: 'Emerald', emotion: 'Growth', hex: '#5FE0A8' },
-  { key: 'gold', label: 'Gold', emotion: 'Joy', hex: '#FFE066' },
-  { key: 'ice', label: 'Ice', emotion: 'Peace', hex: '#BFD9FF' },
-  { key: 'crimson', label: 'Crimson', emotion: 'Passion', hex: '#FF6B6B' },
 ];
 
 export const DEFAULT_STAR_COLOR: StarColorKey = 'cyan';

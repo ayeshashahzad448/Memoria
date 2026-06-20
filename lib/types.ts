@@ -1,14 +1,6 @@
 /** Memoria domain types. */
 
-export type StarColorKey =
-  | 'amber'
-  | 'cyan'
-  | 'rose'
-  | 'violet'
-  | 'emerald'
-  | 'gold'
-  | 'ice'
-  | 'crimson';
+export type StarColorKey = 'amber' | 'cyan' | 'rose' | 'violet' | 'emerald';
 
 export interface StarColor {
   key: StarColorKey;
@@ -95,8 +87,10 @@ export type AccountTier = 'free' | 'premium';
 export interface UserProfile {
   displayName: string;
   bio: string;
-  /** Star color key used to tint the avatar. */
+  /** Star color key used to tint the avatar when no photo is set. */
   avatarColorKey: StarColorKey;
+  /** Optional profile photo URI. Falls back to the color avatar when absent. */
+  avatarUri?: string;
 }
 
 export interface Throwback {

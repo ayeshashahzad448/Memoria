@@ -4,18 +4,7 @@ import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import {
-  Camera,
-  ChevronDown,
-  MapPin,
-  Mic,
-  Plus,
-  Search,
-  Sparkles,
-  Spline,
-  Users,
-  X,
-} from 'lucide-react-native';
+import { Camera, MapPin, Mic, Search, Sparkles, Spline, Users, X } from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
@@ -31,21 +20,18 @@ export default function CosmosTab() {
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
-  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
-  const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
   const createConstellation = useMemoria((s) => s.createConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
   const focusStarId = useMemoria((s) => s.focusStarId);
   const focusStar = useMemoria((s) => s.focusStar);
 
-  const stars = useMemo(
-    () => allStars.filter((s) => s.cosmosId === activeCosmosId),
-    [allStars, activeCosmosId],
-  );
+  // The central Cosmos is always the user's personal universe. Shared cosmos
+  // spaces live in the Shared tab.
+  const stars = useMemo(() => allStars.filter((s) => s.cosmosId === PERSONAL_COSMOS), [allStars]);
   const constellations = useMemo(
-    () => allConstellations.filter((c) => c.cosmosId === activeCosmosId),
-    [allConstellations, activeCosmosId],
+    () => allConstellations.filter((c) => c.cosmosId === PERSONAL_COSMOS),
+    [allConstellations],
   );
 
   const [selectedStar, setSelectedStar] = useState<MemoryStar | null>(null);
@@ -82,11 +68,6 @@ export default function CosmosTab() {
     setTutorialVisible(false);
     completeTutorial();
   };
-
-  const cosmosName = useMemo(() => {
-    if (activeCosmosId === PERSONAL_COSMOS) return 'Your cosmos';
-    return sharedCosmoses.find((c) => c.id === activeCosmosId)?.name ?? 'Shared cosmos';
-  }, [activeCosmosId, sharedCosmoses]);
 
   const revealedStarIds = useMemo(() => {
     if (!selectedStar) return [];
@@ -145,12 +126,11 @@ export default function CosmosTab() {
       {/* Top bar */}
       <View className="pt-safe-offset-2 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
-          <Pressable onPress={() => router.push('/cosmos-spaces')} hitSlop={8}>
-            <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
-              <Text className="text-starlight font-semibold">{cosmosName}</Text>
-              <ChevronDown size={16} color={MUTED} />
-            </GlassCard>
-          </Pressable>
+          <View className="flex-1 pr-2">
+            <Text className="text-starlight font-display text-lg font-semibold">
+              Navigate Your Universe
+            </Text>
+          </View>
           <View className="flex-row items-center gap-2">
             {/* Constellations toggle — clearly shows on/off state. */}
             <Pressable onPress={toggleConstellations} hitSlop={8}>
@@ -203,7 +183,7 @@ export default function CosmosTab() {
       {stars.length === 0 && !tutorialVisible && (
         <View className="absolute inset-0 items-center justify-center px-10" pointerEvents="none">
           <Text className="text-muted text-center leading-6">
-            Your cosmos is waiting. Tap the plus button to add your first memory.
+            Your cosmos is waiting. Tap the Cosmos button below to add your first memory.
           </Text>
         </View>
       )}
@@ -247,41 +227,18 @@ export default function CosmosTab() {
       )}
 
       {/* Bottom action row */}
-      {!selectedStar && !forging && (
+      {!selectedStar && !forging && stars.length >= 2 && (
         <View className="pb-safe-offset-24 absolute inset-x-0 bottom-0 flex-row items-center justify-center gap-3 px-4">
-          {stars.length >= 2 && (
-            <Pressable onPress={beginForge}>
-              <GlassCard contentClassName="px-5 py-3.5">
-                <Text className="text-starlight font-medium">Connect</Text>
-              </GlassCard>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/star/create', params: { cosmosId: activeCosmosId } })
-            }
-            hitSlop={8}
-          >
-            <View
-              className="h-16 w-16 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: ACCENT,
-                shadowColor: ACCENT,
-                shadowOpacity: 0.9,
-                shadowRadius: 18,
-                shadowOffset: { width: 0, height: 0 },
-              }}
-            >
-              <Plus size={30} color="#0b0c10" strokeWidth={2.5} />
-            </View>
+          <Pressable onPress={beginForge}>
+            <GlassCard contentClassName="px-5 py-3.5">
+              <Text className="text-starlight font-medium">Connect</Text>
+            </GlassCard>
           </Pressable>
-          {stars.length >= 2 && (
-            <Pressable onPress={() => router.push('/constellations')}>
-              <GlassCard contentClassName="px-5 py-3.5">
-                <Text className="text-starlight font-medium">Constellations</Text>
-              </GlassCard>
-            </Pressable>
-          )}
+          <Pressable onPress={() => router.push('/constellations')}>
+            <GlassCard contentClassName="px-5 py-3.5">
+              <Text className="text-starlight font-medium">Constellations</Text>
+            </GlassCard>
+          </Pressable>
         </View>
       )}
 
@@ -289,7 +246,7 @@ export default function CosmosTab() {
         <CosmosTutorial
           onDone={dismissTutorial}
           onCreate={() =>
-            router.push({ pathname: '/star/create', params: { cosmosId: activeCosmosId } })
+            router.push({ pathname: '/star/create', params: { cosmosId: PERSONAL_COSMOS } })
           }
         />
       )}

@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { colorFor } from '@/lib/memoria';
-import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
+import { PERSONAL_COSMOS } from '@/lib/store';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -44,7 +44,6 @@ export default function TabsLayout() {
 
 function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const router = useRouter();
-  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
   // Render in the requested visual order regardless of route registration order.
   const ordered = TABS.map((tab) => {
     const index = state.routes.findIndex((r) => r.name === tab.name);
@@ -95,7 +94,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                 onCreate={() =>
                   router.push({
                     pathname: '/star/create',
-                    params: { cosmosId: activeCosmosId || PERSONAL_COSMOS },
+                    params: { cosmosId: PERSONAL_COSMOS },
                   })
                 }
               />
@@ -175,7 +174,7 @@ function CenterTab({
         style={{ color: focused ? ACCENT : '#C8D0F5' }}
         numberOfLines={1}
       >
-        {focused ? 'Create' : label}
+        {label}
       </Text>
     </Pressable>
   );

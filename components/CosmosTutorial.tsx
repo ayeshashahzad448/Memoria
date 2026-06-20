@@ -22,7 +22,7 @@ const STEPS: Step[] = [
   {
     icon: Plus,
     title: 'Anchor a memory',
-    body: 'Tap the plus button to add an Echo — a memory that becomes a star in your cosmos.',
+    body: 'Tap the Cosmos button below to add an Echo — a memory that becomes a star in your cosmos.',
     anchor: 'bottom',
   },
   {
@@ -53,7 +53,9 @@ export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCre
   const next = () => {
     if (isLast) {
       onDone();
-      onCreate();
+      // Defer navigation a frame so the overlay can dismiss and the store
+      // update settles before the create screen is pushed.
+      requestAnimationFrame(onCreate);
     } else setIndex((i) => i + 1);
   };
 
