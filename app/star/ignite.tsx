@@ -175,10 +175,19 @@ export default function IgniteStar() {
       </View>
 
       <View className="mt-8 w-full">
-        <Button isDisabled={!done} onPress={() => router.back()}>
+        <Button
+          isDisabled={!done}
+          onPress={() =>
+            router.replace({ pathname: '/star/[id]', params: { id: star.id, justCreated: '1' } })
+          }
+        >
           {done ? 'Enter the cosmos' : 'Stabilizing…'}
         </Button>
-        <Pressable onPress={() => router.back()} hitSlop={10} className="mt-3 items-center">
+        <Pressable
+          onPress={() => router.replace({ pathname: '/star/[id]', params: { id: star.id } })}
+          hitSlop={10}
+          className="mt-3 items-center"
+        >
           <Text className="text-muted text-xs">Skip</Text>
         </Pressable>
       </View>
