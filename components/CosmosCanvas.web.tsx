@@ -116,6 +116,19 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const targetX = useSharedValue(0);
   const targetY = useSharedValue(0);
   const targetZ = useSharedValue(0);
+  // Rendered (smoothed) camera state.
+  const azActual = useSharedValue(0.6);
+  const polarActual = useSharedValue(Math.PI / 2 - 0.25);
+  const radiusActual = useSharedValue(20);
+  const txActual = useSharedValue(0);
+  const tyActual = useSharedValue(0);
+  const tzActual = useSharedValue(0);
+  // Momentum velocities applied after the finger lifts.
+  const velAz = useSharedValue(0);
+  const velPolar = useSharedValue(0);
+  const velTX = useSharedValue(0);
+  const velTY = useSharedValue(0);
+  const dragging = useSharedValue(0);
   const savedAz = useSharedValue(0);
   const savedPolar = useSharedValue(0);
   const savedRadius = useSharedValue(0);
@@ -137,6 +150,10 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     if (view2D) {
       azimuth.value = 0;
       polar.value = Math.PI / 2;
+      azActual.value = 0;
+      polarActual.value = Math.PI / 2;
+      velAz.value = 0;
+      velPolar.value = 0;
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [view2D]);
@@ -166,6 +183,11 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       savedTX.value = targetX.value;
       savedTY.value = targetY.value;
       focusActive.value = 0;
+      dragging.value = 1;
+      velAz.value = 0;
+      velPolar.value = 0;
+      velTX.value = 0;
+      velTY.value = 0;
       if (flat.value === 0) {
         targetX.value = 0;
         targetY.value = 0;
@@ -182,6 +204,18 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       const k = 0.005;
       azimuth.value = savedAz.value - e.translationX * k;
       polar.value = clamp(savedPolar.value - e.translationY * k, POLAR_MIN, POLAR_MAX);
+    })
+    .onEnd((e) => {
+      dragging.value = 0;
+      if (flat.value === 1) {
+        const k = radius.value * 0.0016;
+        velTX.value = -e.velocityX * k;
+        velTY.value = e.velocityY * k;
+      } else {
+        const k = 0.005;
+        velAz.value = -e.velocityX * k;
+        velPolar.value = -e.velocityY * k;
+      }
     });
 
   const pinch = Gesture.Pinch()
@@ -214,6 +248,17 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               targetX={targetX}
               targetY={targetY}
               targetZ={targetZ}
+              azActual={azActual}
+              polarActual={polarActual}
+              radiusActual={radiusActual}
+              txActual={txActual}
+              tyActual={tyActual}
+              tzActual={tzActual}
+              velAz={velAz}
+              velPolar={velPolar}
+              velTX={velTX}
+              velTY={velTY}
+              dragging={dragging}
               focusT={focusT}
               focusActive={focusActive}
               fromX={fromX}
@@ -258,6 +303,17 @@ function OrbitRig({
   targetX,
   targetY,
   targetZ,
+  azActual,
+  polarActual,
+  radiusActual,
+  txActual,
+  tyActual,
+  tzActual,
+  velAz,
+  velPolar,
+  velTX,
+  velTY,
+  dragging,
   focusT,
   focusActive,
   fromX,
@@ -276,6 +332,17 @@ function OrbitRig({
   targetX: { value: number };
   targetY: { value: number };
   targetZ: { value: number };
+  azActual: { value: number };
+  polarActual: { value: number };
+  radiusActual: { value: number };
+  txActual: { value: number };
+  tyActual: { value: number };
+  tzActual: { value: number };
+  velAz: { value: number };
+  velPolar: { value: number };
+  velTX: { value: number };
+  velTY: { value: number };
+  dragging: { value: number };
   focusT: { value: number };
   focusActive: { value: number };
   fromX: { value: number };
@@ -288,7 +355,9 @@ function OrbitRig({
   toRadius: { value: number };
 }) {
   const { camera } = useThree();
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = Math.min(rawDelta, 1 / 30);
+
     if (focusActive.value === 1 && focusT.value < 1) {
       // eslint-disable-next-line react-compiler/react-compiler -- intentional SharedValue mutation in r3f frame loop
       focusT.value = Math.min(1, focusT.value + delta / 1.1);
@@ -299,18 +368,60 @@ function OrbitRig({
       targetZ.value = fromZ.value + (toZ.value - fromZ.value) * e;
       radius.value = fromRadius.value + (toRadius.value - fromRadius.value) * e;
     }
-    const sinP = Math.sin(polar.value);
+
+    // Momentum coast + friction when idle.
+    if (dragging.value === 0 && focusActive.value === 0) {
+      const rotFriction = Math.pow(0.0008, delta);
+      const panFriction = Math.pow(0.0012, delta);
+      if (flat.value === 1) {
+        targetX.value += velTX.value * delta;
+        targetY.value += velTY.value * delta;
+        velTX.value *= panFriction;
+        velTY.value *= panFriction;
+        if (Math.abs(velTX.value) < 0.002) velTX.value = 0;
+        if (Math.abs(velTY.value) < 0.002) velTY.value = 0;
+      } else {
+        azimuth.value += velAz.value * delta;
+        polar.value = clamp(polar.value + velPolar.value * delta, POLAR_MIN, POLAR_MAX);
+        if (polar.value <= POLAR_MIN || polar.value >= POLAR_MAX) velPolar.value = 0;
+        velAz.value *= rotFriction;
+        velPolar.value *= rotFriction;
+        if (Math.abs(velAz.value) < 0.0006) velAz.value = 0;
+        if (Math.abs(velPolar.value) < 0.0006) velPolar.value = 0;
+      }
+    }
+
+    // Frame-rate-independent smoothing toward the desired values.
+    const smooth = (cur: number, dest: number, life: number) =>
+      cur + (dest - cur) * (1 - Math.exp(-delta / life));
+    const life = dragging.value === 1 ? 0.06 : 0.16;
+
+    azActual.value = smooth(azActual.value, azimuth.value, life);
+    polarActual.value = smooth(polarActual.value, polar.value, life);
+    radiusActual.value = smooth(radiusActual.value, radius.value, life);
+    txActual.value = smooth(txActual.value, targetX.value, life);
+    tyActual.value = smooth(tyActual.value, targetY.value, life);
+    tzActual.value = smooth(tzActual.value, targetZ.value, life);
+
+    const az = azActual.value;
+    const pol = polarActual.value;
+    const rad = radiusActual.value;
+    const tx = txActual.value;
+    const ty = tyActual.value;
+    const tz = tzActual.value;
+
+    const sinP = Math.sin(pol);
     if (flat.value === 1) {
-      camera.position.set(targetX.value, targetY.value, targetZ.value + radius.value);
+      camera.position.set(tx, ty, tz + rad);
       camera.up.set(0, 1, 0);
-      camera.lookAt(targetX.value, targetY.value, targetZ.value);
+      camera.lookAt(tx, ty, tz);
       return;
     }
-    const x = targetX.value + radius.value * sinP * Math.sin(azimuth.value);
-    const y = targetY.value + radius.value * Math.cos(polar.value);
-    const z = targetZ.value + radius.value * sinP * Math.cos(azimuth.value);
+    const x = tx + rad * sinP * Math.sin(az);
+    const y = ty + rad * Math.cos(pol);
+    const z = tz + rad * sinP * Math.cos(az);
     camera.position.set(x, y, z);
-    camera.lookAt(targetX.value, targetY.value, targetZ.value);
+    camera.lookAt(tx, ty, tz);
   });
   return null;
 }
