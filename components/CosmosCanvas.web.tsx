@@ -47,6 +47,17 @@ function settleAxis(value: SharedValue<number>, bound: number) {
 }
 
 /**
+ * Rubber-band a raw offset past a soft boundary so the world resists, not
+ * teleports, when dragged beyond its bounds.
+ */
+function rubberBand(raw: number, bound: number): number {
+  'worklet';
+  if (raw > bound) return bound + (raw - bound) * 0.4;
+  if (raw < -bound) return -bound + (raw + bound) * 0.4;
+  return raw;
+}
+
+/**
  * Web fallback for the cosmos. Skia's CanvasKit does not bundle for web here,
  * so stars and constellation lines are rendered with Views while keeping
  * pan/pinch/tap interactions via gesture-handler + reanimated.
@@ -90,6 +101,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
+  const pinchFocalX = useSharedValue(0);
+  const pinchFocalY = useSharedValue(0);
 
   // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
   useEffect(() => {
@@ -108,31 +121,56 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   }, [focusStarId, placed, toScreen, width, height]);
 
   const pan = Gesture.Pan()
+    .maxPointers(1)
     .onStart(() => {
       savedTx.value = tx.value;
       savedTy.value = ty.value;
     })
     .onUpdate((e) => {
-      const rawX = savedTx.value + e.translationX;
-      const rawY = savedTy.value + e.translationY;
-      tx.value = rawX > boundsX || rawX < -boundsX ? savedTx.value + e.translationX * 0.4 : rawX;
-      ty.value = rawY > boundsY || rawY < -boundsY ? savedTy.value + e.translationY * 0.4 : rawY;
+      tx.value = rubberBand(savedTx.value + e.translationX, boundsX);
+      ty.value = rubberBand(savedTy.value + e.translationY, boundsY);
     })
     .onEnd((e) => {
-      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.997 }, () =>
-        settleAxis(tx, boundsX),
+      tx.value = withDecay(
+        {
+          velocity: e.velocityX,
+          deceleration: 0.997,
+          clamp: [-boundsX, boundsX],
+          rubberBandEffect: true,
+        },
+        () => settleAxis(tx, boundsX),
       );
-      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.997 }, () =>
-        settleAxis(ty, boundsY),
+      ty.value = withDecay(
+        {
+          velocity: e.velocityY,
+          deceleration: 0.997,
+          clamp: [-boundsY, boundsY],
+          rubberBandEffect: true,
+        },
+        () => settleAxis(ty, boundsY),
       );
     });
 
   const pinch = Gesture.Pinch()
-    .onStart(() => {
+    .onStart((e) => {
       savedScale.value = scale.value;
+      savedTx.value = tx.value;
+      savedTy.value = ty.value;
+      pinchFocalX.value = e.focalX;
+      pinchFocalY.value = e.focalY;
     })
     .onUpdate((e) => {
-      scale.value = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+      const nextScale = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+      const ratio = nextScale / savedScale.value;
+      const focusShiftX = e.focalX - pinchFocalX.value;
+      const focusShiftY = e.focalY - pinchFocalY.value;
+      tx.value = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
+      ty.value = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
+      scale.value = nextScale;
+    })
+    .onEnd(() => {
+      settleAxis(tx, boundsX);
+      settleAxis(ty, boundsY);
     });
 
   const gesture = Gesture.Simultaneous(pan, pinch);

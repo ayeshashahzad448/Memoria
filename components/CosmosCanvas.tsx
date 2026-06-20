@@ -60,6 +60,17 @@ function settleAxis(value: SharedValue<number>, bound: number) {
   else if (value.value < -bound) value.value = withSpring(-bound, { damping: 18, stiffness: 120 });
 }
 
+/**
+ * Rubber-band a raw offset past a soft boundary so the world resists, not
+ * teleports, when dragged beyond its bounds.
+ */
+function rubberBand(raw: number, bound: number): number {
+  'worklet';
+  if (raw > bound) return bound + (raw - bound) * 0.4;
+  if (raw < -bound) return -bound + (raw + bound) * 0.4;
+  return raw;
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
   const {
     stars,
@@ -107,6 +118,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
+  // Pinch focal point captured at gesture start (screen space).
+  const pinchFocalX = useSharedValue(0);
+  const pinchFocalY = useSharedValue(0);
   const clock = useSharedValue(0);
   // Last sector index crossed, used to fire a light haptic on a new sector.
   const lastSector = useSharedValue(0);
@@ -152,17 +166,17 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     { scale: scale.value },
   ]);
 
+  // Single-finger pan only — two fingers are reserved for pinch so the two
+  // gestures don't fight and cause erratic drift.
   const pan = Gesture.Pan()
+    .maxPointers(1)
     .onStart(() => {
       savedTx.value = tx.value;
       savedTy.value = ty.value;
     })
     .onUpdate((e) => {
-      // Loose, fluid drag with rubber-banding once past the soft boundary.
-      const rawX = savedTx.value + e.translationX;
-      const rawY = savedTy.value + e.translationY;
-      tx.value = rawX > boundsX || rawX < -boundsX ? savedTx.value + e.translationX * 0.4 : rawX;
-      ty.value = rawY > boundsY || rawY < -boundsY ? savedTy.value + e.translationY * 0.4 : rawY;
+      tx.value = rubberBand(savedTx.value + e.translationX, boundsX);
+      ty.value = rubberBand(savedTy.value + e.translationY, boundsY);
       // Haptic pulse when gliding into a freshly generated sector.
       const sector = Math.round(Math.hypot(tx.value, ty.value) / sectorSize);
       if (sector !== lastSector.value) {
@@ -172,44 +186,80 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     })
     .onEnd((e) => {
       // Weightless momentum: glide to a stop, then settle inside the boundary.
-      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.997 }, () =>
-        settleAxis(tx, boundsX),
+      tx.value = withDecay(
+        {
+          velocity: e.velocityX,
+          deceleration: 0.997,
+          clamp: [-boundsX, boundsX],
+          rubberBandEffect: true,
+        },
+        () => settleAxis(tx, boundsX),
       );
-      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.997 }, () =>
-        settleAxis(ty, boundsY),
+      ty.value = withDecay(
+        {
+          velocity: e.velocityY,
+          deceleration: 0.997,
+          clamp: [-boundsY, boundsY],
+          rubberBandEffect: true,
+        },
+        () => settleAxis(ty, boundsY),
       );
     });
 
+  // Focal-point pinch: the point between the fingers stays anchored while
+  // zooming, and the translation tracks the focal centroid as it drifts.
   const pinch = Gesture.Pinch()
-    .onStart(() => {
+    .onStart((e) => {
       savedScale.value = scale.value;
+      savedTx.value = tx.value;
+      savedTy.value = ty.value;
+      pinchFocalX.value = e.focalX;
+      pinchFocalY.value = e.focalY;
     })
     .onUpdate((e) => {
-      scale.value = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+      const nextScale = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+      const ratio = nextScale / savedScale.value;
+      // Keep the original focal point fixed under the fingers while zooming,
+      // then follow the focal centroid as the fingers move (two-finger pan).
+      const focusShiftX = e.focalX - pinchFocalX.value;
+      const focusShiftY = e.focalY - pinchFocalY.value;
+      tx.value = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
+      ty.value = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
+      scale.value = nextScale;
+    })
+    .onEnd(() => {
+      settleAxis(tx, boundsX);
+      settleAxis(ty, boundsY);
     });
 
-  const tap = Gesture.Tap().onEnd((e) => {
-    // Convert screen tap into world space accounting for current transform.
-    const wx = (e.x - tx.value) / scale.value;
-    const wy = (e.y - ty.value) / scale.value;
-    let hit: MemoryStar | null = null;
-    let hitDist = Number.POSITIVE_INFINITY;
-    for (const p of placed) {
-      const s = toScreen(p.star.x, p.star.y);
-      const d = Math.hypot(s.x - wx, s.y - wy);
-      const touchR = Math.max(p.radius, 14) + 12;
-      if (d < touchR && d < hitDist) {
-        hit = p.star;
-        hitDist = d;
+  const tap = Gesture.Tap()
+    .maxDuration(250)
+    .onEnd((e) => {
+      // Convert screen tap into world space accounting for current transform.
+      // Transform applies translate then scale, so screen = world*scale + t.
+      const wx = (e.x - tx.value) / scale.value;
+      const wy = (e.y - ty.value) / scale.value;
+      let hit: MemoryStar | null = null;
+      let hitDist = Number.POSITIVE_INFINITY;
+      // Expand the touch target as you zoom out so small stars stay tappable.
+      const slop = 14 / scale.value;
+      for (const p of placed) {
+        const s = toScreen(p.star.x, p.star.y);
+        const d = Math.hypot(s.x - wx, s.y - wy);
+        const touchR = Math.max(p.radius, 14) + slop;
+        if (d < touchR && d < hitDist) {
+          hit = p.star;
+          hitDist = d;
+        }
       }
-    }
-    if (hit) {
-      runOnJS(focusTick)();
-      runOnJS(onTapStar)(hit);
-    } else runOnJS(onTapEmpty)();
-  });
+      if (hit) {
+        runOnJS(focusTick)();
+        runOnJS(onTapStar)(hit);
+      } else runOnJS(onTapEmpty)();
+    });
 
-  const gesture = Gesture.Simultaneous(Gesture.Race(tap, pan), pinch);
+  // Pinch and pan coexist; tap loses to pan so a drag never registers as a tap.
+  const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(pan, tap));
 
   return (
     <GestureDetector gesture={gesture}>
