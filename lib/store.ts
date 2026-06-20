@@ -9,12 +9,23 @@ import type {
   SharedCosmos,
   Throwback,
   AccountTier,
+  AppSettings,
   UserProfile,
 } from '@/lib/types';
 import { CURRENT_USER, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
 
 export const PERSONAL_COSMOS = 'personal';
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  haptics: true,
+  sound: true,
+  reduceMotion: false,
+  highContrast: false,
+  textSize: 'medium',
+  privacy: 'private',
+  allowTagging: true,
+};
 
 let counter = 0;
 function uid(prefix: string): string {
@@ -57,6 +68,8 @@ interface MemoriaState {
   focusStarId: string | null;
   /** Editable user profile. */
   profile: UserProfile;
+  /** Accessibility / app preferences. */
+  settings: AppSettings;
 
   stars: MemoryStar[];
   constellations: Constellation[];
@@ -69,6 +82,7 @@ interface MemoriaState {
   setActiveCosmos: (id: string) => void;
   setTier: (tier: AccountTier) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
+  updateSettings: (patch: Partial<AppSettings>) => void;
   /** Request the cosmos to pan to and focus a star. Pass null to clear. */
   focusStar: (id: string | null) => void;
 
@@ -124,6 +138,7 @@ export const useMemoria = create<MemoriaState>()(
         bio: '',
         avatarColorKey: 'cyan',
       },
+      settings: DEFAULT_SETTINGS,
       stars: [],
       constellations: [],
       sharedCosmoses: [],
@@ -135,6 +150,7 @@ export const useMemoria = create<MemoriaState>()(
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
       setTier: (tier) => set({ tier }),
       updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
+      updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       focusStar: (id) => set({ focusStarId: id }),
 
       addStar: (input) => {
@@ -374,6 +390,7 @@ export const useMemoria = create<MemoriaState>()(
         tier: state.tier,
         activeCosmosId: state.activeCosmosId,
         profile: state.profile,
+        settings: state.settings,
         stars: state.stars,
         constellations: state.constellations,
         sharedCosmoses: state.sharedCosmoses,

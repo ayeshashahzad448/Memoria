@@ -3,7 +3,17 @@ import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Label, Separator, Text, TextArea, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Check, Cloud, LogOut, Pencil, Sparkles, X } from 'lucide-react-native';
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  Cloud,
+  LogOut,
+  Pencil,
+  Settings,
+  Sparkles,
+  X,
+} from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StorageBar, storageLabel } from '@/components/StorageBar';
@@ -266,9 +276,26 @@ export default function ProfileTab() {
 
         <Separator className="my-7" />
 
+        {/* Preferences */}
+        <Pressable onPress={() => router.push('/settings')}>
+          <GlassCard contentClassName="flex-row items-center gap-3 p-4">
+            <View
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+            >
+              <Settings size={18} color={ACCENT} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-starlight font-medium">Settings</Text>
+              <Text className="text-muted text-xs">Accessibility, sound, display, privacy</Text>
+            </View>
+            <ChevronRight size={18} color={MUTED} />
+          </GlassCard>
+        </Pressable>
+
         {/* Demo helper for testing premium state */}
         {isPremium && (
-          <Button variant="ghost" className="mb-3" onPress={() => setTier('free')}>
+          <Button variant="ghost" className="mt-3 mb-3" onPress={() => setTier('free')}>
             Switch back to Free (demo)
           </Button>
         )}

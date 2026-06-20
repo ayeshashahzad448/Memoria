@@ -84,6 +84,29 @@ export interface ConstellationSuggestion {
 
 export type AccountTier = 'free' | 'premium';
 
+/** Who can see your cosmos and tagged memories. */
+export type MemoryPrivacy = 'private' | 'friends' | 'public';
+
+/** Visual density / text size scaling. */
+export type TextSize = 'small' | 'medium' | 'large';
+
+export interface AppSettings {
+  /** Haptic feedback on gestures and selections. */
+  haptics: boolean;
+  /** Twinkle / pulse sounds and UI sound effects. */
+  sound: boolean;
+  /** Reduce continuous motion (star twinkle, animations). */
+  reduceMotion: boolean;
+  /** Higher contrast UI for legibility. */
+  highContrast: boolean;
+  /** Larger touch targets and labels. */
+  textSize: TextSize;
+  /** Default privacy for new memories. */
+  privacy: MemoryPrivacy;
+  /** Allow friends to tag you in their memories. */
+  allowTagging: boolean;
+}
+
 export interface UserProfile {
   displayName: string;
   bio: string;
