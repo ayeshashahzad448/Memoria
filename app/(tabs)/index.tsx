@@ -205,10 +205,10 @@ export default function CosmosTab() {
       />
 
       {/* Top bar */}
-      <View className="pt-safe-offset-2 absolute inset-x-0 top-0 px-4">
+      <View className="pt-safe-offset-8 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
-            <Text className="text-starlight font-display text-2xl leading-7 font-semibold">
+            <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
               Navigate Your{'\n'}Universe
             </Text>
           </View>
