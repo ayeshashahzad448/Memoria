@@ -45,6 +45,46 @@ export function panBoundsForCount(count: number, viewport: number): number {
   return min + (max - min) * t;
 }
 
+/** Deterministic pseudo-random in [0,1) from a string seed (FNV-1a). */
+function hashSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+/** Half-extent of the 3D world cube the stars are distributed within. */
+export const WORLD_RADIUS = 10;
+
+/**
+ * Map a memory's normalized 2D position (x,y in ~ -1..1) into a stable 3D
+ * point. The depth (z) is derived deterministically from the star id so an
+ * existing memory always lands at the same place in space without needing a
+ * stored z coordinate. x/y are spread to the world cube and given a small
+ * id-seeded jitter so stars don't sit on a perfect plane.
+ */
+export function star3DPosition(id: string, x: number, y: number): [number, number, number] {
+  const jx = (hashSeed(`${id}-jx`) - 0.5) * 0.5;
+  const jy = (hashSeed(`${id}-jy`) - 0.5) * 0.5;
+  const z = (hashSeed(`${id}-z`) - 0.5) * 2; // -1..1
+  return [
+    (x + jx) * WORLD_RADIUS,
+    (-y + jy) * WORLD_RADIUS, // invert y so +y reads as "up" in 3D
+    z * WORLD_RADIUS,
+  ];
+}
+
+/**
+ * Convert a memory's text-driven radius (screen px units) into a world-space
+ * star size for the 3D scene.
+ */
+export function starWorldSize(radius: number): number {
+  // radius ranges ~4..26; map to a pleasant world scale.
+  return 0.18 + (radius / MAX_STAR_RADIUS) * 0.55;
+}
+
 /** Local-first mock directory of taggable users (stands in for a backend search). */
 export const CURRENT_USER: MemoriaUser = {
   id: 'u-me',

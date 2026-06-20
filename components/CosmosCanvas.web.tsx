@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { View } from 'react-native';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  Easing,
-  clamp,
-  useAnimatedStyle,
-  useSharedValue,
-  withDecay,
-  withRepeat,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import { clamp, useSharedValue } from 'react-native-reanimated';
+import * as THREE from 'three';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
-import { colorFor, panBoundsForCount, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
+import {
+  colorFor,
+  radiusForText,
+  star3DPosition,
+  starWorldSize,
+  WORLD_RADIUS,
+} from '@/lib/memoria';
 
 interface CosmosCanvasProps {
   stars: MemoryStar[];
@@ -26,8 +25,17 @@ interface CosmosCanvasProps {
   onTapEmpty: () => void;
 }
 
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 4;
+interface PlacedStar {
+  star: MemoryStar;
+  pos: [number, number, number];
+  size: number;
+  color: THREE.Color;
+}
+
+const MIN_RADIUS = 6;
+const MAX_RADIUS = 34;
+const POLAR_MIN = 0.25;
+const POLAR_MAX = Math.PI - 0.25;
 
 function seed(str: string): number {
   let h = 2166136261;
@@ -38,19 +46,42 @@ function seed(str: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-/** Clamp a value into [-bound, bound]. */
-function clampAxis(raw: number, bound: number): number {
-  'worklet';
-  if (raw > bound) return bound;
-  if (raw < -bound) return -bound;
-  return raw;
+function makeGlowTexture(): THREE.Texture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
 }
 
-/**
- * Web fallback for the cosmos. Skia's CanvasKit does not bundle for web here,
- * so stars and constellation lines are rendered with Views while keeping
- * pan/pinch/tap interactions via gesture-handler + reanimated.
- */
+function makeCoreTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.4, 'rgba(232,242,255,0.95)');
+  grad.addColorStop(0.75, 'rgba(207,227,255,0.35)');
+  grad.addColorStop(1, 'rgba(207,227,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
   const {
     stars,
@@ -62,426 +93,443 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     onTapStar,
     onTapEmpty,
   } = props;
-  const { width, height } = useWindowDimensions();
-  const span = Math.max(width, height) * 1.15;
-  const boundsX = panBoundsForCount(stars.length, width);
-  const boundsY = panBoundsForCount(stars.length, height);
 
-  const placed = useMemo(
+  const placed = useMemo<PlacedStar[]>(
     () =>
-      stars.map((star) => ({
-        star,
-        radius: radiusForText(star.story.length > 0 ? star.story : star.title),
-      })),
+      stars.map((star) => {
+        const radius = radiusForText(star.story.length > 0 ? star.story : star.title);
+        return {
+          star,
+          pos: star3DPosition(star.id, star.x, star.y),
+          size: starWorldSize(radius),
+          color: new THREE.Color(colorFor(star.colorKey).hex),
+        };
+      }),
     [stars],
   );
 
-  const toScreen = useCallback(
-    (nx: number, ny: number) => ({
-      x: width / 2 + nx * (span / 2),
-      y: height / 2 + ny * (span / 2),
-    }),
-    [width, height, span],
-  );
+  const azimuth = useSharedValue(0.6);
+  const polar = useSharedValue(Math.PI / 2 - 0.25);
+  const radius = useSharedValue(20);
+  const targetX = useSharedValue(0);
+  const targetY = useSharedValue(0);
+  const targetZ = useSharedValue(0);
+  const savedAz = useSharedValue(0);
+  const savedPolar = useSharedValue(0);
+  const savedRadius = useSharedValue(0);
+  const focusT = useSharedValue(1);
+  const focusActive = useSharedValue(0);
+  const fromX = useSharedValue(0);
+  const fromY = useSharedValue(0);
+  const fromZ = useSharedValue(0);
+  const fromRadius = useSharedValue(20);
+  const toX = useSharedValue(0);
+  const toY = useSharedValue(0);
+  const toZ = useSharedValue(0);
+  const toRadius = useSharedValue(20);
 
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
-  const savedTx = useSharedValue(0);
-  const savedTy = useSharedValue(0);
-  const pinchFocalX = useSharedValue(0);
-  const pinchFocalY = useSharedValue(0);
-  const boundX = useSharedValue(boundsX);
-  const boundY = useSharedValue(boundsY);
-  useEffect(() => {
-    boundX.value = boundsX;
-    boundY.value = boundsY;
-  }, [boundsX, boundsY, boundX, boundY]);
-
-  // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
   useEffect(() => {
     if (!focusStarId) return;
     const target = placed.find((p) => p.star.id === focusStarId);
     if (!target) return;
-    const s = toScreen(target.star.x, target.star.y);
-    const targetScale = 2.8;
-    const nextTx = width / 2 - s.x * targetScale;
-    const nextTy = height / 2 - s.y * targetScale;
-    const ease = Easing.inOut(Easing.cubic);
-    scale.value = withTiming(targetScale, { duration: 1100, easing: ease });
-    tx.value = withTiming(nextTx, { duration: 1100, easing: ease });
-    ty.value = withTiming(nextTy, { duration: 1100, easing: ease });
+    fromX.value = targetX.value;
+    fromY.value = targetY.value;
+    fromZ.value = targetZ.value;
+    fromRadius.value = radius.value;
+    toX.value = target.pos[0];
+    toY.value = target.pos[1];
+    toZ.value = target.pos[2];
+    toRadius.value = Math.max(MIN_RADIUS, target.size * 6 + 4);
+    focusT.value = 0;
+    focusActive.value = 1;
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusStarId, placed, toScreen, width, height]);
+  }, [focusStarId, placed]);
 
   const pan = Gesture.Pan()
     .maxPointers(1)
     .onStart(() => {
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
+      savedAz.value = azimuth.value;
+      savedPolar.value = polar.value;
+      focusActive.value = 0;
     })
     .onUpdate((e) => {
-      tx.value = clampAxis(savedTx.value + e.translationX, boundX.value);
-      ty.value = clampAxis(savedTy.value + e.translationY, boundY.value);
-    })
-    .onEnd((e) => {
-      tx.value = withDecay({
-        velocity: e.velocityX,
-        deceleration: 0.997,
-        clamp: [-boundX.value, boundX.value],
-      });
-      ty.value = withDecay({
-        velocity: e.velocityY,
-        deceleration: 0.997,
-        clamp: [-boundY.value, boundY.value],
-      });
+      const k = 0.005;
+      azimuth.value = savedAz.value - e.translationX * k;
+      polar.value = clamp(savedPolar.value - e.translationY * k, POLAR_MIN, POLAR_MAX);
     });
 
   const pinch = Gesture.Pinch()
-    .onStart((e) => {
-      savedScale.value = scale.value;
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
-      pinchFocalX.value = e.focalX;
-      pinchFocalY.value = e.focalY;
+    .onStart(() => {
+      savedRadius.value = radius.value;
+      focusActive.value = 0;
     })
     .onUpdate((e) => {
-      const nextScale = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
-      const ratio = nextScale / savedScale.value;
-      const focusShiftX = e.focalX - pinchFocalX.value;
-      const focusShiftY = e.focalY - pinchFocalY.value;
-      const nextTx = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
-      const nextTy = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
-      tx.value = clampAxis(nextTx, boundX.value);
-      ty.value = clampAxis(nextTy, boundY.value);
-      scale.value = nextScale;
-    })
-    .onEnd(() => {
-      const cx = clampAxis(tx.value, boundX.value);
-      const cy = clampAxis(ty.value, boundY.value);
-      if (cx !== tx.value) tx.value = withSpring(cx, { damping: 18, stiffness: 120 });
-      if (cy !== ty.value) ty.value = withSpring(cy, { damping: 18, stiffness: 120 });
+      radius.value = clamp(savedRadius.value / e.scale, MIN_RADIUS, MAX_RADIUS);
     });
 
   const gesture = Gesture.Simultaneous(pan, pinch);
 
-  const worldStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],
-  }));
-
-  const revealed = useMemo(() => new Set(revealedStarIds), [revealedStarIds]);
-  const byId = useMemo(() => {
-    const m = new Map<string, (typeof placed)[number]>();
-    for (const p of placed) m.set(p.star.id, p);
-    return m;
-  }, [placed]);
-
-  const lines = useMemo(() => {
-    const segs: {
-      key: string;
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      visible: boolean;
-    }[] = [];
-    for (const c of constellations) {
-      const visible = c.starIds.some((id) => revealed.has(id));
-      const ordered = [...c.starIds]
-        .map((id) => byId.get(id))
-        .filter((p): p is (typeof placed)[number] => Boolean(p))
-        .sort((a, b) => a.star.date.localeCompare(b.star.date));
-      for (let i = 0; i < ordered.length - 1; i += 1) {
-        const p1 = toScreen(ordered[i].star.x, ordered[i].star.y);
-        const p2 = toScreen(ordered[i + 1].star.x, ordered[i + 1].star.y);
-        segs.push({
-          key: `${ordered[i].star.id}-${ordered[i + 1].star.id}`,
-          x1: p1.x,
-          y1: p1.y,
-          x2: p2.x,
-          y2: p2.y,
-          visible,
-        });
-      }
-    }
-    return segs;
-  }, [constellations, revealed, byId, toScreen]);
-
-  const band = useMemo(() => {
-    const arr: { id: string; x: number; y: number; r: number; o: number }[] = [];
-    const count = 7;
-    for (let i = 0; i < count; i += 1) {
-      const t = i / (count - 1);
-      arr.push({
-        id: `band-${i}`,
-        x: width * (0.12 + t * 0.78),
-        y: height * (0.78 - t * 0.6) + (seed(`by${i}`) - 0.5) * height * 0.12,
-        r: Math.max(width, height) * (0.22 + seed(`br${i}`) * 0.12),
-        o: 0.05 + seed(`bo${i}`) * 0.04,
-      });
-    }
-    return arr;
-  }, [width, height]);
-
-  const dust = useMemo(() => {
-    const arr: { id: string; x: number; y: number; r: number }[] = [];
-    for (let i = 0; i < 80; i += 1) {
-      arr.push({
-        id: `dust-${i}`,
-        x: seed(`dx${i}`) * width,
-        y: seed(`dy${i}`) * height,
-        r: 0.4 + seed(`dr${i}`) * 1.1,
-      });
-    }
-    return arr;
-  }, [width, height]);
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#0b0c10', overflow: 'hidden' }}>
-      {/* Faint Milky Way haze */}
-      {band.map((b) => (
-        <View
-          key={b.id}
-          style={{
-            position: 'absolute',
-            left: b.x - b.r,
-            top: b.y - b.r,
-            width: b.r * 2,
-            height: b.r * 2,
-            borderRadius: b.r,
-            backgroundColor: '#3A2E6B',
-            opacity: b.o,
-          }}
-        />
-      ))}
-      {/* Distant dust */}
-      {dust.map((d) => (
-        <View
-          key={d.id}
-          style={{
-            position: 'absolute',
-            left: d.x,
-            top: d.y,
-            width: d.r * 2,
-            height: d.r * 2,
-            borderRadius: d.r,
-            backgroundColor: '#DCE6FF',
-            opacity: 0.16,
-          }}
-        />
-      ))}
-      <Pressable
-        onPress={onTapEmpty}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
+    <View className="bg-void flex-1">
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[{ flex: 1 }, worldStyle]}>
-          {lines.map((seg) => (
-            <LineSeg key={seg.key} seg={seg} />
-          ))}
-
-          {placed.map((p) => (
-            <StarDot
-              key={p.star.id}
-              star={p.star}
-              radius={p.radius}
-              pos={toScreen(p.star.x, p.star.y)}
-              isSelected={p.star.id === selectedStarId}
-              isForging={forgingStarIds.includes(p.star.id)}
-              onPress={() => onTapStar(p.star)}
+        <View style={{ flex: 1 }} collapsable={false}>
+          <Canvas
+            gl={{ antialias: true }}
+            camera={{ fov: 60, near: 0.1, far: 200, position: [0, 0, 20] }}
+            onCreated={(state) => {
+              state.gl.setClearColor('#0b0c10', 1);
+            }}
+          >
+            <OrbitRig
+              azimuth={azimuth}
+              polar={polar}
+              radius={radius}
+              targetX={targetX}
+              targetY={targetY}
+              targetZ={targetZ}
+              focusT={focusT}
+              focusActive={focusActive}
+              fromX={fromX}
+              fromY={fromY}
+              fromZ={fromZ}
+              fromRadius={fromRadius}
+              toX={toX}
+              toY={toY}
+              toZ={toZ}
+              toRadius={toRadius}
             />
-          ))}
-        </Animated.View>
+            <ambientLight intensity={0.6} />
+            <DustField />
+            <MilkyWay />
+            <ConstellationLines
+              placed={placed}
+              constellations={constellations}
+              revealedStarIds={revealedStarIds}
+            />
+            {placed.map((p) => (
+              <StarSprite
+                key={p.star.id}
+                placed={p}
+                selected={p.star.id === selectedStarId}
+                forging={forgingStarIds.includes(p.star.id)}
+                onPress={() => onTapStar(p.star)}
+              />
+            ))}
+            <BackgroundCatcher onMiss={onTapEmpty} />
+          </Canvas>
+        </View>
       </GestureDetector>
     </View>
   );
 }
 
-function LineSeg({
-  seg,
+function OrbitRig({
+  azimuth,
+  polar,
+  radius,
+  targetX,
+  targetY,
+  targetZ,
+  focusT,
+  focusActive,
+  fromX,
+  fromY,
+  fromZ,
+  fromRadius,
+  toX,
+  toY,
+  toZ,
+  toRadius,
 }: {
-  seg: { x1: number; y1: number; x2: number; y2: number; visible: boolean };
+  azimuth: { value: number };
+  polar: { value: number };
+  radius: { value: number };
+  targetX: { value: number };
+  targetY: { value: number };
+  targetZ: { value: number };
+  focusT: { value: number };
+  focusActive: { value: number };
+  fromX: { value: number };
+  fromY: { value: number };
+  fromZ: { value: number };
+  fromRadius: { value: number };
+  toX: { value: number };
+  toY: { value: number };
+  toZ: { value: number };
+  toRadius: { value: number };
 }) {
-  const dx = seg.x2 - seg.x1;
-  const dy = seg.y2 - seg.y1;
-  const len = Math.hypot(dx, dy);
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const progress = useSharedValue(seg.visible ? 1 : 0);
-  useEffect(() => {
-    progress.value = withTiming(seg.visible ? 1 : 0, {
-      duration: seg.visible ? 600 : 350,
-      easing: Easing.inOut(Easing.cubic),
-    });
-  }, [seg.visible, progress]);
-
-  const style = useAnimatedStyle(() => ({ opacity: 0.55 * progress.value }));
-
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: seg.x1,
-          top: seg.y1,
-          width: len,
-          height: 1,
-          backgroundColor: '#9D5CFF',
-          transform: [{ rotateZ: `${angle}deg` }],
-          transformOrigin: '0 0',
-        },
-        style,
-      ]}
-    />
-  );
+  const { camera } = useThree();
+  useFrame((_, delta) => {
+    if (focusActive.value === 1 && focusT.value < 1) {
+      // eslint-disable-next-line react-compiler/react-compiler -- intentional SharedValue mutation in r3f frame loop
+      focusT.value = Math.min(1, focusT.value + delta / 1.1);
+      const t = focusT.value;
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      targetX.value = fromX.value + (toX.value - fromX.value) * e;
+      targetY.value = fromY.value + (toY.value - fromY.value) * e;
+      targetZ.value = fromZ.value + (toZ.value - fromZ.value) * e;
+      radius.value = fromRadius.value + (toRadius.value - fromRadius.value) * e;
+    }
+    const sinP = Math.sin(polar.value);
+    const x = targetX.value + radius.value * sinP * Math.sin(azimuth.value);
+    const y = targetY.value + radius.value * Math.cos(polar.value);
+    const z = targetZ.value + radius.value * sinP * Math.cos(azimuth.value);
+    camera.position.set(x, y, z);
+    camera.lookAt(targetX.value, targetY.value, targetZ.value);
+  });
+  return null;
 }
 
-function StarDot({
-  star,
-  radius,
-  pos,
-  isSelected,
-  isForging,
+let GLOW_TEX: THREE.Texture | null = null;
+let CORE_TEX: THREE.Texture | null = null;
+function glowTex(): THREE.Texture {
+  if (!GLOW_TEX) GLOW_TEX = makeGlowTexture();
+  return GLOW_TEX;
+}
+function coreTex(): THREE.Texture {
+  if (!CORE_TEX) CORE_TEX = makeCoreTexture();
+  return CORE_TEX;
+}
+
+function StarSprite({
+  placed,
+  selected,
+  forging,
   onPress,
 }: {
-  star: MemoryStar;
-  radius: number;
-  pos: { x: number; y: number };
-  isSelected: boolean;
-  isForging: boolean;
+  placed: PlacedStar;
+  selected: boolean;
+  forging: boolean;
   onPress: () => void;
 }) {
-  const color = colorFor(star.colorKey).hex;
+  const { star, pos, size, color } = placed;
+  const ringRef = useRef<THREE.Sprite>(null);
   const phase = seed(star.id);
   const rate = 0.5 + seed(`${star.id}-rate`) * 0.7;
   const liveliness = 0.35 + seed(`${star.id}-live`) * 0.65;
-  const clock = useSharedValue(phase);
-  const active = isSelected || isForging;
 
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    clock.value = withRepeat(
-      withTiming(phase + 6, { duration: 15000, easing: Easing.linear }),
-      -1,
-      false,
-    );
+  const glowMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: glowTex(),
+        color: color.clone(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [color],
+  );
+  const coreMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: coreTex(),
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  );
+  const ringMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: glowTex(),
+        color: new THREE.Color(forging ? '#FFE066' : '#FFFFFF'),
+        transparent: true,
+        depthWrite: false,
+        opacity: 0,
+      }),
+    [forging],
+  );
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime * 0.12;
+    const a = Math.sin((t * rate + phase) * Math.PI * 2);
+    const b = Math.sin((t * rate * 1.7 + phase * 1.7) * Math.PI * 2);
+    const mixed = (a * 0.7 + b * 0.3 + 1) / 2;
+    const twinkle = Math.pow(mixed, 1.4) * liveliness;
+    glowMat.opacity = (selected ? 0.55 : 0.4) + 0.18 * twinkle;
+    coreMat.opacity = 0.85 + 0.15 * twinkle;
+    ringMat.opacity = selected || forging ? 0.7 : 0;
+    if (ringRef.current) {
+      const s = (size + 0.5) * 2 * (1 + (selected || forging ? 0.06 * Math.sin(t * 6) : 0));
+      ringRef.current.scale.set(s, s, s);
+    }
   });
 
-  // Tight core + hugging colored bloom, like a real star point.
-  const coreR = Math.max(radius * 0.42, MIN_STAR_RADIUS * 0.7);
-  const bloomR = coreR + Math.max(2.5, radius * 0.5) + (active ? 4 : 0);
-  const spikeLen = coreR + radius * 0.9 + 4;
-
-  const twinkleAt = (c: number) => {
-    'worklet';
-    const a = Math.sin((c * rate + phase) * Math.PI * 2);
-    const b = Math.sin((c * rate * 1.7 + phase * 1.7) * Math.PI * 2);
-    return Math.pow((a * 0.7 + b * 0.3 + 1) / 2, 1.4) * liveliness;
-  };
-
-  const bloomStyle = useAnimatedStyle(() => {
-    const t = twinkleAt(clock.value);
-    const gr = bloomR + t * 1.2;
-    return {
-      width: gr * 2,
-      height: gr * 2,
-      borderRadius: gr,
-      marginLeft: -gr,
-      marginTop: -gr,
-      opacity: (active ? 0.5 : 0.32) + 0.16 * t,
-    };
-  });
-
-  const coreStyle = useAnimatedStyle(() => ({ opacity: 0.85 + 0.15 * twinkleAt(clock.value) }));
-
-  const spikeStyle = useAnimatedStyle(() => ({
-    opacity: (0.18 + 0.32 * twinkleAt(clock.value)) * (active ? 1.4 : 1),
-  }));
-
-  const bloomR2 = coreR + 1.5;
+  const glowScale = (size + 0.35) * 2.1;
+  const coreScale = size * 0.9;
 
   return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={12}
-      style={{ position: 'absolute', left: pos.x, top: pos.y }}
-    >
-      {/* Tight colored bloom (emotion tint) */}
-      <Animated.View style={[{ position: 'absolute', backgroundColor: color }, bloomStyle]} />
-      {/* Diffraction glint cross */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            width: spikeLen * 2,
-            height: 1,
-            marginLeft: -spikeLen,
-            marginTop: -0.5,
-            backgroundColor: '#EAF2FF',
-          },
-          spikeStyle,
-        ]}
+    <group position={pos}>
+      <mesh
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          onPress();
+        }}
+      >
+        <sphereGeometry args={[Math.max(size, 0.5), 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <sprite ref={ringRef} material={ringMat} scale={[(size + 0.5) * 2, (size + 0.5) * 2, 1]} />
+      <sprite material={glowMat} scale={[glowScale, glowScale, 1]} />
+      <sprite material={coreMat} scale={[coreScale, coreScale, 1]} />
+    </group>
+  );
+}
+
+function ConstellationLines({
+  placed,
+  constellations,
+  revealedStarIds,
+}: {
+  placed: PlacedStar[];
+  constellations: Constellation[];
+  revealedStarIds: string[];
+}) {
+  const byId = useMemo(() => {
+    const m = new Map<string, PlacedStar>();
+    for (const p of placed) m.set(p.star.id, p);
+    return m;
+  }, [placed]);
+  const revealed = useMemo(() => new Set(revealedStarIds), [revealedStarIds]);
+
+  return (
+    <group>
+      {constellations.map((c) => {
+        const visible = c.starIds.some((id) => revealed.has(id));
+        const ordered = [...c.starIds]
+          .map((id) => byId.get(id))
+          .filter((p): p is PlacedStar => Boolean(p))
+          .sort((a, b) => a.star.date.localeCompare(b.star.date));
+        if (ordered.length < 2) return null;
+        const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
+        return <ConstellationLine key={c.id} points={pts} visible={visible} />;
+      })}
+    </group>
+  );
+}
+
+function ConstellationLine({ points, visible }: { points: THREE.Vector3[]; visible: boolean }) {
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
+  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
+  useFrame((_, delta) => {
+    const mat = matRef.current;
+    if (!mat) return;
+    const target = visible ? 0.55 : 0;
+    mat.opacity += (target - mat.opacity) * Math.min(1, delta * 5);
+  });
+  return (
+    // @ts-expect-error r3f line intrinsic
+    <line geometry={geometry}>
+      <lineBasicMaterial
+        ref={matRef}
+        color="#9D5CFF"
+        transparent
+        opacity={visible ? 0.55 : 0}
+        depthWrite={false}
       />
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            width: 1,
-            height: spikeLen * 2,
-            marginLeft: -0.5,
-            marginTop: -spikeLen,
-            backgroundColor: '#EAF2FF',
-          },
-          spikeStyle,
-        ]}
+    </line>
+  );
+}
+
+function DustField() {
+  const { positions, colors } = useMemo(() => {
+    const count = 600;
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < count; i += 1) {
+      const r = 28 + seed(`dr${i}`) * 22;
+      const theta = seed(`dt${i}`) * Math.PI * 2;
+      const phi = Math.acos(2 * seed(`dp${i}`) - 1);
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.cos(phi);
+      pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      const tint = 0.7 + seed(`dc${i}`) * 0.3;
+      c.setRGB(tint, tint * 0.95, 1);
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+    return { positions: pos, colors: col };
+  }, []);
+
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.35}
+        sizeAttenuation
+        vertexColors
+        transparent
+        opacity={0.5}
+        depthWrite={false}
       />
-      {active && (
-        <View
-          style={{
-            position: 'absolute',
-            width: (radius + 10) * 2,
-            height: (radius + 10) * 2,
-            borderRadius: radius + 10,
-            marginLeft: -(radius + 10),
-            marginTop: -(radius + 10),
-            borderWidth: 1.5,
-            borderColor: isForging ? '#FFE066' : '#FFFFFF',
-            opacity: 0.85,
-          }}
+    </points>
+  );
+}
+
+function MilkyWay() {
+  const tex = useMemo(() => glowTex(), []);
+  const blobs = useMemo(() => {
+    const arr: { pos: [number, number, number]; scale: number; opacity: number }[] = [];
+    const count = 6;
+    for (let i = 0; i < count; i += 1) {
+      const t = i / (count - 1);
+      arr.push({
+        pos: [
+          (t - 0.5) * WORLD_RADIUS * 3,
+          (seed(`my${i}`) - 0.5) * WORLD_RADIUS,
+          -WORLD_RADIUS * 2 + (seed(`mz${i}`) - 0.5) * WORLD_RADIUS,
+        ],
+        scale: WORLD_RADIUS * (1.6 + seed(`ms${i}`) * 1.2),
+        opacity: 0.05 + seed(`mo${i}`) * 0.04,
+      });
+    }
+    return arr;
+  }, []);
+  const mats = useMemo(
+    () =>
+      blobs.map(
+        (b) =>
+          new THREE.SpriteMaterial({
+            map: tex,
+            color: new THREE.Color('#3A2E6B'),
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            opacity: b.opacity,
+          }),
+      ),
+    [blobs, tex],
+  );
+  return (
+    <group>
+      {blobs.map((b) => (
+        <sprite
+          key={b.pos[0]}
+          material={mats[blobs.indexOf(b)]}
+          position={b.pos}
+          scale={[b.scale, b.scale, 1]}
         />
-      )}
-      {/* Soft white-blue inner bloom */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            width: bloomR2 * 2,
-            height: bloomR2 * 2,
-            borderRadius: bloomR2,
-            marginLeft: -bloomR2,
-            marginTop: -bloomR2,
-            backgroundColor: '#CFE3FF',
-          },
-          coreStyle,
-        ]}
-      />
-      {/* Bright white core */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            width: coreR * 2,
-            height: coreR * 2,
-            borderRadius: coreR,
-            marginLeft: -coreR,
-            marginTop: -coreR,
-            backgroundColor: '#FFFFFF',
-          },
-          coreStyle,
-        ]}
-      />
-    </Pressable>
+      ))}
+    </group>
+  );
+}
+
+function BackgroundCatcher({ onMiss }: { onMiss: () => void }) {
+  return (
+    <mesh
+      onClick={() => {
+        onMiss();
+      }}
+    >
+      <sphereGeometry args={[120, 16, 16]} />
+      <meshBasicMaterial transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
+    </mesh>
   );
 }

@@ -1,24 +1,19 @@
-// oxlint-disable react/style-prop-object -- Skia uses style="stroke"|"fill" as a paint property, not a React Native style object
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useWindowDimensions } from 'react-native';
-import { Canvas, Circle, Group, Line, Blur, Fill, vec } from '@shopify/react-native-skia';
+import { useEffect, useMemo, useRef } from 'react';
+import { View } from 'react-native';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import {
-  Easing,
-  runOnJS,
-  useDerivedValue,
-  useSharedValue,
-  withDecay,
-  withRepeat,
-  withSpring,
-  withTiming,
-  clamp,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { clamp, useSharedValue } from 'react-native-reanimated';
+import * as THREE from 'three';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
-import { colorFor, panBoundsForCount, radiusForText, MIN_STAR_RADIUS } from '@/lib/memoria';
+import {
+  colorFor,
+  radiusForText,
+  star3DPosition,
+  starWorldSize,
+  WORLD_RADIUS,
+} from '@/lib/memoria';
 
 interface CosmosCanvasProps {
   stars: MemoryStar[];
@@ -28,7 +23,7 @@ interface CosmosCanvasProps {
   selectedStarId?: string;
   /** Star ids the user has multi-selected for forging. */
   forgingStarIds: string[];
-  /** A star to smoothly pan/zoom to and focus (e.g. coming from search). */
+  /** A star to smoothly orbit/zoom toward and focus (e.g. coming from search). */
   focusStarId?: string | null;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
@@ -36,12 +31,23 @@ interface CosmosCanvasProps {
 
 interface PlacedStar {
   star: MemoryStar;
-  /** Screen-space radius for this star (pre-zoom). */
-  radius: number;
+  /** World position in the 3D scene. */
+  pos: [number, number, number];
+  /** World-space glow size. */
+  size: number;
+  color: THREE.Color;
 }
 
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 4;
+/** Fire a haptic selection tick (module-scope: no closure over component state). */
+function focusTick() {
+  void Haptics.selectionAsync();
+}
+
+// Camera orbit limits.
+const MIN_RADIUS = 6;
+const MAX_RADIUS = 34;
+const POLAR_MIN = 0.25;
+const POLAR_MAX = Math.PI - 0.25;
 
 /** Deterministic pseudo-random in [0,1) from a string seed. */
 function seed(str: string): number {
@@ -53,23 +59,44 @@ function seed(str: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-/** Clamp a value into [-bound, bound]. */
-function clampAxis(raw: number, bound: number): number {
-  'worklet';
-  if (raw > bound) return bound;
-  if (raw < -bound) return -bound;
-  return raw;
+// ---- Shared sprite textures (created once) --------------------------------
+
+/** Soft radial glow texture used for the colored halo around each star. */
+function makeGlowTexture(): THREE.Texture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
 }
 
-/**
- * Translation bound for the current zoom. When zoomed in, content is larger
- * than the screen so the user must be able to pan farther to reach the edges;
- * the allowance grows with (scale - 1) times half the viewport.
- */
-function boundFor(base: number, scl: number, viewport: number): number {
-  'worklet';
-  const extra = scl > 1 ? (scl - 1) * (viewport / 2) : 0;
-  return base + extra;
+/** Tight bright core texture (white point). */
+function makeCoreTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.4, 'rgba(232,242,255,0.95)');
+  grad.addColorStop(0.75, 'rgba(207,227,255,0.35)');
+  grad.addColorStop(1, 'rgba(207,227,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 export function CosmosCanvas(props: CosmosCanvasProps) {
@@ -83,384 +110,308 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     onTapStar,
     onTapEmpty,
   } = props;
-  const { width, height } = useWindowDimensions();
-
-  // World extent: normalized -1..1 mapped to a span larger than the screen.
-  const span = Math.max(width, height) * 1.15;
-
-  // Elastic pan boundary that expands with memory density.
-  const boundsX = panBoundsForCount(stars.length, width);
-  const boundsY = panBoundsForCount(stars.length, height);
-  // Width of one "sector" used to fire a light haptic when crossing into newly
-  // revealed procedural space.
-  const sectorSize = Math.max(width, height) * 0.6;
 
   const placed = useMemo<PlacedStar[]>(
     () =>
-      stars.map((star) => ({
-        star,
-        radius: radiusForText(star.story.length > 0 ? star.story : star.title),
-      })),
+      stars.map((star) => {
+        const radius = radiusForText(star.story.length > 0 ? star.story : star.title);
+        return {
+          star,
+          pos: star3DPosition(star.id, star.x, star.y),
+          size: starWorldSize(radius),
+          color: new THREE.Color(colorFor(star.colorKey).hex),
+        };
+      }),
     [stars],
   );
 
-  // Map normalized coords to screen center-anchored pixels.
-  const toScreen = useCallback(
-    (nx: number, ny: number) => ({
-      x: width / 2 + nx * (span / 2),
-      y: height / 2 + ny * (span / 2),
-    }),
-    [width, height, span],
-  );
+  // ---- Orbit camera state (shared values, written by gestures) -----------
+  const azimuth = useSharedValue(0.6); // horizontal angle
+  const polar = useSharedValue(Math.PI / 2 - 0.25); // vertical angle from +y
+  const radius = useSharedValue(20);
+  const targetX = useSharedValue(0);
+  const targetY = useSharedValue(0);
+  const targetZ = useSharedValue(0);
+  // Saved-at-gesture-start values.
+  const savedAz = useSharedValue(0);
+  const savedPolar = useSharedValue(0);
+  const savedRadius = useSharedValue(0);
+  // Focus animation (0..1) and its endpoints.
+  const focusT = useSharedValue(1);
+  const focusActive = useSharedValue(0);
+  const fromX = useSharedValue(0);
+  const fromY = useSharedValue(0);
+  const fromZ = useSharedValue(0);
+  const fromRadius = useSharedValue(20);
+  const toX = useSharedValue(0);
+  const toY = useSharedValue(0);
+  const toZ = useSharedValue(0);
+  const toRadius = useSharedValue(20);
 
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
-  const savedTx = useSharedValue(0);
-  const savedTy = useSharedValue(0);
-  // Pinch focal point captured at gesture start (screen space).
-  const pinchFocalX = useSharedValue(0);
-  const pinchFocalY = useSharedValue(0);
-  const clock = useSharedValue(0);
-  // Selection / forging state mirrored into shared values so tapping a star
-  // does NOT re-render every MemoryStarShape (which recreates Skia nodes mid-
-  // animation and crashes the native reconciler). The star reads these on the
-  // UI thread to drive its selection ring opacity.
-  const selectedIdSV = useSharedValue<string | null>(selectedStarId ?? null);
-  const forgingIdsSV = useSharedValue<string[]>(forgingStarIds);
-  useEffect(() => {
-    selectedIdSV.value = selectedStarId ?? null;
-  }, [selectedStarId, selectedIdSV]);
-  useEffect(() => {
-    forgingIdsSV.value = forgingStarIds;
-  }, [forgingStarIds, forgingIdsSV]);
-  // Last sector index crossed, used to fire a light haptic on a new sector.
-  const lastSector = useSharedValue(0);
-  // Pan bounds mirrored into shared values so gesture worklets read a stable
-  // value instead of a render-scoped closure that can change mid-gesture.
-  const boundX = useSharedValue(boundsX);
-  const boundY = useSharedValue(boundsY);
-  // Viewport mirrored so worklets can compute scale-aware bounds.
-  const vpW = useSharedValue(width);
-  const vpH = useSharedValue(height);
-  useEffect(() => {
-    boundX.value = boundsX;
-    boundY.value = boundsY;
-    vpW.value = width;
-    vpH.value = height;
-  }, [boundsX, boundsY, boundX, boundY, width, height, vpW, vpH]);
-
-  // Continuous twinkle clock on the UI thread (loops 0 -> 1 forever).
-  const clockStarted = useRef(false);
-  useEffect(() => {
-    if (clockStarted.current) return;
-    clockStarted.current = true;
-    clock.value = withRepeat(withTiming(6, { duration: 15000, easing: Easing.linear }), -1, false);
-  });
-
-  const lightTick = useCallback(() => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
-  const focusTick = useCallback(() => {
-    void Haptics.selectionAsync();
-  }, []);
-
-  // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
-  // A longer, eased fly-in reads as a cinematic dive toward the star rather
-  // than a quick jump.
+  // When asked to focus a star, ease the orbit target onto it and zoom in.
   useEffect(() => {
     if (!focusStarId) return;
     const target = placed.find((p) => p.star.id === focusStarId);
     if (!target) return;
-    const s = toScreen(target.star.x, target.star.y);
-    const targetScale = 2.8;
-    // Center the star: tx + s.x * scale = width/2.
-    const nextTx = width / 2 - s.x * targetScale;
-    const nextTy = height / 2 - s.y * targetScale;
-    const ease = Easing.inOut(Easing.cubic);
-    scale.value = withTiming(targetScale, { duration: 1100, easing: ease });
-    tx.value = withTiming(nextTx, { duration: 1100, easing: ease });
-    ty.value = withTiming(nextTy, { duration: 1100, easing: ease });
+    // Animate the orbit target + radius via a normalized progress the frame
+    // loop interpolates. Capture start/end on shared values.
+    fromX.value = targetX.value;
+    fromY.value = targetY.value;
+    fromZ.value = targetZ.value;
+    fromRadius.value = radius.value;
+    toX.value = target.pos[0];
+    toY.value = target.pos[1];
+    toZ.value = target.pos[2];
+    toRadius.value = Math.max(MIN_RADIUS, target.size * 6 + 4);
+    focusT.value = 0;
+    focusActive.value = 1;
     focusTick();
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusStarId, placed, toScreen, width, height]);
+  }, [focusStarId, placed]);
 
-  const transform = useDerivedValue(() => [
-    { translateX: tx.value },
-    { translateY: ty.value },
-    { scale: scale.value },
-  ]);
-
-  // Single-finger pan only — two fingers are reserved for pinch so the two
-  // gestures don't fight and cause erratic drift.
+  // Drag rotates the orbit; one finger only so it doesn't fight pinch.
   const pan = Gesture.Pan()
     .maxPointers(1)
     .onStart(() => {
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
+      savedAz.value = azimuth.value;
+      savedPolar.value = polar.value;
+      focusActive.value = 0; // user takes over
     })
     .onUpdate((e) => {
-      // Hard clamp inside the boundary — no rubber-band so release can't snap
-      // from beyond the edge back toward an unexpected spot. Bounds grow with
-      // zoom so panning while zoomed in doesn't get pulled back to center.
-      const bx = boundFor(boundX.value, scale.value, vpW.value);
-      const by = boundFor(boundY.value, scale.value, vpH.value);
-      tx.value = clampAxis(savedTx.value + e.translationX, bx);
-      ty.value = clampAxis(savedTy.value + e.translationY, by);
-      // Haptic pulse when gliding into a freshly generated sector.
-      const sector = Math.round(Math.hypot(tx.value, ty.value) / sectorSize);
-      if (sector !== lastSector.value) {
-        lastSector.value = sector;
-        runOnJS(lightTick)();
-      }
-    })
-    .onEnd((e) => {
-      // Weightless momentum that decays to a stop, clamped to the boundary.
-      // Plain clamp (no rubberBandEffect, no completion callback re-animating
-      // the value) avoids the crash and the snap-to-center on release.
-      const bx = boundFor(boundX.value, scale.value, vpW.value);
-      const by = boundFor(boundY.value, scale.value, vpH.value);
-      tx.value = withDecay({
-        velocity: e.velocityX,
-        deceleration: 0.997,
-        clamp: [-bx, bx],
-      });
-      ty.value = withDecay({
-        velocity: e.velocityY,
-        deceleration: 0.997,
-        clamp: [-by, by],
-      });
+      const k = 0.005;
+      azimuth.value = savedAz.value - e.translationX * k;
+      polar.value = clamp(savedPolar.value - e.translationY * k, POLAR_MIN, POLAR_MAX);
     });
 
-  // Focal-point pinch: the point between the fingers stays anchored while
-  // zooming, and the translation tracks the focal centroid as it drifts.
   const pinch = Gesture.Pinch()
-    .onStart((e) => {
-      savedScale.value = scale.value;
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
-      pinchFocalX.value = e.focalX;
-      pinchFocalY.value = e.focalY;
+    .onStart(() => {
+      savedRadius.value = radius.value;
+      focusActive.value = 0;
     })
     .onUpdate((e) => {
-      const nextScale = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
-      const ratio = nextScale / savedScale.value;
-      // Keep the original focal point fixed under the fingers while zooming,
-      // then follow the focal centroid as the fingers move (two-finger pan).
-      const focusShiftX = e.focalX - pinchFocalX.value;
-      const focusShiftY = e.focalY - pinchFocalY.value;
-      const nextTx = pinchFocalX.value - (pinchFocalX.value - savedTx.value) * ratio + focusShiftX;
-      const nextTy = pinchFocalY.value - (pinchFocalY.value - savedTy.value) * ratio + focusShiftY;
-      // Use scale-aware bounds so zooming in doesn't drag content to center.
-      const bx = boundFor(boundX.value, nextScale, vpW.value);
-      const by = boundFor(boundY.value, nextScale, vpH.value);
-      tx.value = clampAxis(nextTx, bx);
-      ty.value = clampAxis(nextTy, by);
-      scale.value = nextScale;
-    })
-    .onEnd(() => {
-      // Ease any out-of-bounds translation back inside after a pinch, using
-      // the final scale's bounds so an in-bounds view never relocates.
-      const bx = boundFor(boundX.value, scale.value, vpW.value);
-      const by = boundFor(boundY.value, scale.value, vpH.value);
-      const cx = clampAxis(tx.value, bx);
-      const cy = clampAxis(ty.value, by);
-      if (cx !== tx.value) tx.value = withSpring(cx, { damping: 18, stiffness: 120 });
-      if (cy !== ty.value) ty.value = withSpring(cy, { damping: 18, stiffness: 120 });
+      radius.value = clamp(savedRadius.value / e.scale, MIN_RADIUS, MAX_RADIUS);
     });
 
-  const tap = Gesture.Tap()
-    .maxDuration(250)
-    .onEnd((e) => {
-      // Convert screen tap into world space accounting for current transform.
-      // Transform applies translate then scale, so screen = world*scale + t.
-      const wx = (e.x - tx.value) / scale.value;
-      const wy = (e.y - ty.value) / scale.value;
-      let hit: MemoryStar | null = null;
-      let hitDist = Number.POSITIVE_INFINITY;
-      // Expand the touch target as you zoom out so small stars stay tappable.
-      const slop = 14 / scale.value;
-      for (const p of placed) {
-        const s = toScreen(p.star.x, p.star.y);
-        const d = Math.hypot(s.x - wx, s.y - wy);
-        const touchR = Math.max(p.radius, 14) + slop;
-        if (d < touchR && d < hitDist) {
-          hit = p.star;
-          hitDist = d;
-        }
-      }
-      if (hit) {
-        runOnJS(focusTick)();
-        runOnJS(onTapStar)(hit);
-      } else runOnJS(onTapEmpty)();
-    });
+  const gesture = Gesture.Simultaneous(pan, pinch);
 
-  // Pinch and pan coexist; tap loses to pan so a drag never registers as a tap.
-  const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(pan, tap));
+  // Tap handling is done inside the scene via raycasting (onClick on hit
+  // meshes). Empty taps bubble to the canvas background mesh.
+  const handleTapStar = (star: MemoryStar) => {
+    focusTick();
+    onTapStar(star);
+  };
 
   return (
-    <GestureDetector gesture={gesture}>
-      <Canvas style={{ flex: 1 }}>
-        <Fill color="#0b0c10" />
-        <BackgroundStarfield width={width} height={height} clock={clock} />
-        <Group transform={transform}>
-          <ConstellationLines
-            placed={placed}
-            constellations={constellations}
-            revealedStarIds={revealedStarIds}
-            toScreen={toScreen}
-          />
-          {placed.map((p) => (
-            <MemoryStarShape
-              key={p.star.id}
-              placed={p}
-              clock={clock}
-              toScreen={toScreen}
-              selectedId={selectedIdSV}
-              forgingIds={forgingIdsSV}
+    <View className="bg-void flex-1">
+      <GestureDetector gesture={gesture}>
+        <View style={{ flex: 1 }} collapsable={false}>
+          <Canvas
+            gl={{ antialias: true }}
+            camera={{ fov: 60, near: 0.1, far: 200, position: [0, 0, 20] }}
+            onCreated={(state) => {
+              state.gl.setClearColor('#0b0c10', 1);
+            }}
+          >
+            <OrbitRig
+              azimuth={azimuth}
+              polar={polar}
+              radius={radius}
+              targetX={targetX}
+              targetY={targetY}
+              targetZ={targetZ}
+              focusT={focusT}
+              focusActive={focusActive}
+              fromX={fromX}
+              fromY={fromY}
+              fromZ={fromZ}
+              fromRadius={fromRadius}
+              toX={toX}
+              toY={toY}
+              toZ={toZ}
+              toRadius={toRadius}
             />
-          ))}
-        </Group>
-      </Canvas>
-    </GestureDetector>
+            <ambientLight intensity={0.6} />
+            <DustField />
+            <MilkyWay />
+            <ConstellationLines
+              placed={placed}
+              constellations={constellations}
+              revealedStarIds={revealedStarIds}
+            />
+            {placed.map((p) => (
+              <StarSprite
+                key={p.star.id}
+                placed={p}
+                selected={p.star.id === selectedStarId}
+                forging={forgingStarIds.includes(p.star.id)}
+                onPress={() => handleTapStar(p.star)}
+              />
+            ))}
+            <BackgroundCatcher onMiss={onTapEmpty} />
+          </Canvas>
+        </View>
+      </GestureDetector>
+    </View>
   );
 }
 
-function MemoryStarShape({
+/** Drives the camera each frame from the orbit shared values. */
+function OrbitRig({
+  azimuth,
+  polar,
+  radius,
+  targetX,
+  targetY,
+  targetZ,
+  focusT,
+  focusActive,
+  fromX,
+  fromY,
+  fromZ,
+  fromRadius,
+  toX,
+  toY,
+  toZ,
+  toRadius,
+}: {
+  azimuth: { value: number };
+  polar: { value: number };
+  radius: { value: number };
+  targetX: { value: number };
+  targetY: { value: number };
+  targetZ: { value: number };
+  focusT: { value: number };
+  focusActive: { value: number };
+  fromX: { value: number };
+  fromY: { value: number };
+  fromZ: { value: number };
+  fromRadius: { value: number };
+  toX: { value: number };
+  toY: { value: number };
+  toZ: { value: number };
+  toRadius: { value: number };
+}) {
+  const { camera } = useThree();
+  useFrame((_, delta) => {
+    // Advance focus animation if active.
+    if (focusActive.value === 1 && focusT.value < 1) {
+      // eslint-disable-next-line react-compiler/react-compiler -- intentional SharedValue mutation in r3f frame loop
+      focusT.value = Math.min(1, focusT.value + delta / 1.1);
+      const t = focusT.value;
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // inOutCubic
+      targetX.value = fromX.value + (toX.value - fromX.value) * e;
+      targetY.value = fromY.value + (toY.value - fromY.value) * e;
+      targetZ.value = fromZ.value + (toZ.value - fromZ.value) * e;
+      radius.value = fromRadius.value + (toRadius.value - fromRadius.value) * e;
+    }
+    const sinP = Math.sin(polar.value);
+    const x = targetX.value + radius.value * sinP * Math.sin(azimuth.value);
+    const y = targetY.value + radius.value * Math.cos(polar.value);
+    const z = targetZ.value + radius.value * sinP * Math.cos(azimuth.value);
+    camera.position.set(x, y, z);
+    camera.lookAt(targetX.value, targetY.value, targetZ.value);
+  });
+  return null;
+}
+
+// Shared textures created lazily once.
+let GLOW_TEX: THREE.Texture | null = null;
+let CORE_TEX: THREE.Texture | null = null;
+function glowTex(): THREE.Texture {
+  if (!GLOW_TEX) GLOW_TEX = makeGlowTexture();
+  return GLOW_TEX;
+}
+function coreTex(): THREE.Texture {
+  if (!CORE_TEX) CORE_TEX = makeCoreTexture();
+  return CORE_TEX;
+}
+
+function StarSprite({
   placed,
-  clock,
-  toScreen,
-  selectedId,
-  forgingIds,
+  selected,
+  forging,
+  onPress,
 }: {
   placed: PlacedStar;
-  clock: SharedValue<number>;
-  toScreen: (x: number, y: number) => { x: number; y: number };
-  selectedId: SharedValue<string | null>;
-  forgingIds: SharedValue<string[]>;
+  selected: boolean;
+  forging: boolean;
+  onPress: () => void;
 }) {
-  const { star, radius } = placed;
-  const pos = toScreen(star.x, star.y);
-  const color = colorFor(star.colorKey).hex;
+  const { star, pos, size, color } = placed;
+  const ringRef = useRef<THREE.Sprite>(null);
   const phase = seed(star.id);
-  const starId = star.id;
-  // Each star twinkles at its own slow rate. Most stars barely shimmer.
   const rate = 0.5 + seed(`${star.id}-rate`) * 0.7;
-  // A portion of stars are "steady" (almost no twinkle), like a real sky.
   const liveliness = 0.35 + seed(`${star.id}-live`) * 0.65;
 
-  // Twinkle = gentle, slow brightness shimmer. A real star is a tight bright
-  // point with a faint bloom; the emotion color tints the bloom subtly rather
-  // than surrounding the star with an obvious colored disc.
-  const twinkle = (t: number): number => {
-    'worklet';
-    const a = Math.sin((t * rate + phase) * Math.PI * 2);
-    const b = Math.sin((t * rate * 1.7 + phase * 1.7) * Math.PI * 2);
-    const mixed = (a * 0.7 + b * 0.3 + 1) / 2; // 0..1
-    // Soft curve keeps most of the range near steady; no sharp flicker.
-    return Math.pow(mixed, 1.4) * liveliness;
-  };
-
-  // Selection state read on the UI thread so taps never re-render this node.
-  const isActive = useDerivedValue(() => {
-    const sel = selectedId.value === starId;
-    let forg = false;
-    const ids = forgingIds.value;
-    for (let i = 0; i < ids.length; i += 1) {
-      if (ids[i] === starId) {
-        forg = true;
-        break;
-      }
-    }
-    return sel || forg ? 1 : 0;
-  });
-  const isForgingSV = useDerivedValue(() => {
-    const ids = forgingIds.value;
-    for (let i = 0; i < ids.length; i += 1) {
-      if (ids[i] === starId) return 1;
-    }
-    return 0;
-  });
-
-  // White-blue core radius: small and tight, scaled gently by memory weight.
-  const coreR = Math.max(radius * 0.42, MIN_STAR_RADIUS * 0.7);
-  // Tight colored bloom — a soft glow hugging the core, not a wide disc.
-  // Radius is STATIC (animating r on a blurred circle is the fragile path that
-  // crashes Skia in Expo Go); only opacity animates.
-  const bloomR = coreR + Math.max(2.5, radius * 0.5);
-  // Faint diffraction glint length, scaled to brightness of the star.
-  const spikeLen = coreR + radius * 0.9 + 4;
-
-  const coreOpacity = useDerivedValue(() => 0.85 + 0.15 * twinkle(clock.value));
-
-  const bloomOpacity = useDerivedValue(() => {
-    const base = isActive.value ? 0.5 : 0.32;
-    return base + 0.16 * twinkle(clock.value);
-  });
-
-  // Diffraction spikes fade with twinkle so brighter moments sparkle.
-  const spikeOpacity = useDerivedValue(
-    () => (0.18 + 0.32 * twinkle(clock.value)) * (isActive.value ? 1.4 : 1),
+  const glowMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: glowTex(),
+        color: color.clone(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [color],
+  );
+  const coreMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: coreTex(),
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  );
+  const ringMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: glowTex(),
+        color: new THREE.Color(forging ? '#FFE066' : '#FFFFFF'),
+        transparent: true,
+        depthWrite: false,
+        opacity: 0,
+      }),
+    [forging],
   );
 
-  // The selection ring is always mounted (opacity 0 when inactive) so the
-  // Skia node tree never changes shape on tap.
-  const ringOpacity = useDerivedValue(() => (isActive.value ? 0.85 : 0));
-  const ringColor = useDerivedValue(() => (isForgingSV.value ? '#FFE066' : '#FFFFFF'));
+  useFrame((state) => {
+    const t = state.clock.elapsedTime * 0.12;
+    const a = Math.sin((t * rate + phase) * Math.PI * 2);
+    const b = Math.sin((t * rate * 1.7 + phase * 1.7) * Math.PI * 2);
+    const mixed = (a * 0.7 + b * 0.3 + 1) / 2;
+    const twinkle = Math.pow(mixed, 1.4) * liveliness;
+    if (glowMat) glowMat.opacity = (selected ? 0.55 : 0.4) + 0.18 * twinkle;
+    if (coreMat) coreMat.opacity = 0.85 + 0.15 * twinkle;
+    if (ringMat) ringMat.opacity = selected || forging ? 0.7 : 0;
+    // Subtle ring pulse when active.
+    if (ringRef.current) {
+      const s = (size + 0.5) * 2 * (1 + (selected || forging ? 0.06 * Math.sin(t * 6) : 0));
+      ringRef.current.scale.set(s, s, s);
+    }
+  });
+
+  const glowScale = (size + 0.35) * 2.1;
+  const coreScale = size * 0.9;
 
   return (
-    <Group>
-      {/* Tight colored bloom (emotion tint), hugging the star. Animated opacity
-          lives on the wrapping Group — never directly on a node that holds a
-          <Blur> child, which is the fragile path that crashes Skia in Expo Go. */}
-      <Group opacity={bloomOpacity}>
-        <Circle cx={pos.x} cy={pos.y} r={bloomR} color={color}>
-          <Blur blur={Math.max(3, radius * 0.6)} />
-        </Circle>
-      </Group>
-      {/* Subtle diffraction glint — thin cross that makes it read as a real star */}
-      <Group opacity={spikeOpacity}>
-        <Line
-          p1={vec(pos.x - spikeLen, pos.y)}
-          p2={vec(pos.x + spikeLen, pos.y)}
-          color="#EAF2FF"
-          style="stroke"
-          strokeWidth={0.7}
-        >
-          <Blur blur={0.6} />
-        </Line>
-        <Line
-          p1={vec(pos.x, pos.y - spikeLen)}
-          p2={vec(pos.x, pos.y + spikeLen)}
-          color="#EAF2FF"
-          style="stroke"
-          strokeWidth={0.7}
-        >
-          <Blur blur={0.6} />
-        </Line>
-      </Group>
-      {/* Selection / forging ring — always mounted, opacity driven so the
-          node tree shape is stable across taps. No Blur child here. */}
-      <Group opacity={ringOpacity}>
-        <Circle
-          cx={pos.x}
-          cy={pos.y}
-          r={radius + 10}
-          color={ringColor}
-          style="stroke"
-          strokeWidth={1.5}
-        />
-      </Group>
-      {/* Soft white-blue inner bloom */}
-      <Group opacity={coreOpacity}>
-        <Circle cx={pos.x} cy={pos.y} r={coreR + 1.5} color="#CFE3FF">
-          <Blur blur={1.4} />
-        </Circle>
-        {/* Bright white core */}
-        <Circle cx={pos.x} cy={pos.y} r={coreR} color="#FFFFFF" />
-      </Group>
-    </Group>
+    <group position={pos}>
+      {/* Invisible hit target for reliable tap raycasting. */}
+      <mesh
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          onPress();
+        }}
+      >
+        <sphereGeometry args={[Math.max(size, 0.5), 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <sprite ref={ringRef} material={ringMat} scale={[(size + 0.5) * 2, (size + 0.5) * 2, 1]} />
+      <sprite material={glowMat} scale={[glowScale, glowScale, 1]} />
+      <sprite material={coreMat} scale={[coreScale, coreScale, 1]} />
+    </group>
   );
 }
 
@@ -468,152 +419,161 @@ function ConstellationLines({
   placed,
   constellations,
   revealedStarIds,
-  toScreen,
 }: {
   placed: PlacedStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
-  toScreen: (x: number, y: number) => { x: number; y: number };
 }) {
   const byId = useMemo(() => {
     const m = new Map<string, PlacedStar>();
     for (const p of placed) m.set(p.star.id, p);
     return m;
   }, [placed]);
-
   const revealed = useMemo(() => new Set(revealedStarIds), [revealedStarIds]);
 
   return (
-    <Group>
+    <group>
       {constellations.map((c) => {
-        const isVisible = c.starIds.some((id) => revealed.has(id));
-        // Connect chronologically: order by the star's date.
+        const visible = c.starIds.some((id) => revealed.has(id));
         const ordered = [...c.starIds]
           .map((id) => byId.get(id))
           .filter((p): p is PlacedStar => Boolean(p))
           .sort((a, b) => a.star.date.localeCompare(b.star.date));
-        const segments: {
-          key: string;
-          p1: { x: number; y: number };
-          p2: { x: number; y: number };
-        }[] = [];
-        for (let i = 0; i < ordered.length - 1; i += 1) {
-          segments.push({
-            key: `${ordered[i].star.id}-${ordered[i + 1].star.id}`,
-            p1: toScreen(ordered[i].star.x, ordered[i].star.y),
-            p2: toScreen(ordered[i + 1].star.x, ordered[i + 1].star.y),
-          });
-        }
-        return <ConstellationGroup key={c.id} segments={segments} visible={isVisible} />;
+        if (ordered.length < 2) return null;
+        const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
+        return <ConstellationLine key={c.id} points={pts} visible={visible} />;
       })}
-    </Group>
+    </group>
   );
 }
 
-/** A single constellation's line segments, with opacity that fades in/out. */
-function ConstellationGroup({
-  segments,
-  visible,
-}: {
-  segments: { key: string; p1: { x: number; y: number }; p2: { x: number; y: number } }[];
-  visible: boolean;
-}) {
-  const progress = useSharedValue(visible ? 1 : 0);
-  useEffect(() => {
-    progress.value = withTiming(visible ? 1 : 0, {
-      duration: visible ? 600 : 350,
-      easing: Easing.inOut(Easing.cubic),
-    });
-  }, [visible, progress]);
+function ConstellationLine({ points, visible }: { points: THREE.Vector3[]; visible: boolean }) {
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
+  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
+  useFrame((_, delta) => {
+    const mat = matRef.current;
+    if (!mat) return;
+    const target = visible ? 0.55 : 0;
+    mat.opacity += (target - mat.opacity) * Math.min(1, delta * 5);
+  });
+  return (
+    // @ts-expect-error r3f line intrinsic
+    <line geometry={geometry}>
+      <lineBasicMaterial
+        ref={matRef}
+        color="#9D5CFF"
+        transparent
+        opacity={visible ? 0.55 : 0}
+        depthWrite={false}
+      />
+    </line>
+  );
+}
 
-  const lineOpacity = useDerivedValue(() => 0.55 * progress.value);
+/** Distant non-interactive dust points. */
+function DustField() {
+  const { positions, colors } = useMemo(() => {
+    const count = 600;
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < count; i += 1) {
+      // Distribute on a large sphere shell around the scene.
+      const r = 28 + seed(`dr${i}`) * 22;
+      const theta = seed(`dt${i}`) * Math.PI * 2;
+      const phi = Math.acos(2 * seed(`dp${i}`) - 1);
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.cos(phi);
+      pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      const tint = 0.7 + seed(`dc${i}`) * 0.3;
+      c.setRGB(tint, tint * 0.95, 1);
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+    return { positions: pos, colors: col };
+  }, []);
 
   return (
-    <Group opacity={lineOpacity}>
-      {segments.map((seg) => (
-        <Line
-          key={seg.key}
-          p1={vec(seg.p1.x, seg.p1.y)}
-          p2={vec(seg.p2.x, seg.p2.y)}
-          color="#9D5CFF"
-          style="stroke"
-          strokeWidth={0.8}
-        />
-      ))}
-    </Group>
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.35}
+        sizeAttenuation
+        vertexColors
+        transparent
+        opacity={0.5}
+        depthWrite={false}
+      />
+    </points>
   );
 }
 
-function BackgroundStarfield({
-  width,
-  height,
-  clock,
-}: {
-  width: number;
-  height: number;
-  clock: SharedValue<number>;
-}) {
-  // Static distant dust that twinkles faintly; not interactive.
-  const dust = useMemo(() => {
-    const arr: { id: string; x: number; y: number; r: number; phase: number }[] = [];
-    for (let i = 0; i < 110; i += 1) {
-      arr.push({
-        id: `dust-${i}`,
-        x: seed(`x${i}`) * width,
-        y: seed(`y${i}`) * height,
-        r: 0.4 + seed(`r${i}`) * 1.2,
-        phase: seed(`p${i}`),
-      });
-    }
-    return arr;
-  }, [width, height]);
-
-  // Faint Milky Way band: a soft diagonal haze made of overlapping blurred blobs.
-  const band = useMemo(() => {
-    const arr: { id: string; x: number; y: number; r: number; o: number }[] = [];
-    const count = 7;
+/** Faint volumetric haze band — a few large additive glow sprites. */
+function MilkyWay() {
+  const tex = useMemo(() => glowTex(), []);
+  const blobs = useMemo(() => {
+    const arr: { pos: [number, number, number]; scale: number; opacity: number }[] = [];
+    const count = 6;
     for (let i = 0; i < count; i += 1) {
       const t = i / (count - 1);
       arr.push({
-        id: `band-${i}`,
-        // Diagonal sweep across the screen.
-        x: width * (0.12 + t * 0.78),
-        y: height * (0.78 - t * 0.6) + (seed(`by${i}`) - 0.5) * height * 0.12,
-        r: Math.max(width, height) * (0.22 + seed(`br${i}`) * 0.12),
-        o: 0.05 + seed(`bo${i}`) * 0.04,
+        pos: [
+          (t - 0.5) * WORLD_RADIUS * 3,
+          (seed(`my${i}`) - 0.5) * WORLD_RADIUS,
+          -WORLD_RADIUS * 2 + (seed(`mz${i}`) - 0.5) * WORLD_RADIUS,
+        ],
+        scale: WORLD_RADIUS * (1.6 + seed(`ms${i}`) * 1.2),
+        opacity: 0.05 + seed(`mo${i}`) * 0.04,
       });
     }
     return arr;
-  }, [width, height]);
-
+  }, []);
+  const mats = useMemo(
+    () =>
+      blobs.map(
+        (b) =>
+          new THREE.SpriteMaterial({
+            map: tex,
+            color: new THREE.Color('#3A2E6B'),
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            opacity: b.opacity,
+          }),
+      ),
+    [blobs, tex],
+  );
   return (
-    <Group>
-      {/* Milky Way haze */}
-      <Group>
-        <Blur blur={70} />
-        {band.map((b) => (
-          <Circle key={b.id} cx={b.x} cy={b.y} r={b.r} color="#3A2E6B" opacity={b.o} />
-        ))}
-      </Group>
-      {dust.map((d) => (
-        <DustStar key={d.id} d={d} clock={clock} />
+    <group>
+      {blobs.map((b) => (
+        <sprite
+          key={b.pos[0]}
+          material={mats[blobs.indexOf(b)]}
+          position={b.pos}
+          scale={[b.scale, b.scale, 1]}
+        />
       ))}
-    </Group>
+    </group>
   );
 }
 
-function DustStar({
-  d,
-  clock,
-}: {
-  d: { id: string; x: number; y: number; r: number; phase: number };
-  clock: SharedValue<number>;
-}) {
-  const opacity = useDerivedValue(() => {
-    const a = Math.sin((clock.value * 0.8 + d.phase) * Math.PI * 2);
-    const b = Math.sin((clock.value * 1.3 + d.phase * 2.2) * Math.PI * 2);
-    const mixed = (a * 0.7 + b * 0.3 + 1) / 2;
-    return 0.1 + 0.32 * Math.pow(mixed, 1.6);
-  });
-  return <Circle cx={d.x} cy={d.y} r={d.r} color="#DCE6FF" opacity={opacity} />;
+/**
+ * Large invisible sphere enclosing the scene; clicking it (a "miss" on any
+ * star) deselects. Stars stopPropagation so their taps never reach this.
+ */
+function BackgroundCatcher({ onMiss }: { onMiss: () => void }) {
+  return (
+    <mesh
+      onClick={() => {
+        onMiss();
+      }}
+    >
+      <sphereGeometry args={[120, 16, 16]} />
+      <meshBasicMaterial transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
+    </mesh>
+  );
 }
