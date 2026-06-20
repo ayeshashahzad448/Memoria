@@ -84,10 +84,10 @@ function Segmented<T extends string>({ options, value, onChange }: SegmentProps<
             key={o.value}
             onPress={() => onChange(o.value)}
             hitSlop={4}
-            className="rounded-full px-3 py-1.5"
+            className="flex-1 items-center rounded-full px-3 py-2"
             style={{ backgroundColor: active ? ACCENT : 'transparent' }}
           >
-            <Text className="text-xs font-semibold" style={{ color: active ? '#0b0c10' : MUTED }}>
+            <Text className="text-sm font-semibold" style={{ color: active ? '#0b0c10' : MUTED }}>
               {o.label}
             </Text>
           </Pressable>
@@ -128,13 +128,27 @@ export default function SettingsScreen() {
         {/* Display */}
         <SectionTitle>Display</SectionTitle>
         <GlassCard contentClassName="p-1">
-          <Row first icon={Type} title="Text size" subtitle="Scale labels and memory text">
-            <Segmented
-              options={TEXT_SIZES}
-              value={settings.textSize}
-              onChange={(textSize) => updateSettings({ textSize })}
-            />
-          </Row>
+          <View className="px-4 py-3.5">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+              >
+                <Type size={17} color={ACCENT} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-starlight font-medium">Text size</Text>
+                <Text className="text-muted text-xs leading-4">Scale labels and memory text</Text>
+              </View>
+            </View>
+            <View className="mt-3">
+              <Segmented
+                options={TEXT_SIZES}
+                value={settings.textSize}
+                onChange={(textSize) => updateSettings({ textSize })}
+              />
+            </View>
+          </View>
           <Row icon={Contrast} title="High contrast" subtitle="Boost legibility of UI elements">
             <Switch
               isSelected={settings.highContrast}

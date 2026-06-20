@@ -12,7 +12,7 @@ import type {
   AppSettings,
   UserProfile,
 } from '@/lib/types';
-import { CURRENT_USER, userById } from '@/lib/memoria';
+import { CURRENT_USER, INITIAL_FRIEND_IDS, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
 
 export const PERSONAL_COSMOS = 'personal';
@@ -70,6 +70,8 @@ interface MemoriaState {
   profile: UserProfile;
   /** Accessibility / app preferences. */
   settings: AppSettings;
+  /** Ids of users the user is connected to. */
+  friendIds: string[];
 
   stars: MemoryStar[];
   constellations: Constellation[];
@@ -83,6 +85,8 @@ interface MemoriaState {
   setTier: (tier: AccountTier) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
+  addFriend: (id: string) => void;
+  removeFriend: (id: string) => void;
   /** Request the cosmos to pan to and focus a star. Pass null to clear. */
   focusStar: (id: string | null) => void;
 
@@ -139,6 +143,7 @@ export const useMemoria = create<MemoriaState>()(
         avatarColorKey: 'cyan',
       },
       settings: DEFAULT_SETTINGS,
+      friendIds: INITIAL_FRIEND_IDS,
       stars: [],
       constellations: [],
       sharedCosmoses: [],
@@ -151,6 +156,12 @@ export const useMemoria = create<MemoriaState>()(
       setTier: (tier) => set({ tier }),
       updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
+      addFriend: (id) =>
+        set((state) =>
+          state.friendIds.includes(id) ? state : { friendIds: [...state.friendIds, id] },
+        ),
+      removeFriend: (id) =>
+        set((state) => ({ friendIds: state.friendIds.filter((f) => f !== id) })),
       focusStar: (id) => set({ focusStarId: id }),
 
       addStar: (input) => {

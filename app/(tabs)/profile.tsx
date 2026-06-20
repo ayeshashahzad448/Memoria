@@ -12,26 +12,26 @@ import {
   Pencil,
   Settings,
   Sparkles,
+  Users,
   X,
 } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StorageBar, storageLabel } from '@/components/StorageBar';
 import { useMemoria } from '@/lib/store';
-import { CURRENT_USER, DIRECTORY_USERS, STAR_COLORS, colorFor } from '@/lib/memoria';
+import { CURRENT_USER, STAR_COLORS, colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, totalMediaBytes } from '@/lib/storage';
 import type { StarColorKey } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
 
-const FRIENDS = DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id);
-
 export default function ProfileTab() {
   const router = useRouter();
   const stars = useMemoria((s) => s.stars);
   const tier = useMemoria((s) => s.tier);
   const profile = useMemoria((s) => s.profile);
+  const friendCount = useMemoria((s) => s.friendIds.length);
   const signOut = useMemoria((s) => s.signOut);
   const setTier = useMemoria((s) => s.setTier);
   const updateProfile = useMemoria((s) => s.updateProfile);
@@ -257,22 +257,24 @@ export default function ProfileTab() {
         <Text className="text-muted mt-7 mb-2.5 text-xs font-semibold tracking-widest uppercase">
           Friends
         </Text>
-        <GlassCard contentClassName="p-2">
-          {FRIENDS.map((u, i) => (
-            <View key={u.id}>
-              {i > 0 && <Separator />}
-              <View className="flex-row items-center gap-3 px-3 py-3">
-                <View className="bg-nebula-base h-10 w-10 items-center justify-center rounded-full">
-                  <Text className="text-lg">{u.avatar}</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-starlight font-medium">{u.name}</Text>
-                  <Text className="text-muted text-xs">@{u.handle}</Text>
-                </View>
-              </View>
+        <Pressable onPress={() => router.push('/friends')}>
+          <GlassCard contentClassName="flex-row items-center gap-3 p-4">
+            <View
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+            >
+              <Users size={18} color={ACCENT} />
             </View>
-          ))}
-        </GlassCard>
+            <View className="flex-1">
+              <Text className="text-starlight font-medium">Friends</Text>
+              <Text className="text-muted text-xs">
+                {friendCount === 1 ? '1 connection' : `${friendCount} connections`} · search, add,
+                remove
+              </Text>
+            </View>
+            <ChevronRight size={18} color={MUTED} />
+          </GlassCard>
+        </Pressable>
 
         <Separator className="my-7" />
 

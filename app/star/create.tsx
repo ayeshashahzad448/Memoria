@@ -115,8 +115,13 @@ export default function CreateStar() {
         <ScrollView contentContainerClassName="px-5 pt-6 pb-40" keyboardShouldPersistTaps="handled">
           <View className="mb-2 flex-row items-center justify-between">
             <Text className="text-starlight text-2xl font-bold">New memory</Text>
-            <Pressable onPress={() => router.back()} hitSlop={12}>
-              <Text className="text-muted text-base">Close</Text>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={10}
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+            >
+              <X size={18} color={MUTED} strokeWidth={2.2} />
             </Pressable>
           </View>
           <Text className="text-muted mb-5 text-sm leading-5">

@@ -186,7 +186,19 @@ export const DIRECTORY_USERS: MemoriaUser[] = [
   { id: 'u-noor', name: 'Noor', handle: 'noor', avatar: '\uD83C\uDF19' },
   { id: 'u-leo', name: 'Leo', handle: 'leo', avatar: '\uD83E\uDD81' },
   { id: 'u-ava', name: 'Ava', handle: 'ava', avatar: '\uD83C\uDF38' },
+  // People the user can discover and add as friends.
+  { id: 'u-kai', name: 'Kai', handle: 'kai', avatar: '\uD83C\uDF0B' },
+  { id: 'u-mira', name: 'Mira', handle: 'mira', avatar: '\uD83C\uDF3F' },
+  { id: 'u-jude', name: 'Jude', handle: 'jude', avatar: '\uD83C\uDFB8' },
+  { id: 'u-ren', name: 'Ren', handle: 'ren', avatar: '\uD83C\uDF41' },
+  { id: 'u-tessa', name: 'Tessa', handle: 'tessa', avatar: '\uD83C\uDF1E' },
+  { id: 'u-omar', name: 'Omar', handle: 'omar', avatar: '\uD83C\uDFD4\uFE0F' },
+  { id: 'u-wren', name: 'Wren', handle: 'wren', avatar: '\uD83D\uDD4A\uFE0F' },
+  { id: 'u-iris', name: 'Iris', handle: 'iris', avatar: '\uD83C\uDF08' },
 ];
+
+/** Ids of users the user starts out connected to (close circle). */
+export const INITIAL_FRIEND_IDS = ['u-mom', 'u-dad', 'u-sam', 'u-noor', 'u-leo', 'u-ava'];
 
 export function userById(id: string): MemoriaUser | undefined {
   return DIRECTORY_USERS.find((u) => u.id === id);
