@@ -743,15 +743,8 @@ function ConstellationLine({
   onDrawComplete?: () => void;
 }) {
   const matRef = useRef<THREE.LineBasicMaterial>(null);
-  const geomRef = useRef<THREE.BufferGeometry>(null);
   const headRef = useRef<THREE.Sprite>(null);
   const done = useRef(false);
-  // Initialize / refresh the geometry to the full polyline when points change
-  // (and when we're not mid-draw, where the frame loop owns the geometry).
-  useEffect(() => {
-    if (geomRef.current && !drawing) geomRef.current.setFromPoints(points);
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, drawing]);
   // Total polyline length and per-segment lengths for even-speed drawing.
   const segs = useMemo(() => {
     const lengths: number[] = [];
@@ -762,6 +755,25 @@ function ConstellationLine({
       total += l;
     }
     return { lengths, total };
+  }, [points]);
+  // Preallocate a fixed-size buffer geometry sized to the FULL polyline so the
+  // line can grow through every segment without recreating the attribute each
+  // frame (which intermittently stalled the line at the first segment). The
+  // animation reveals more vertices via setDrawRange and nudges the last
+  // visible vertex to the interpolated head position.
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const count = Math.max(points.length, 2);
+    const arr = new Float32Array(count * 3);
+    for (let i = 0; i < points.length; i += 1) {
+      arr[i * 3] = points[i].x;
+      arr[i * 3 + 1] = points[i].y;
+      arr[i * 3 + 2] = points[i].z;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    g.setDrawRange(0, points.length);
+    return g;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
   const headMat = useMemo(
     () =>
@@ -776,9 +788,21 @@ function ConstellationLine({
     [],
   );
 
+  // Restore the full resting polyline whenever a draw begins/ends.
+  useEffect(() => {
+    const attr = geom.getAttribute('position');
+    for (let i = 0; i < points.length; i += 1) attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+    attr.needsUpdate = true;
+    geom.setDrawRange(0, drawing ? 1 : points.length);
+    done.current = false;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, geom, points]);
+
   useFrame((_, delta) => {
     const mat = matRef.current;
     if (!mat) return;
+    const attr = geom.getAttribute('position');
+    if (!attr) return;
 
     if (drawing) {
       // Advance the draw head along the polyline (~1.2s for the whole path).
@@ -803,11 +827,12 @@ function ConstellationLine({
         points[segIndex + 1],
         Math.min(1, Math.max(0, localT)),
       );
-      // Rebuild the visible polyline: completed segments + partial head segment.
-      const drawn: THREE.Vector3[] = [];
-      for (let i = 0; i <= segIndex; i += 1) drawn.push(points[i]);
-      drawn.push(head);
-      if (geomRef.current) geomRef.current.setFromPoints(drawn);
+      // Reveal all completed vertices plus the moving head vertex.
+      for (let i = 0; i <= segIndex; i += 1) attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+      attr.setXYZ(segIndex + 1, head.x, head.y, head.z);
+      attr.needsUpdate = true;
+      geom.setDrawRange(0, segIndex + 2);
+      geom.computeBoundingSphere();
       // Brighter glowing trail while drawing, settling after.
       mat.opacity = 0.85;
       mat.color.set('#C79CFF');
@@ -821,18 +846,19 @@ function ConstellationLine({
       }
       if (p >= 1 && !done.current) {
         done.current = true;
-        // Settle to the resting line, then notify completion next tick.
-        if (geomRef.current) geomRef.current.setFromPoints(points);
+        // Settle to the resting full line, then notify completion next tick.
+        for (let i = 0; i < points.length; i += 1)
+          attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+        attr.needsUpdate = true;
+        geom.setDrawRange(0, points.length);
+        geom.computeBoundingSphere();
         if (onDrawComplete) onDrawComplete();
       }
       return;
     }
 
     done.current = false;
-    // Ensure the full polyline is present when not actively drawing.
-    if (geomRef.current && geomRef.current.attributes.position?.count !== points.length) {
-      geomRef.current.setFromPoints(points);
-    }
+    if (geom.drawRange.count !== points.length) geom.setDrawRange(0, points.length);
     if (headMat.opacity > 0) headMat.opacity = 0;
     const target = visible ? 0.55 : 0;
     mat.color.set('#9D5CFF');
@@ -842,7 +868,7 @@ function ConstellationLine({
   return (
     <group>
       <line>
-        <bufferGeometry ref={geomRef} />
+        <primitive object={geom} attach="geometry" />
         <lineBasicMaterial
           ref={matRef}
           color="#9D5CFF"

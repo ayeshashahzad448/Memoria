@@ -639,13 +639,8 @@ function ConstellationLine({
   onDrawComplete?: () => void;
 }) {
   const matRef = useRef<THREE.LineBasicMaterial>(null);
-  const geomRef = useRef<THREE.BufferGeometry>(null);
   const headRef = useRef<THREE.Sprite>(null);
   const done = useRef(false);
-  useEffect(() => {
-    if (geomRef.current && !drawing) geomRef.current.setFromPoints(points);
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, drawing]);
   const segs = useMemo(() => {
     const lengths: number[] = [];
     let total = 0;
@@ -655,6 +650,23 @@ function ConstellationLine({
       total += l;
     }
     return { lengths, total };
+  }, [points]);
+  // Preallocate a fixed-size buffer geometry sized to the full polyline so the
+  // line grows reliably through every segment (recreating the attribute each
+  // frame intermittently stalled the draw at the first segment).
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const count = Math.max(points.length, 2);
+    const arr = new Float32Array(count * 3);
+    for (let i = 0; i < points.length; i += 1) {
+      arr[i * 3] = points[i].x;
+      arr[i * 3 + 1] = points[i].y;
+      arr[i * 3 + 2] = points[i].z;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    g.setDrawRange(0, points.length);
+    return g;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
   const headMat = useMemo(
     () =>
@@ -669,9 +681,20 @@ function ConstellationLine({
     [],
   );
 
+  useEffect(() => {
+    const attr = geom.getAttribute('position');
+    for (let i = 0; i < points.length; i += 1) attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+    attr.needsUpdate = true;
+    geom.setDrawRange(0, drawing ? 1 : points.length);
+    done.current = false;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, geom, points]);
+
   useFrame((_, delta) => {
     const mat = matRef.current;
     if (!mat) return;
+    const attr = geom.getAttribute('position');
+    if (!attr) return;
 
     if (drawing) {
       const p = Math.min(1, drawProgress.value + delta / 1.2);
@@ -694,10 +717,11 @@ function ConstellationLine({
         points[segIndex + 1],
         Math.min(1, Math.max(0, localT)),
       );
-      const drawn: THREE.Vector3[] = [];
-      for (let i = 0; i <= segIndex; i += 1) drawn.push(points[i]);
-      drawn.push(head);
-      if (geomRef.current) geomRef.current.setFromPoints(drawn);
+      for (let i = 0; i <= segIndex; i += 1) attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+      attr.setXYZ(segIndex + 1, head.x, head.y, head.z);
+      attr.needsUpdate = true;
+      geom.setDrawRange(0, segIndex + 2);
+      geom.computeBoundingSphere();
       mat.opacity = 0.85;
       mat.color.set('#C79CFF');
       if (headRef.current) {
@@ -708,16 +732,18 @@ function ConstellationLine({
       }
       if (p >= 1 && !done.current) {
         done.current = true;
-        if (geomRef.current) geomRef.current.setFromPoints(points);
+        for (let i = 0; i < points.length; i += 1)
+          attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+        attr.needsUpdate = true;
+        geom.setDrawRange(0, points.length);
+        geom.computeBoundingSphere();
         if (onDrawComplete) onDrawComplete();
       }
       return;
     }
 
     done.current = false;
-    if (geomRef.current && geomRef.current.attributes.position?.count !== points.length) {
-      geomRef.current.setFromPoints(points);
-    }
+    if (geom.drawRange.count !== points.length) geom.setDrawRange(0, points.length);
     if (headMat.opacity > 0) headMat.opacity = 0;
     const target = visible ? 0.55 : 0;
     mat.color.set('#9D5CFF');
@@ -727,7 +753,7 @@ function ConstellationLine({
   return (
     <group>
       <line>
-        <bufferGeometry ref={geomRef} />
+        <primitive object={geom} attach="geometry" />
         <lineBasicMaterial
           ref={matRef}
           color="#9D5CFF"
