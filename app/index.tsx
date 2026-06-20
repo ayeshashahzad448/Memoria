@@ -17,7 +17,7 @@ import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { wordmarkFamily } from '@/lib/fonts';
 import { useMemoria } from '@/lib/store';
 
-const WORDMARK = 'Memoria';
+const WORDMARK = 'MEMORIA';
 
 /**
  * Cold-open splash: the Memoria wordmark types in letter by letter over a

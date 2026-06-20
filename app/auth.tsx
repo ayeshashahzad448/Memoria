@@ -45,7 +45,7 @@ export default function SignUpScreen() {
                 color: '#F8FAFC',
               }}
             >
-              Memoria
+              MEMORIA
             </Text>
             <Text className="text-starlight font-display mt-2 text-xl">Create your account</Text>
           </View>

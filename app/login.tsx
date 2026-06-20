@@ -41,7 +41,7 @@ export default function LoginScreen() {
                 color: '#F8FAFC',
               }}
             >
-              Memoria
+              MEMORIA
             </Text>
             <Text className="text-starlight font-display mt-2 text-xl">Welcome back</Text>
           </View>
