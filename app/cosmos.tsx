@@ -13,13 +13,21 @@ import type { MemoryStar } from '@/lib/types';
 
 export default function Cosmos() {
   const router = useRouter();
-  const stars = useMemoria((s) => s.starsForActiveCosmos());
-  const constellations = useMemoria((s) => s.constellationsForActiveCosmos());
+  const allStars = useMemoria((s) => s.stars);
+  const allConstellations = useMemoria((s) => s.constellations);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
   const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
-  const constellationsForStar = useMemoria((s) => s.constellationsForStar);
   const createConstellation = useMemoria((s) => s.createConstellation);
   const suggestConstellations = useMemoria((s) => s.suggestConstellations);
+
+  const stars = useMemo(
+    () => allStars.filter((s) => s.cosmosId === activeCosmosId),
+    [allStars, activeCosmosId],
+  );
+  const constellations = useMemo(
+    () => allConstellations.filter((c) => c.cosmosId === activeCosmosId),
+    [allConstellations, activeCosmosId],
+  );
 
   const [selectedStar, setSelectedStar] = useState<MemoryStar | null>(null);
   const [forging, setForging] = useState(false);
@@ -32,17 +40,14 @@ export default function Cosmos() {
     return sharedCosmoses.find((c) => c.id === activeCosmosId)?.name ?? 'Shared cosmos';
   }, [activeCosmosId, sharedCosmoses]);
 
-  const suggestions = useMemo(
-    () => (showSuggestions ? suggestConstellations() : []),
-    [showSuggestions, suggestConstellations],
-  );
+  const suggestions = showSuggestions ? suggestConstellations() : [];
 
   // Reveal lines for the selected star's constellations.
   const revealedStarIds = useMemo(() => {
     if (!selectedStar) return [];
-    const groups = constellationsForStar(selectedStar.id);
+    const groups = constellations.filter((c) => c.starIds.includes(selectedStar.id));
     return groups.flatMap((g) => g.starIds);
-  }, [selectedStar, constellationsForStar]);
+  }, [selectedStar, constellations]);
 
   const onTapStar = (star: MemoryStar) => {
     if (forging) {

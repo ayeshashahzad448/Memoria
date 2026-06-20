@@ -20,8 +20,18 @@ const RANGES: { key: DateRange; label: string; days: number }[] = [
 
 export default function Search() {
   const router = useRouter();
-  const stars = useMemoria((s) => s.starsForActiveCosmos());
-  const constellations = useMemoria((s) => s.constellationsForActiveCosmos());
+  const allStars = useMemoria((s) => s.stars);
+  const allConstellations = useMemoria((s) => s.constellations);
+  const activeCosmosId = useMemoria((s) => s.activeCosmosId);
+
+  const stars = useMemo(
+    () => allStars.filter((s) => s.cosmosId === activeCosmosId),
+    [allStars, activeCosmosId],
+  );
+  const constellations = useMemo(
+    () => allConstellations.filter((c) => c.cosmosId === activeCosmosId),
+    [allConstellations, activeCosmosId],
+  );
 
   const [keywords, setKeywords] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
