@@ -47,10 +47,13 @@ export default function SignUpScreen() {
             >
               MEMORIA
             </Text>
-            <Text className="text-starlight font-display mt-2 text-xl">Create your account</Text>
           </View>
 
           <GlassCard contentClassName="gap-5 p-6">
+            <Text className="text-starlight font-display text-center text-xl">
+              Create your account
+            </Text>
+
             <Text className="text-muted text-center text-xs leading-5">
               By signing up you confirm that you have read and accept the{' '}
               <Text className="text-starlight text-xs font-semibold">Terms of Service</Text> and{' '}
