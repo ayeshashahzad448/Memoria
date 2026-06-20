@@ -215,7 +215,7 @@ export default function CosmosTab() {
           <View className="items-end gap-2">
             <Pressable onPress={() => router.push('/search')} hitSlop={8}>
               <View
-                className="bg-background h-11 w-11 items-center justify-center rounded-full border border-accent/60"
+                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
                 style={{ borderWidth: 1 }}
               >
                 <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
@@ -229,7 +229,7 @@ export default function CosmosTab() {
               hitSlop={8}
             >
               <View
-                className="bg-background h-11 w-11 items-center justify-center rounded-full border border-accent/60"
+                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
                 style={{ borderWidth: 1 }}
               >
                 {view2D ? (

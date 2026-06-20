@@ -791,7 +791,8 @@ function ConstellationLine({
   // Restore the full resting polyline whenever a draw begins/ends.
   useEffect(() => {
     const attr = geom.getAttribute('position');
-    for (let i = 0; i < points.length; i += 1) attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
+    for (let i = 0; i < points.length; i += 1)
+      attr.setXYZ(i, points[i].x, points[i].y, points[i].z);
     attr.needsUpdate = true;
     geom.setDrawRange(0, drawing ? 1 : points.length);
     done.current = false;

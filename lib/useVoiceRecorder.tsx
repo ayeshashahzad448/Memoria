@@ -67,18 +67,30 @@ export function useVoiceRecorder(): VoiceRecorderApi {
       const status = await AudioModule.requestRecordingPermissionsAsync();
       ok = status.granted;
       setPermission(status.granted ? 'granted' : 'denied');
-      if (status.granted) {
-        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
-      }
     }
     if (!ok) return;
-    await recorder.prepareToRecordAsync();
-    recorder.record();
-    startedAt.current = Date.now();
+    try {
+      // Always (re)assert the recording audio mode right before recording. On
+      // some devices the mode is reset after playback or backgrounding, which
+      // otherwise makes record() a silent no-op.
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      startedAt.current = Date.now();
+    } catch {
+      // A device-level failure (audio focus, hardware busy) should not crash
+      // the screen; surface it as a blocked mic so the UI shows guidance.
+      setPermission('denied');
+    }
   }, [permission, recorder]);
 
   const stopNative = useCallback(async (): Promise<RecordingResult | null> => {
-    await recorder.stop();
+    try {
+      await recorder.stop();
+    } catch {
+      startedAt.current = null;
+      return null;
+    }
     const durationSec = startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0;
     startedAt.current = null;
     if (!recorder.uri) return null;
