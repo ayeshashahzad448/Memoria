@@ -12,22 +12,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Canvas, Circle, Blur } from '@shopify/react-native-skia';
-import {
-  Easing,
-  useDerivedValue,
-  useSharedValue,
-  withRepeat,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 
 import { GlassCard } from '@/components/GlassCard';
+import { StarPreview } from '@/components/StarPreview';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import {
   STAR_COLORS,
   DEFAULT_STAR_COLOR,
-  colorFor,
   radiusForText,
   DIRECTORY_USERS,
   CURRENT_USER,
@@ -108,7 +99,16 @@ export default function CreateStar() {
           </Text>
 
           {/* Live star preview */}
-          <StarPreview story={story} title={title} colorKey={colorKey} />
+          <GlassCard className="mb-6" contentClassName="items-center py-7">
+            <StarPreview story={story} title={title} colorKey={colorKey} />
+            <Text className="text-muted mt-2 text-xs">
+              {(story.length > 0 ? story : title).trim().length === 0
+                ? 'Start typing to bring your star to life'
+                : radiusForText(story.length > 0 ? story : title) > 18
+                  ? 'A core memory is forming'
+                  : 'Your star is taking shape'}
+            </Text>
+          </GlassCard>
 
           <View className="gap-5">
             <TextField>
@@ -157,63 +157,6 @@ export default function CreateStar() {
         </View>
       </KeyboardAvoidingView>
     </View>
-  );
-}
-
-/* ------------------------------ Live preview ------------------------------ */
-
-function StarPreview({
-  story,
-  title,
-  colorKey,
-}: {
-  story: string;
-  title: string;
-  colorKey: StarColorKey;
-}) {
-  const text = story.length > 0 ? story : title;
-  const targetR = radiusForText(text);
-  const r = useSharedValue(targetR);
-  const pulse = useSharedValue(0);
-  const color = colorFor(colorKey).hex;
-
-  useEffect(() => {
-    r.value = withSpring(targetR, { damping: 14, stiffness: 120 });
-  }, [targetR, r]);
-
-  const pulseStarted = useRef(false);
-  useEffect(() => {
-    if (pulseStarted.current) return;
-    pulseStarted.current = true;
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  });
-
-  const glowR = useDerivedValue(() => r.value + 14 + pulse.value * 10);
-  const glowOpacity = useDerivedValue(() => 0.4 + pulse.value * 0.25);
-  const coreR = useDerivedValue(() => Math.max(r.value, 4));
-  const pinR = useDerivedValue(() => Math.max(r.value * 0.32, 2));
-
-  return (
-    <GlassCard className="mb-6" contentClassName="items-center py-7">
-      <Canvas style={{ width: 160, height: 120 }}>
-        <Circle cx={80} cy={60} r={glowR} color={color} opacity={glowOpacity}>
-          <Blur blur={14} />
-        </Circle>
-        <Circle cx={80} cy={60} r={coreR} color={color} />
-        <Circle cx={80} cy={60} r={pinR} color="#FFFFFF" />
-      </Canvas>
-      <Text className="text-muted mt-2 text-xs">
-        {text.trim().length === 0
-          ? 'Start typing to bring your star to life'
-          : radiusForText(text) > 18
-            ? 'A core memory is forming'
-            : 'Your star is taking shape'}
-      </Text>
-    </GlassCard>
   );
 }
 

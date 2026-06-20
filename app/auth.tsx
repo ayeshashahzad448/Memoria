@@ -1,73 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Label, Text, TextField } from 'heroui-native';
-import { Canvas, Circle, Fill, Group, Blur } from '@shopify/react-native-skia';
-import { useWindowDimensions } from 'react-native';
-import {
-  Easing,
-  useDerivedValue,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
 
 import { GlassCard } from '@/components/GlassCard';
+import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { useMemoria } from '@/lib/store';
-
-function rand(i: number): number {
-  let h = 2166136261 ^ i;
-  h = Math.imul(h, 16777619);
-  return ((h >>> 0) % 10000) / 10000;
-}
-
-/** Slowly drifting, blurred starfield behind the gateway. */
-function DriftingStarfield() {
-  const { width, height } = useWindowDimensions();
-  const drift = useSharedValue(0);
-
-  // One-time animation setup: start on mount, no deps needed.
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    drift.value = withRepeat(withTiming(1, { duration: 18000, easing: Easing.linear }), -1, true);
-  });
-
-  const stars = Array.from({ length: 70 }, (_, i) => ({
-    id: i,
-    x: rand(i * 3 + 1) * width,
-    y: rand(i * 3 + 2) * height,
-    r: 0.6 + rand(i * 3 + 3) * 2.2,
-  }));
-
-  return (
-    <Canvas style={{ position: 'absolute', width, height }}>
-      <Fill color="#080b18" />
-      <Group>
-        <Blur blur={2} />
-        {stars.map((s) => (
-          <DriftStar key={s.id} s={s} drift={drift} index={s.id} />
-        ))}
-      </Group>
-    </Canvas>
-  );
-}
-
-function DriftStar({
-  s,
-  drift,
-  index,
-}: {
-  s: { id: number; x: number; y: number; r: number };
-  drift: SharedValue<number>;
-  index: number;
-}) {
-  const cy = useDerivedValue(() => s.y + drift.value * (10 + (index % 5) * 4));
-  const opacity = useDerivedValue(() => 0.2 + 0.5 * Math.abs(Math.sin((drift.value + index) * 2)));
-  return <Circle cx={s.x} cy={cy} r={s.r} color="#CFE0FF" opacity={opacity} />;
-}
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -82,7 +20,7 @@ export default function AuthScreen() {
 
   return (
     <View className="bg-void-deep flex-1">
-      <DriftingStarfield />
+      <StarfieldBackground variant="drift" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
