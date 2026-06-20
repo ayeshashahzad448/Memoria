@@ -5,11 +5,11 @@ import type { StarColor, StarColorKey, MemoriaUser, MemoryStar } from '@/lib/typ
  * accents. Each color maps to an emotion the memory evokes.
  */
 export const STAR_COLORS: StarColor[] = [
-  { key: 'cyan', label: 'Cyan', emotion: 'Calm', hex: '#45F3FF' },
-  { key: 'rose', label: 'Rose', emotion: 'Love', hex: '#FF2A6D' },
-  { key: 'amber', label: 'Amber', emotion: 'Nostalgia', hex: '#FFC75F' },
-  { key: 'violet', label: 'Violet', emotion: 'Wonder', hex: '#7A04EB' },
-  { key: 'emerald', label: 'Emerald', emotion: 'Growth', hex: '#5FE0A8' },
+  { key: 'amber', label: 'Joy', emotion: 'Joy', hex: '#FFC75F' },
+  { key: 'violet', label: 'Grief', emotion: 'Grief', hex: '#2B4FD4' },
+  { key: 'rose', label: 'Frustration', emotion: 'Frustration', hex: '#FF1744' },
+  { key: 'emerald', label: 'Nostalgia', emotion: 'Nostalgia', hex: '#E940D6' },
+  { key: 'cyan', label: 'Peace', emotion: 'Peace', hex: '#45F3FF' },
 ];
 
 export const DEFAULT_STAR_COLOR: StarColorKey = 'cyan';

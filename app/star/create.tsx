@@ -236,7 +236,7 @@ export function ColorGrid({
 }) {
   return (
     <View className="gap-2">
-      <Label>Glow color</Label>
+      <Label>Emotion</Label>
       <View className="flex-row flex-wrap gap-3">
         {STAR_COLORS.map((c) => {
           const selected = c.key === value;
