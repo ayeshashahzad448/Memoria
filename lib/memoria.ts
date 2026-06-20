@@ -1,4 +1,4 @@
-import type { StarColor, StarColorKey, MemoriaUser } from '@/lib/types';
+import type { StarColor, StarColorKey, MemoriaUser, MemoryStar } from '@/lib/types';
 
 /**
  * Emotion color palette for the star glow grid — Midnight Aurora resonance
@@ -83,6 +83,91 @@ export function star3DPosition(id: string, x: number, y: number): [number, numbe
 export function starWorldSize(radius: number): number {
   // radius ranges ~4..26; map to a pleasant world scale.
   return 0.18 + (radius / MAX_STAR_RADIUS) * 0.55;
+}
+
+/* ------------------------------ Stellar stats ----------------------------- */
+
+export interface StarStats {
+  /** Total "mass" score the stats are derived from (story + media + tags). */
+  weight: number;
+  /** Surface temperature in Kelvin. */
+  temperatureK: number;
+  /** Mass in solar masses (M☉). */
+  massSolar: number;
+  /** Luminosity in solar luminosities (L☉). */
+  luminositySolar: number;
+  /** Harvard spectral class letter (O,B,A,F,G,K,M). */
+  spectralClass: string;
+  /** Human-readable class name, e.g. "G-type main sequence". */
+  spectralName: string;
+}
+
+/** Inputs the weight is computed from. Accepts a saved star or a draft. */
+interface StatsInput {
+  story?: string;
+  title?: string;
+  photos?: string[];
+  voiceNotes?: { durationSec: number }[];
+  taggedUserIds?: string[];
+}
+
+const SPECTRAL_BANDS: { letter: string; name: string; minTemp: number }[] = [
+  { letter: 'M', name: 'M-type red dwarf', minTemp: 2400 },
+  { letter: 'K', name: 'K-type orange dwarf', minTemp: 3700 },
+  { letter: 'G', name: 'G-type (Sun-like)', minTemp: 5200 },
+  { letter: 'F', name: 'F-type white star', minTemp: 6000 },
+  { letter: 'A', name: 'A-type blue-white', minTemp: 7500 },
+  { letter: 'B', name: 'B-type blue giant', minTemp: 10000 },
+  { letter: 'O', name: 'O-type hypergiant', minTemp: 30000 },
+];
+
+/**
+ * Derive playful-but-plausible stellar stats from how much the user poured into
+ * a memory. The "weight" combines characters written, photos, voice seconds and
+ * tagged people; heavier memories burn hotter, more massive, and brighter.
+ */
+export function starStats(input: StatsInput): StarStats {
+  const text = (input.story && input.story.length > 0 ? input.story : input.title) ?? '';
+  const chars = text.trim().length;
+  const photos = input.photos?.length ?? 0;
+  const voiceSec = (input.voiceNotes ?? []).reduce((sum, n) => sum + (n.durationSec || 0), 0);
+  const tags = input.taggedUserIds?.length ?? 0;
+
+  // Weight is a unitless score; chars dominate, media + people add heft.
+  const weight = chars + photos * 90 + voiceSec * 6 + tags * 40;
+
+  // Saturating curve 0..1 — even an epic memory stays in a believable range.
+  const t = 1 - Math.exp(-weight / 520);
+
+  const temperatureK = Math.round(2600 + t * (32000 - 2600));
+  const massSolar = Math.round((0.18 + t * (24 - 0.18)) * 100) / 100;
+  // Luminosity ~ mass^3.5 (mass-luminosity relation), kept in a readable band.
+  const luminositySolar = Math.round(Math.pow(massSolar, 3.5) * 10) / 10;
+
+  let band = SPECTRAL_BANDS[0];
+  for (const b of SPECTRAL_BANDS) {
+    if (temperatureK >= b.minTemp) band = b;
+  }
+
+  return {
+    weight,
+    temperatureK,
+    massSolar,
+    luminositySolar,
+    spectralClass: band.letter,
+    spectralName: band.name,
+  };
+}
+
+/** Convenience overload reading directly from a saved star. */
+export function starStatsForStar(star: MemoryStar): StarStats {
+  return starStats({
+    story: star.story,
+    title: star.title,
+    photos: star.photos,
+    voiceNotes: star.voiceNotes,
+    taggedUserIds: star.taggedUserIds,
+  });
 }
 
 /** Local-first mock directory of taggable users (stands in for a backend search). */

@@ -181,6 +181,14 @@ function RootNavigator() {
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />
         <Stack.Screen
+          name="star/ignite"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
           name="cosmos-spaces"
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />

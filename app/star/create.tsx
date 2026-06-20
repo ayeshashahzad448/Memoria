@@ -24,6 +24,7 @@ import {
   DIRECTORY_USERS,
   CURRENT_USER,
   colorFor,
+  starStats,
 } from '@/lib/memoria';
 import { searchPlaces, resolvePlace, placesEnabled, type PlacePrediction } from '@/lib/places';
 import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
@@ -59,6 +60,12 @@ export default function CreateStar() {
   const usedBytes = useMemo(() => totalMediaBytes(allStars), [allStars]);
   const atLimit = tier === 'free' && usedBytes >= FREE_LIMIT_BYTES;
 
+  const liveStats = useMemo(
+    () => starStats({ story, title, photos, voiceNotes, taggedUserIds: taggedIds }),
+    [story, title, photos, voiceNotes, taggedIds],
+  );
+  const hasContent = (story.length > 0 ? story : title).trim().length > 0;
+
   const canSave = title.trim().length > 0 || story.trim().length > 0;
 
   const openPaywall = () => router.push('/paywall');
@@ -66,7 +73,7 @@ export default function CreateStar() {
   const save = () => {
     if (!canSave) return;
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addStar({
+    const star = addStar({
       title,
       story,
       colorKey,
@@ -77,7 +84,7 @@ export default function CreateStar() {
       taggedUserIds: taggedIds,
       cosmosId,
     });
-    router.back();
+    router.replace({ pathname: '/star/ignite', params: { id: star.id } });
   };
 
   const pickPhotos = useCallback(async () => {
@@ -121,12 +128,19 @@ export default function CreateStar() {
           <GlassCard className="mb-6" contentClassName="items-center py-7">
             <StarPreview story={story} title={title} colorKey={colorKey} />
             <Text className="text-muted mt-2 text-xs">
-              {(story.length > 0 ? story : title).trim().length === 0
+              {!hasContent
                 ? 'Start typing to bring your star to life'
                 : radiusForText(story.length > 0 ? story : title) > 18
                   ? 'This is becoming a core memory'
                   : 'Your star is taking shape'}
             </Text>
+            {hasContent && (
+              <View className="border-glass-border mt-4 w-full flex-row justify-around border-t pt-4">
+                <PreviewStat label="Temp" value={`${liveStats.temperatureK.toLocaleString()} K`} />
+                <PreviewStat label="Mass" value={`${liveStats.massSolar.toFixed(1)} M\u2609`} />
+                <PreviewStat label="Class" value={liveStats.spectralClass} />
+              </View>
+            )}
           </GlassCard>
 
           {atLimit && (
@@ -198,6 +212,15 @@ export default function CreateStar() {
 }
 
 /* ------------------------------ Color grid -------------------------------- */
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="items-center">
+      <Text className="text-starlight font-display text-sm font-semibold">{value}</Text>
+      <Text className="text-muted mt-0.5 text-[10px] tracking-wider uppercase">{label}</Text>
+    </View>
+  );
+}
 
 export function ColorGrid({
   value,
