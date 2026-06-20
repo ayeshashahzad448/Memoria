@@ -196,6 +196,7 @@ function StarDot({
 }) {
   const color = colorFor(star.colorKey).hex;
   const phase = seed(star.id);
+  const rate = 1.3 + seed(`${star.id}-rate`) * 1.4;
   const clock = useSharedValue(phase);
 
   const started = useRef(false);
@@ -203,29 +204,36 @@ function StarDot({
     if (started.current) return;
     started.current = true;
     clock.value = withRepeat(
-      withTiming(phase + 1, { duration: 3200, easing: Easing.linear }),
+      withTiming(phase + 6, { duration: 6400, easing: Easing.linear }),
       -1,
       false,
     );
   });
 
   const glowStyle = useAnimatedStyle(() => {
-    const pulse = (Math.sin(clock.value * Math.PI * 2) + 1) / 2;
-    const base = radius + 8;
-    const extra = (isSelected || isForging ? 14 : 8) * pulse;
-    const gr = base + extra;
+    const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
+    const b = Math.sin((clock.value * rate * 2.3 + phase * 1.7) * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
+    const gr = radius + 8 + (isSelected || isForging ? 6 : 0) + twinkle * 2;
     return {
       width: gr * 2,
       height: gr * 2,
       borderRadius: gr,
       marginLeft: -gr,
       marginTop: -gr,
-      opacity: (isSelected || isForging ? 0.5 : 0.32) + 0.18 * pulse,
+      opacity: (isSelected || isForging ? 0.45 : 0.26) + 0.22 * twinkle,
     };
   });
 
   const coreR = Math.max(radius, MIN_STAR_RADIUS);
   const pinR = Math.max(radius * 0.32, 1.5);
+
+  const coreStyle = useAnimatedStyle(() => {
+    const a = Math.sin((clock.value * rate + phase) * Math.PI * 2);
+    const b = Math.sin((clock.value * rate * 2.3 + phase * 1.7) * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
+    return { opacity: 0.6 + 0.4 * twinkle };
+  });
 
   return (
     <Pressable
@@ -249,17 +257,19 @@ function StarDot({
           }}
         />
       )}
-      <View
-        style={{
-          position: 'absolute',
-          width: coreR * 2,
-          height: coreR * 2,
-          borderRadius: coreR,
-          marginLeft: -coreR,
-          marginTop: -coreR,
-          backgroundColor: color,
-          opacity: 0.9,
-        }}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: coreR * 2,
+            height: coreR * 2,
+            borderRadius: coreR,
+            marginLeft: -coreR,
+            marginTop: -coreR,
+            backgroundColor: color,
+          },
+          coreStyle,
+        ]}
       />
       <View
         style={{

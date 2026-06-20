@@ -26,7 +26,7 @@ export default function Onboarding() {
 
   const beginFirstStar = () => {
     completeOnboarding();
-    router.replace('/cosmos');
+    router.replace('/(tabs)');
     router.push('/star/create');
   };
 

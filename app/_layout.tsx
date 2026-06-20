@@ -152,9 +152,13 @@ function RootNavigator() {
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="cosmos" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="star/create"
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+        />
+        <Stack.Screen
+          name="star/edit"
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />
         <Stack.Screen
@@ -162,12 +166,16 @@ function RootNavigator() {
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />
         <Stack.Screen
-          name="search"
+          name="cosmos-spaces"
           options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />
         <Stack.Screen
-          name="cosmos-spaces"
-          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
+          name="paywall"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
         />
       </Stack>
     </>

@@ -54,6 +54,8 @@ export interface MemoryStar {
   location?: StarLocation;
   photos: string[];
   voiceNotes: VoiceNote[];
+  /** Estimated total bytes of attached media (photos + voice notes). */
+  mediaBytes?: number;
   /** Ids of tagged MemoriaUsers (co-experiencers). */
   taggedUserIds: string[];
   /** Normalized position in cosmos space, range roughly -1..1. */
@@ -86,4 +88,15 @@ export interface ConstellationSuggestion {
   id: string;
   reason: string;
   starIds: string[];
+}
+
+export type AccountTier = 'free' | 'premium';
+
+export interface Throwback {
+  id: string;
+  /** Headline line, e.g. "On this day in 2020". */
+  headline: string;
+  /** Supporting detail, e.g. "You were at Regent's Park". */
+  detail: string;
+  star: MemoryStar;
 }

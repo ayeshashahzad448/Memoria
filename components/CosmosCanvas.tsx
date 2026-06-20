@@ -93,7 +93,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   useEffect(() => {
     if (clockStarted.current) return;
     clockStarted.current = true;
-    clock.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.linear }), -1, false);
+    clock.value = withRepeat(withTiming(6, { duration: 6400, easing: Easing.linear }), -1, false);
   });
 
   const transform = useDerivedValue(() => [
@@ -186,23 +186,30 @@ function MemoryStarShape({
   const pos = toScreen(star.x, star.y);
   const color = colorFor(star.colorKey).hex;
   const phase = seed(star.id);
+  // Each star twinkles at its own slightly different rate.
+  const rate = 1.3 + seed(`${star.id}-rate`) * 1.4;
 
-  // Twinkle: pulse glow radius and core opacity.
+  // Twinkle = sharp, irregular flicker in brightness. Size stays steady so the
+  // star looks like a fixed point of light catching the light, not breathing.
+  const twinkle = (t: number): number => {
+    'worklet';
+    const a = Math.sin((t * rate + phase) * Math.PI * 2);
+    const b = Math.sin((t * rate * 2.3 + phase * 1.7) * Math.PI * 2);
+    // Combine two frequencies, then sharpen toward bright with a power curve.
+    const mixed = (a * 0.65 + b * 0.35 + 1) / 2; // 0..1
+    return Math.pow(mixed, 2.2);
+  };
+
   const glowRadius = useDerivedValue(() => {
-    const pulse = (Math.sin((clock.value + phase) * Math.PI * 2) + 1) / 2;
-    const base = radius + 8;
-    const extra = (isSelected || isForging ? 14 : 8) * pulse;
-    return base + extra;
+    // Glow holds steady; only a tiny shimmer so it reads as a twinkle.
+    return radius + 8 + (isSelected || isForging ? 6 : 0) + twinkle(clock.value) * 2;
   });
 
-  const coreOpacity = useDerivedValue(() => {
-    const pulse = (Math.sin((clock.value + phase) * Math.PI * 2) + 1) / 2;
-    return 0.7 + 0.3 * pulse;
-  });
+  const coreOpacity = useDerivedValue(() => 0.6 + 0.4 * twinkle(clock.value));
 
   const glowOpacity = useDerivedValue(() => {
-    const pulse = (Math.sin((clock.value + phase) * Math.PI * 2) + 1) / 2;
-    return (isSelected || isForging ? 0.5 : 0.32) + 0.18 * pulse;
+    const base = isSelected || isForging ? 0.45 : 0.26;
+    return base + 0.22 * twinkle(clock.value);
   });
 
   return (
@@ -345,8 +352,10 @@ function DustStar({
   clock: SharedValue<number>;
 }) {
   const opacity = useDerivedValue(() => {
-    const pulse = (Math.sin((clock.value + d.phase) * Math.PI * 2) + 1) / 2;
-    return 0.12 + 0.35 * pulse;
+    const a = Math.sin((clock.value * 1.7 + d.phase) * Math.PI * 2);
+    const b = Math.sin((clock.value * 3.1 + d.phase * 2.2) * Math.PI * 2);
+    const mixed = (a * 0.6 + b * 0.4 + 1) / 2;
+    return 0.08 + 0.4 * Math.pow(mixed, 2.4);
   });
   return <Circle cx={d.x} cy={d.y} r={d.r} color="#FFFFFF" opacity={opacity} />;
 }

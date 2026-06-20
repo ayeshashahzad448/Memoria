@@ -9,5 +9,5 @@ export default function Index() {
 
   if (!isAuthed) return <Redirect href="/auth" />;
   if (!hasOnboarded) return <Redirect href="/onboarding" />;
-  return <Redirect href="/cosmos" />;
+  return <Redirect href="/(tabs)" />;
 }

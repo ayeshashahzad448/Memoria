@@ -2,11 +2,15 @@ import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Separator, Text } from 'heroui-native';
 import { format } from 'date-fns';
+import { CalendarDays, MapPin, Mic, Pencil, Users } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
 import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
+
+const ACCENT = colorFor('cyan').hex;
+const MUTED = '#8C93B8';
 
 export default function StarDetail() {
   const router = useRouter();
@@ -17,7 +21,7 @@ export default function StarDetail() {
   if (!star) {
     return (
       <View className="bg-void flex-1 items-center justify-center px-6">
-        <Text className="text-muted">This star has faded.</Text>
+        <Text className="text-muted">This memory could not be found.</Text>
         <Button variant="ghost" onPress={() => router.back()} className="mt-4">
           Back
         </Button>
@@ -44,27 +48,42 @@ export default function StarDetail() {
             />
             <Text className="text-muted text-xs tracking-widest uppercase">{color.emotion}</Text>
           </View>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text className="text-muted">Close</Text>
-          </Pressable>
+          <View className="flex-row items-center gap-4">
+            <Pressable
+              onPress={() => router.push({ pathname: '/star/edit', params: { id: star.id } })}
+              hitSlop={12}
+              className="flex-row items-center gap-1.5"
+            >
+              <Pencil size={15} color={ACCENT} />
+              <Text className="text-accent">Edit</Text>
+            </Pressable>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Text className="text-muted">Close</Text>
+            </Pressable>
+          </View>
         </View>
 
-        <Text className="text-starlight text-3xl font-bold">{star.title}</Text>
+        <Text className="text-starlight text-3xl leading-9 font-bold">{star.title}</Text>
 
-        <View className="mt-3 flex-row flex-wrap gap-x-4 gap-y-1">
-          <Text className="text-muted text-sm">🗓️ {format(new Date(star.date), 'PPP')}</Text>
+        <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
+          <View className="flex-row items-center gap-1.5">
+            <CalendarDays size={14} color={MUTED} />
+            <Text className="text-muted text-sm">{format(new Date(star.date), 'PPP')}</Text>
+          </View>
           {star.location ? (
-            <Text className="text-muted text-sm">📍 {star.location.name}</Text>
+            <View className="flex-row items-center gap-1.5">
+              <MapPin size={14} color={MUTED} />
+              <Text className="text-muted text-sm">{star.location.name}</Text>
+            </View>
           ) : null}
         </View>
 
         {tagged.length > 0 && (
-          <View className="mt-3 flex-row flex-wrap gap-2">
+          <View className="mt-3 flex-row flex-wrap items-center gap-2">
+            <Users size={14} color={MUTED} />
             {tagged.map((u) => (
               <View key={u!.id} className="border-glass-border rounded-full border px-3 py-1">
-                <Text className="text-starlight text-xs">
-                  🤝 {u!.avatar} {u!.name}
-                </Text>
+                <Text className="text-starlight text-xs">{u!.name}</Text>
               </View>
             ))}
           </View>
@@ -92,7 +111,10 @@ export default function StarDetail() {
 
         {star.voiceNotes.length > 0 && (
           <View className="mt-5 gap-2">
-            <Text className="text-muted text-sm">🎙️ Voice notes</Text>
+            <View className="flex-row items-center gap-2">
+              <Mic size={15} color={MUTED} />
+              <Text className="text-muted text-sm">Voice notes</Text>
+            </View>
             {star.voiceNotes.map((n, i) => (
               <VoiceNotePlayer key={n.id} note={n} index={i} />
             ))}
@@ -108,7 +130,7 @@ export default function StarDetail() {
             router.back();
           }}
         >
-          Let this star fade
+          Delete memory
         </Button>
       </ScrollView>
     </View>

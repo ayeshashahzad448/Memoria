@@ -2,8 +2,16 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { Constellation, ConstellationSuggestion, MemoryStar, SharedCosmos } from '@/lib/types';
+import type {
+  Constellation,
+  ConstellationSuggestion,
+  MemoryStar,
+  SharedCosmos,
+  Throwback,
+  AccountTier,
+} from '@/lib/types';
 import { CURRENT_USER, userById } from '@/lib/memoria';
+import { estimateStarBytes } from '@/lib/storage';
 
 export const PERSONAL_COSMOS = 'personal';
 
@@ -28,6 +36,8 @@ export interface NewStarInput {
 interface MemoriaState {
   hasOnboarded: boolean;
   isAuthed: boolean;
+  /** Account tier; gates cloud storage. */
+  tier: AccountTier;
   /** Active cosmos: 'personal' or a shared cosmos id. */
   activeCosmosId: string;
 
@@ -39,6 +49,7 @@ interface MemoriaState {
   signOut: () => void;
   completeOnboarding: () => void;
   setActiveCosmos: (id: string) => void;
+  setTier: (tier: AccountTier) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -55,6 +66,7 @@ interface MemoriaState {
   constellationsForActiveCosmos: () => Constellation[];
   constellationsForStar: (starId: string) => Constellation[];
   suggestConstellations: () => ConstellationSuggestion[];
+  suggestThrowbacks: () => Throwback[];
 }
 
 /** Scatter a new star into open cosmos space, biased away from the center. */
@@ -76,6 +88,7 @@ export const useMemoria = create<MemoriaState>()(
     (set, get) => ({
       hasOnboarded: false,
       isAuthed: false,
+      tier: 'free',
       activeCosmosId: PERSONAL_COSMOS,
       stars: [],
       constellations: [],
@@ -85,6 +98,7 @@ export const useMemoria = create<MemoriaState>()(
       signOut: () => set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
       completeOnboarding: () => set({ hasOnboarded: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
+      setTier: (tier) => set({ tier }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);
@@ -99,6 +113,7 @@ export const useMemoria = create<MemoriaState>()(
           location: input.location,
           photos: input.photos,
           voiceNotes: input.voiceNotes,
+          mediaBytes: estimateStarBytes(input.photos, input.voiceNotes),
           taggedUserIds: input.taggedUserIds,
           x,
           y,
@@ -111,7 +126,15 @@ export const useMemoria = create<MemoriaState>()(
 
       updateStar: (id, patch) =>
         set((state) => ({
-          stars: state.stars.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+          stars: state.stars.map((s) => {
+            if (s.id !== id) return s;
+            const next = { ...s, ...patch };
+            // Keep media size estimate in sync when attachments change.
+            if (patch.photos !== undefined || patch.voiceNotes !== undefined) {
+              next.mediaBytes = estimateStarBytes(next.photos, next.voiceNotes);
+            }
+            return next;
+          }),
         })),
 
       removeStar: (id) =>
@@ -226,6 +249,53 @@ export const useMemoria = create<MemoriaState>()(
         }
         return suggestions;
       },
+
+      suggestThrowbacks: () => {
+        const stars = get().starsForActiveCosmos();
+        const now = new Date();
+        const todayMonth = now.getMonth();
+        const todayDay = now.getDate();
+        const thisYear = now.getFullYear();
+
+        const throwbacks: Throwback[] = [];
+        for (const s of stars) {
+          const d = new Date(s.date);
+          if (Number.isNaN(d.getTime())) continue;
+          const yearsAgo = thisYear - d.getFullYear();
+          if (yearsAgo < 1) continue;
+          // "On this day" — same calendar day, within a 2-day window.
+          const sameMonth = d.getMonth() === todayMonth;
+          const dayDelta = Math.abs(d.getDate() - todayDay);
+          if (!sameMonth || dayDelta > 2) continue;
+
+          const where = s.location?.name ? ` at ${s.location.name}` : '';
+          throwbacks.push({
+            id: `tb-${s.id}`,
+            headline: `On this day in ${d.getFullYear()}`,
+            detail: `${s.title}${where}`,
+            star: s,
+          });
+        }
+
+        // If nothing lands on today, surface the oldest memories as "from the archive".
+        if (throwbacks.length === 0) {
+          const oldest = [...stars]
+            .filter((s) => thisYear - new Date(s.date).getFullYear() >= 1)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 3);
+          for (const s of oldest) {
+            const d = new Date(s.date);
+            const where = s.location?.name ? ` at ${s.location.name}` : '';
+            throwbacks.push({
+              id: `tb-${s.id}`,
+              headline: `A memory from ${d.getFullYear()}`,
+              detail: `${s.title}${where}`,
+              star: s,
+            });
+          }
+        }
+        return throwbacks;
+      },
     }),
     {
       name: 'memoria-store-v1',
@@ -233,6 +303,7 @@ export const useMemoria = create<MemoriaState>()(
       partialize: (state) => ({
         hasOnboarded: state.hasOnboarded,
         isAuthed: state.isAuthed,
+        tier: state.tier,
         activeCosmosId: state.activeCosmosId,
         stars: state.stars,
         constellations: state.constellations,

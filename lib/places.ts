@@ -24,6 +24,8 @@ export async function searchPlaces(query: string): Promise<PlacePrediction[]> {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': API_KEY,
+        'X-Goog-FieldMask':
+          'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat',
       },
       body: JSON.stringify({ input: q }),
     });

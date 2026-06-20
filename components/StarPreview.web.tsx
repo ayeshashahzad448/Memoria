@@ -28,22 +28,21 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
   useEffect(() => {
     if (pulseStarted.current) return;
     pulseStarted.current = true;
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
+    pulse.value = withRepeat(withTiming(6, { duration: 6400, easing: Easing.linear }), -1, false);
   });
 
   const glowStyle = useAnimatedStyle(() => {
-    const gr = r.value + 14 + pulse.value * 10;
+    const a = Math.sin(pulse.value * 1.6 * Math.PI * 2);
+    const b = Math.sin(pulse.value * 3.4 * Math.PI * 2);
+    const twinkle = Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
+    const gr = r.value + 14 + twinkle * 3;
     return {
       width: gr * 2,
       height: gr * 2,
       borderRadius: gr,
       marginLeft: -gr,
       marginTop: -gr,
-      opacity: 0.4 + pulse.value * 0.25,
+      opacity: 0.32 + twinkle * 0.3,
     };
   });
 

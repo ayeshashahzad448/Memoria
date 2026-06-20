@@ -34,15 +34,18 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
   useEffect(() => {
     if (pulseStarted.current) return;
     pulseStarted.current = true;
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
+    pulse.value = withRepeat(withTiming(6, { duration: 6400, easing: Easing.linear }), -1, false);
   });
 
-  const glowR = useDerivedValue(() => r.value + 14 + pulse.value * 10);
-  const glowOpacity = useDerivedValue(() => 0.4 + pulse.value * 0.25);
+  // Twinkle: brightness flickers while the size stays steady.
+  const twinkle = useDerivedValue(() => {
+    const a = Math.sin(pulse.value * 1.6 * Math.PI * 2);
+    const b = Math.sin(pulse.value * 3.4 * Math.PI * 2);
+    return Math.pow((a * 0.65 + b * 0.35 + 1) / 2, 2.2);
+  });
+
+  const glowR = useDerivedValue(() => r.value + 14 + twinkle.value * 3);
+  const glowOpacity = useDerivedValue(() => 0.32 + twinkle.value * 0.3);
   const coreR = useDerivedValue(() => Math.max(r.value, 4));
   const pinR = useDerivedValue(() => Math.max(r.value * 0.32, 2));
 

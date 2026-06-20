@@ -67,8 +67,8 @@ export default function AuthScreen() {
               <View className="bg-glass-border h-px flex-1" />
             </View>
 
-            <OAuthButton label="Sign in with Apple" glyph="" onPress={enter} />
-            <OAuthButton label="Sign in with Google" glyph="G" onPress={enter} />
+            <OAuthButton label="Continue with Apple" onPress={enter} />
+            <OAuthButton label="Continue with Google" onPress={enter} />
           </GlassCard>
 
           <Text className="text-muted mt-6 text-center text-xs">
@@ -80,21 +80,12 @@ export default function AuthScreen() {
   );
 }
 
-function OAuthButton({
-  label,
-  glyph,
-  onPress,
-}: {
-  label: string;
-  glyph: string;
-  onPress: () => void;
-}) {
+function OAuthButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       className="border-glass-border bg-starlight/5 active:bg-starlight/10 flex-row items-center justify-center gap-3 rounded-2xl border py-3.5"
     >
-      <Text className="text-starlight text-lg">{glyph}</Text>
       <Text className="text-starlight font-medium">{label}</Text>
     </Pressable>
   );

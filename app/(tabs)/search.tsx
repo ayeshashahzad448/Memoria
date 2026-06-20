@@ -3,11 +3,14 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Chip, Input, Label, Text, TextField } from 'heroui-native';
 import { format } from 'date-fns';
+import { MapPin, Search as SearchIcon } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
+
+const MUTED = '#8C93B8';
 
 type DateRange = 'any' | '30d' | '90d' | '365d';
 
@@ -18,7 +21,7 @@ const RANGES: { key: DateRange; label: string; days: number }[] = [
   { key: '365d', label: 'Last year', days: 365 },
 ];
 
-export default function Search() {
+export default function SearchTab() {
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
@@ -65,32 +68,29 @@ export default function Search() {
     });
   }, [stars, keywords, locationFilter, range, userFilter, constFilter, constellations]);
 
-  const open = (star: MemoryStar) => {
-    router.back();
+  const open = (star: MemoryStar) =>
     router.push({ pathname: '/star/[id]', params: { id: star.id } });
-  };
 
   const toggleUser = (id: string) =>
     setUserFilter((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   return (
     <View className="bg-void flex-1">
-      <ScrollView contentContainerClassName="px-5 pt-6 pb-12" keyboardShouldPersistTaps="handled">
-        <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-starlight text-2xl font-bold">Search the cosmos</Text>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text className="text-muted">Close</Text>
-          </Pressable>
-        </View>
+      <ScrollView
+        contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text className="text-starlight text-3xl font-bold">Search</Text>
+        <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
 
         <View className="gap-4">
           <TextField>
             <Label>Title or keywords</Label>
-            <Input placeholder="Search memories…" value={keywords} onChangeText={setKeywords} />
+            <Input placeholder="Search memories" value={keywords} onChangeText={setKeywords} />
           </TextField>
 
           <TextField>
-            <Label>Location name</Label>
+            <Label>Location</Label>
             <Input
               placeholder="e.g. Paris, our tree"
               value={locationFilter}
@@ -125,7 +125,7 @@ export default function Search() {
                     color={userFilter.includes(u!.id) ? 'accent' : 'default'}
                     onPress={() => toggleUser(u!.id)}
                   >
-                    {`${u!.avatar} ${u!.name}`}
+                    {u!.name}
                   </Chip>
                 ))}
               </View>
@@ -134,7 +134,7 @@ export default function Search() {
 
           {constellations.length > 0 && (
             <View className="gap-2">
-              <Label>Constellation group</Label>
+              <Label>Group</Label>
               <View className="flex-row flex-wrap gap-2">
                 {constellations.map((c) => (
                   <Chip
@@ -151,29 +151,43 @@ export default function Search() {
           )}
         </View>
 
-        <Text className="text-muted mt-6 mb-2 text-sm">
+        <Text className="text-muted mt-6 mb-2.5 text-sm">
           {filtered.length} result{filtered.length === 1 ? '' : 's'}
         </Text>
 
-        <View className="gap-3">
-          {filtered.map((s) => (
-            <Pressable key={s.id} onPress={() => open(s)}>
-              <GlassCard contentClassName="flex-row items-center gap-3 p-4">
-                <View
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: colorFor(s.colorKey).hex }}
-                />
-                <View className="flex-1">
-                  <Text className="text-starlight font-medium">{s.title}</Text>
-                  <Text className="text-muted text-xs" numberOfLines={1}>
-                    {format(new Date(s.date), 'PP')}
-                    {s.location ? ` · ${s.location.name}` : ''}
-                  </Text>
-                </View>
-              </GlassCard>
-            </Pressable>
-          ))}
-        </View>
+        {filtered.length === 0 ? (
+          <GlassCard contentClassName="items-center gap-2 p-6">
+            <SearchIcon size={20} color={MUTED} />
+            <Text className="text-muted text-center text-sm">No memories match these filters.</Text>
+          </GlassCard>
+        ) : (
+          <View className="gap-2.5">
+            {filtered.map((s) => (
+              <Pressable key={s.id} onPress={() => open(s)}>
+                <GlassCard contentClassName="flex-row items-center gap-3 p-4">
+                  <View
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: colorFor(s.colorKey).hex }}
+                  />
+                  <View className="flex-1">
+                    <Text className="text-starlight font-medium">{s.title}</Text>
+                    <View className="mt-0.5 flex-row items-center gap-1.5">
+                      <Text className="text-muted text-xs">{format(new Date(s.date), 'PP')}</Text>
+                      {s.location ? (
+                        <>
+                          <MapPin size={11} color={MUTED} />
+                          <Text className="text-muted text-xs" numberOfLines={1}>
+                            {s.location.name}
+                          </Text>
+                        </>
+                      ) : null}
+                    </View>
+                  </View>
+                </GlassCard>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );

@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { Camera, MapPin, Mic, Plus, Square, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
@@ -22,19 +23,25 @@ import {
   radiusForText,
   DIRECTORY_USERS,
   CURRENT_USER,
+  colorFor,
 } from '@/lib/memoria';
 import { searchPlaces, resolvePlace, placesEnabled, type PlacePrediction } from '@/lib/places';
 import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
+import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 
 const MAX_PHOTOS = 3;
 const MAX_VOICE = 4;
+const ACCENT = colorFor('cyan').hex;
+const MUTED = '#8C93B8';
 
 export default function CreateStar() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const addStar = useMemoria((s) => s.addStar);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
+  const allStars = useMemoria((s) => s.stars);
+  const tier = useMemoria((s) => s.tier);
   const cosmosId =
     (Array.isArray(params.cosmosId) ? params.cosmosId[0] : params.cosmosId) ??
     activeCosmosId ??
@@ -49,7 +56,12 @@ export default function CreateStar() {
   const [taggedIds, setTaggedIds] = useState<string[]>([]);
   const [location, setLocation] = useState<StarLocation | undefined>();
 
+  const usedBytes = useMemo(() => totalMediaBytes(allStars), [allStars]);
+  const atLimit = tier === 'free' && usedBytes >= FREE_LIMIT_BYTES;
+
   const canSave = title.trim().length > 0 || story.trim().length > 0;
+
+  const openPaywall = () => router.push('/paywall');
 
   const save = () => {
     if (!canSave) return;
@@ -70,6 +82,10 @@ export default function CreateStar() {
 
   const pickPhotos = useCallback(async () => {
     if (photos.length >= MAX_PHOTOS) return;
+    if (atLimit) {
+      openPaywall();
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -79,7 +95,9 @@ export default function CreateStar() {
     if (!result.canceled) {
       setPhotos((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
     }
-  }, [photos.length]);
+    // openPaywall is stable for this screen instance (defined inline, router is stable).
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos.length, atLimit]);
 
   return (
     <View className="bg-void flex-1">
@@ -89,13 +107,14 @@ export default function CreateStar() {
       >
         <ScrollView contentContainerClassName="px-5 pt-6 pb-40" keyboardShouldPersistTaps="handled">
           <View className="mb-2 flex-row items-center justify-between">
-            <Text className="text-starlight text-2xl font-bold">New star</Text>
+            <Text className="text-starlight text-2xl font-bold">New memory</Text>
             <Pressable onPress={() => router.back()} hitSlop={12}>
               <Text className="text-muted text-base">Close</Text>
             </Pressable>
           </View>
-          <Text className="text-muted mb-5 text-sm">
-            Write your memory and watch it manifest. More detail makes a larger, brighter star.
+          <Text className="text-muted mb-5 text-sm leading-5">
+            Write your memory and watch it come to life. The more you write, the brighter your star
+            shines.
           </Text>
 
           {/* Live star preview */}
@@ -105,10 +124,22 @@ export default function CreateStar() {
               {(story.length > 0 ? story : title).trim().length === 0
                 ? 'Start typing to bring your star to life'
                 : radiusForText(story.length > 0 ? story : title) > 18
-                  ? 'A core memory is forming'
+                  ? 'This is becoming a core memory'
                   : 'Your star is taking shape'}
             </Text>
           </GlassCard>
+
+          {atLimit && (
+            <Pressable onPress={openPaywall}>
+              <GlassCard className="mb-5" contentClassName="gap-1.5 p-4">
+                <Text className="text-danger text-sm font-semibold">Your storage is full</Text>
+                <Text className="text-muted text-xs leading-5">
+                  You can still save this memory, but adding photos or voice notes needs more space.
+                  Tap to upgrade.
+                </Text>
+              </GlassCard>
+            </Pressable>
+          )}
 
           <View className="gap-5">
             <TextField>
@@ -138,11 +169,17 @@ export default function CreateStar() {
 
             <PhotoPicker
               photos={photos}
+              atLimit={atLimit}
               onAdd={pickPhotos}
               onRemove={(uri) => setPhotos((p) => p.filter((x) => x !== uri))}
             />
 
-            <VoiceRecorder notes={voiceNotes} onChange={setVoiceNotes} />
+            <VoiceRecorder
+              notes={voiceNotes}
+              atLimit={atLimit}
+              onUpgrade={openPaywall}
+              onChange={setVoiceNotes}
+            />
 
             <TagPicker selected={taggedIds} onChange={setTaggedIds} />
 
@@ -152,7 +189,7 @@ export default function CreateStar() {
 
         <View className="border-glass-border bg-void/90 pb-safe-offset-4 absolute inset-x-0 bottom-0 border-t px-5 pt-4">
           <Button isDisabled={!canSave} onPress={save}>
-            Manifest this star
+            Save memory
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -162,7 +199,7 @@ export default function CreateStar() {
 
 /* ------------------------------ Color grid -------------------------------- */
 
-function ColorGrid({
+export function ColorGrid({
   value,
   onChange,
 }: {
@@ -205,18 +242,23 @@ function ColorGrid({
 
 /* ------------------------------ Photos ------------------------------------ */
 
-function PhotoPicker({
+export function PhotoPicker({
   photos,
+  atLimit,
   onAdd,
   onRemove,
 }: {
   photos: string[];
+  atLimit: boolean;
   onAdd: () => void;
   onRemove: (uri: string) => void;
 }) {
   return (
     <View className="gap-2">
-      <Label>{`Photos  📷  (${photos.length}/${MAX_PHOTOS})`}</Label>
+      <View className="flex-row items-center gap-2">
+        <Camera size={15} color={MUTED} />
+        <Label>{`Photos (${photos.length}/${MAX_PHOTOS})`}</Label>
+      </View>
       <View className="flex-row flex-wrap gap-3">
         {photos.map((uri) => (
           <View key={uri} className="overflow-hidden rounded-2xl">
@@ -225,7 +267,7 @@ function PhotoPicker({
               onPress={() => onRemove(uri)}
               className="bg-void/80 absolute top-1 right-1 h-6 w-6 items-center justify-center rounded-full"
             >
-              <Text className="text-starlight text-xs">✕</Text>
+              <X size={12} color="#E9ECFF" />
             </Pressable>
           </View>
         ))}
@@ -234,7 +276,7 @@ function PhotoPicker({
             onPress={onAdd}
             className="border-glass-border h-[84px] w-[84px] items-center justify-center rounded-2xl border border-dashed"
           >
-            <Text className="text-muted text-2xl">＋</Text>
+            <Plus size={24} color={atLimit ? '#FF6B6B' : MUTED} />
           </Pressable>
         )}
       </View>
@@ -244,17 +286,25 @@ function PhotoPicker({
 
 /* ------------------------------ Voice notes ------------------------------- */
 
-function VoiceRecorder({
+export function VoiceRecorder({
   notes,
+  atLimit,
+  onUpgrade,
   onChange,
 }: {
   notes: VoiceNote[];
+  atLimit: boolean;
+  onUpgrade: () => void;
   onChange: (n: VoiceNote[]) => void;
 }) {
   const { isRecording, isSupported, start, stop } = useVoiceRecorder();
   const elapsed = useRef(0);
 
   const toggle = async () => {
+    if (atLimit && !isRecording) {
+      onUpgrade();
+      return;
+    }
     if (isRecording) {
       const result = await stop();
       if (result) {
@@ -273,9 +323,12 @@ function VoiceRecorder({
 
   return (
     <View className="gap-2">
-      <Label>{`Voice notes  🎙️  (${notes.length}/${MAX_VOICE})`}</Label>
+      <View className="flex-row items-center gap-2">
+        <Mic size={15} color={MUTED} />
+        <Label>{`Voice notes (${notes.length}/${MAX_VOICE})`}</Label>
+      </View>
       {!isSupported && (
-        <Text className="text-muted text-xs">Voice recording runs on a device build.</Text>
+        <Text className="text-muted text-xs">Voice recording works on a phone.</Text>
       )}
       <View className="gap-2">
         {notes.map((n, i) => (
@@ -283,9 +336,12 @@ function VoiceRecorder({
             key={n.id}
             className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3"
           >
-            <Text className="text-starlight">
-              🎙️ Note {i + 1} · {Math.round(n.durationSec)}s
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Mic size={14} color={ACCENT} />
+              <Text className="text-starlight">
+                Note {i + 1} · {Math.round(n.durationSec)}s
+              </Text>
+            </View>
             <Pressable onPress={() => remove(n.id)} hitSlop={8}>
               <Text className="text-muted">Remove</Text>
             </Pressable>
@@ -297,8 +353,9 @@ function VoiceRecorder({
             className="border-glass-border flex-row items-center justify-center gap-2 rounded-2xl border py-3.5"
             style={isRecording ? { borderColor: '#FF6B6B' } : undefined}
           >
+            {isRecording ? <Square size={16} color="#FF6B6B" /> : <Mic size={16} color={ACCENT} />}
             <Text className="text-starlight">
-              {isRecording ? '■ Stop recording' : '🎙️ Record a voice note'}
+              {isRecording ? 'Stop recording' : 'Record a voice note'}
             </Text>
           </Pressable>
         )}
@@ -309,7 +366,7 @@ function VoiceRecorder({
 
 /* ------------------------------ Tagging ----------------------------------- */
 
-function TagPicker({
+export function TagPicker({
   selected,
   onChange,
 }: {
@@ -331,10 +388,10 @@ function TagPicker({
 
   return (
     <View className="gap-2">
-      <Label>Tag who shared this · @</Label>
+      <Label>Tag who shared this</Label>
       <TextField>
         <Input
-          placeholder="Search people…"
+          placeholder="Search people"
           value={query}
           onChangeText={setQuery}
           autoCapitalize="none"
@@ -350,15 +407,15 @@ function TagPicker({
               color={isSel ? 'accent' : 'default'}
               onPress={() => toggle(u.id)}
             >
-              {`${u.avatar} ${u.name}`}
+              {u.name}
             </Chip>
           );
         })}
       </View>
       {selected.length > 0 && (
         <Text className="text-muted text-xs">
-          {selected.length} person{selected.length > 1 ? 's' : ''} will see this star in their
-          cosmos.
+          {selected.length} {selected.length > 1 ? 'people' : 'person'} will see this memory in
+          their cosmos.
         </Text>
       )}
     </View>
@@ -367,7 +424,7 @@ function TagPicker({
 
 /* ------------------------------ Location ---------------------------------- */
 
-function LocationPicker({
+export function LocationPicker({
   location,
   onChange,
 }: {
@@ -411,10 +468,16 @@ function LocationPicker({
 
   return (
     <View className="gap-2">
-      <Label>Location · 📍</Label>
+      <View className="flex-row items-center gap-2">
+        <MapPin size={15} color={MUTED} />
+        <Label>Location</Label>
+      </View>
       {location ? (
         <View className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3">
-          <Text className="text-starlight flex-1">📍 {location.name}</Text>
+          <View className="flex-1 flex-row items-center gap-2">
+            <MapPin size={14} color={ACCENT} />
+            <Text className="text-starlight flex-1">{location.name}</Text>
+          </View>
           <Pressable onPress={() => onChange(undefined)} hitSlop={8}>
             <Text className="text-muted">Clear</Text>
           </Pressable>
@@ -434,11 +497,11 @@ function LocationPicker({
                 />
               </TextField>
             </View>
-            {loading && <ActivityIndicator color="#5FE3F0" />}
+            {loading && <ActivityIndicator color={ACCENT} />}
           </View>
           {query.trim().length > 0 && (
             <Pressable onPress={useManual} hitSlop={6}>
-              <Text className="text-accent text-sm">Use “{query.trim()}” as a custom place</Text>
+              <Text className="text-accent text-sm">{`Use "${query.trim()}" as a custom place`}</Text>
             </Pressable>
           )}
           {results.map((p) => (

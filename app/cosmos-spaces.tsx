@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
+import { Orbit, Users } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
-import { DIRECTORY_USERS, CURRENT_USER, userById } from '@/lib/memoria';
+import { DIRECTORY_USERS, CURRENT_USER, userById, colorFor } from '@/lib/memoria';
+
+const ACCENT = colorFor('cyan').hex;
 
 export default function CosmosSpaces() {
   const router = useRouter();
@@ -50,9 +53,10 @@ export default function CosmosSpaces() {
         </Text>
 
         <Pressable onPress={() => switchTo(PERSONAL_COSMOS)}>
-          <GlassCard className="mb-3" contentClassName="flex-row items-center justify-between p-4">
-            <View>
-              <Text className="text-starlight font-semibold">✨ Your private cosmos</Text>
+          <GlassCard className="mb-3" contentClassName="flex-row items-center gap-3 p-4">
+            <Orbit size={18} color={ACCENT} />
+            <View className="flex-1">
+              <Text className="text-starlight font-semibold">Your private cosmos</Text>
               <Text className="text-muted text-xs">Only you (and tagged friends)</Text>
             </View>
             {activeCosmosId === PERSONAL_COSMOS && (
@@ -64,8 +68,9 @@ export default function CosmosSpaces() {
         {sharedCosmoses.map((c) => (
           <Pressable key={c.id} onPress={() => switchTo(c.id)}>
             <GlassCard className="mb-3" contentClassName="p-4">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-starlight font-semibold">🌌 {c.name}</Text>
+              <View className="flex-row items-center gap-2.5">
+                <Users size={16} color={ACCENT} />
+                <Text className="text-starlight flex-1 font-semibold">{c.name}</Text>
                 {activeCosmosId === c.id && <Text className="text-accent text-xs">Active</Text>}
               </View>
               <Text className="text-muted mt-1 text-xs">
@@ -91,7 +96,7 @@ export default function CosmosSpaces() {
                   color={members.includes(u.id) ? 'accent' : 'default'}
                   onPress={() => toggleMember(u.id)}
                 >
-                  {`${u.avatar} ${u.name}`}
+                  {u.name}
                 </Chip>
               ))}
             </View>
