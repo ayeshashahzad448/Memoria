@@ -20,7 +20,6 @@ interface CosmosCanvasProps {
   stars: MemoryStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
-  showAllConstellations?: boolean;
   selectedStarId?: string;
   forgingStarIds: string[];
   focusStarId?: string | null;
@@ -57,7 +56,6 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     stars,
     constellations,
     revealedStarIds,
-    showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
     focusStarId,
@@ -93,18 +91,19 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
 
-  // Smoothly pan/zoom to a requested star (e.g. tapped from search).
+  // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
   useEffect(() => {
     if (!focusStarId) return;
     const target = placed.find((p) => p.star.id === focusStarId);
     if (!target) return;
     const s = toScreen(target.star.x, target.star.y);
-    const targetScale = 1.6;
+    const targetScale = 2.8;
     const nextTx = width / 2 - s.x * targetScale;
     const nextTy = height / 2 - s.y * targetScale;
-    scale.value = withTiming(targetScale, { duration: 650, easing: Easing.out(Easing.cubic) });
-    tx.value = withTiming(nextTx, { duration: 650, easing: Easing.out(Easing.cubic) });
-    ty.value = withTiming(nextTy, { duration: 650, easing: Easing.out(Easing.cubic) });
+    const ease = Easing.inOut(Easing.cubic);
+    scale.value = withTiming(targetScale, { duration: 1100, easing: ease });
+    tx.value = withTiming(nextTx, { duration: 1100, easing: ease });
+    ty.value = withTiming(nextTy, { duration: 1100, easing: ease });
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusStarId, placed, toScreen, width, height]);
 
@@ -159,7 +158,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       visible: boolean;
     }[] = [];
     for (const c of constellations) {
-      const visible = showAllConstellations || c.starIds.some((id) => revealed.has(id));
+      const visible = c.starIds.some((id) => revealed.has(id));
       const ordered = [...c.starIds]
         .map((id) => byId.get(id))
         .filter((p): p is (typeof placed)[number] => Boolean(p))
@@ -178,7 +177,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       }
     }
     return segs;
-  }, [constellations, revealed, byId, toScreen, showAllConstellations]);
+  }, [constellations, revealed, byId, toScreen]);
 
   const band = useMemo(() => {
     const arr: { id: string; x: number; y: number; r: number; o: number }[] = [];

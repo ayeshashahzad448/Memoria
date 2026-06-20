@@ -25,8 +25,6 @@ interface CosmosCanvasProps {
   constellations: Constellation[];
   /** Star ids whose constellation lines should be visible. */
   revealedStarIds: string[];
-  /** When true, all constellation lines are revealed (Constellations toggle). */
-  showAllConstellations?: boolean;
   selectedStarId?: string;
   /** Star ids the user has multi-selected for forging. */
   forgingStarIds: string[];
@@ -67,7 +65,6 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     stars,
     constellations,
     revealedStarIds,
-    showAllConstellations = false,
     selectedStarId,
     forgingStarIds,
     focusStarId,
@@ -129,19 +126,22 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     void Haptics.selectionAsync();
   }, []);
 
-  // Smoothly pan/zoom to a requested star (e.g. tapped from search).
+  // Smoothly pan/zoom deep into a requested star (e.g. tapped from search).
+  // A longer, eased fly-in reads as a cinematic dive toward the star rather
+  // than a quick jump.
   useEffect(() => {
     if (!focusStarId) return;
     const target = placed.find((p) => p.star.id === focusStarId);
     if (!target) return;
     const s = toScreen(target.star.x, target.star.y);
-    const targetScale = 1.6;
+    const targetScale = 2.8;
     // Center the star: tx + s.x * scale = width/2.
     const nextTx = width / 2 - s.x * targetScale;
     const nextTy = height / 2 - s.y * targetScale;
-    scale.value = withTiming(targetScale, { duration: 650, easing: Easing.out(Easing.cubic) });
-    tx.value = withTiming(nextTx, { duration: 650, easing: Easing.out(Easing.cubic) });
-    ty.value = withTiming(nextTy, { duration: 650, easing: Easing.out(Easing.cubic) });
+    const ease = Easing.inOut(Easing.cubic);
+    scale.value = withTiming(targetScale, { duration: 1100, easing: ease });
+    tx.value = withTiming(nextTx, { duration: 1100, easing: ease });
+    ty.value = withTiming(nextTy, { duration: 1100, easing: ease });
     focusTick();
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusStarId, placed, toScreen, width, height]);
@@ -221,7 +221,6 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             placed={placed}
             constellations={constellations}
             revealedStarIds={revealedStarIds}
-            showAll={showAllConstellations}
             toScreen={toScreen}
           />
           {placed.map((p) => (
@@ -350,13 +349,11 @@ function ConstellationLines({
   placed,
   constellations,
   revealedStarIds,
-  showAll,
   toScreen,
 }: {
   placed: PlacedStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
-  showAll: boolean;
   toScreen: (x: number, y: number) => { x: number; y: number };
 }) {
   const byId = useMemo(() => {
@@ -370,7 +367,7 @@ function ConstellationLines({
   return (
     <Group>
       {constellations.map((c) => {
-        const isVisible = showAll || c.starIds.some((id) => revealed.has(id));
+        const isVisible = c.starIds.some((id) => revealed.has(id));
         // Connect chronologically: order by the star's date.
         const ordered = [...c.starIds]
           .map((id) => byId.get(id))

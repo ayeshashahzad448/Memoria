@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import { Camera, MapPin, Mic, Search, Sparkles, Spline, Users, X } from 'lucide-react-native';
+import { Camera, MapPin, Mic, Search, Sparkles, Users, X } from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
@@ -38,7 +38,6 @@ export default function CosmosTab() {
   const [forging, setForging] = useState(false);
   const [forgeIds, setForgeIds] = useState<string[]>([]);
   const [forgeName, setForgeName] = useState('');
-  const [showConstellations, setShowConstellations] = useState(false);
   const [tutorialVisible, setTutorialVisible] = useState(false);
   // Local focus target handed to the canvas to animate toward (from search).
   const [canvasFocusId, setCanvasFocusId] = useState<string | null>(null);
@@ -104,18 +103,12 @@ export default function CosmosTab() {
     setForgeName('');
   };
 
-  const toggleConstellations = () => {
-    void Haptics.selectionAsync();
-    setShowConstellations((v) => !v);
-  };
-
   return (
     <View className="bg-void flex-1">
       <CosmosCanvas
         stars={stars}
         constellations={constellations}
         revealedStarIds={revealedStarIds}
-        showAllConstellations={showConstellations}
         selectedStarId={selectedStar?.id}
         forgingStarIds={forgeIds}
         focusStarId={canvasFocusId}
@@ -132,44 +125,6 @@ export default function CosmosTab() {
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
-            {/* Constellations toggle — clearly shows on/off state. */}
-            <Pressable onPress={toggleConstellations} hitSlop={8}>
-              <GlassCard
-                contentClassName="h-11 flex-row items-center gap-2 px-3.5"
-                style={
-                  showConstellations
-                    ? {
-                        borderColor: `${colorFor('violet').hex}AA`,
-                        backgroundColor: `${colorFor('violet').hex}1F`,
-                      }
-                    : undefined
-                }
-              >
-                <Spline
-                  size={18}
-                  color={showConstellations ? colorFor('violet').hex : MUTED}
-                  strokeWidth={showConstellations ? 2.4 : 1.8}
-                />
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: showConstellations ? colorFor('violet').hex : MUTED }}
-                >
-                  Constellations
-                </Text>
-                {/* Switch-style pill makes on/off obvious. */}
-                <View
-                  className="h-4 w-7 justify-center rounded-full px-0.5"
-                  style={{
-                    backgroundColor: showConstellations
-                      ? colorFor('violet').hex
-                      : 'rgba(255,255,255,0.18)',
-                    alignItems: showConstellations ? 'flex-end' : 'flex-start',
-                  }}
-                >
-                  <View className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0B0C10' }} />
-                </View>
-              </GlassCard>
-            </Pressable>
             <Pressable onPress={() => router.push('/search')} hitSlop={8}>
               <GlassCard contentClassName="h-11 w-11 items-center justify-center">
                 <Search size={24} color={ACCENT} strokeWidth={2.1} />
