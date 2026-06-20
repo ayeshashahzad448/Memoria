@@ -46,18 +46,19 @@ export default function Onboarding() {
       )}
 
       {phase === 'action' && (
-        <Animated.View
-          entering={FadeIn.duration(2200).easing(Easing.out(Easing.ease))}
-          className="absolute inset-0 items-center justify-center px-10"
-        >
-          <Text className="text-starlight font-display mb-10 text-center text-2xl font-semibold">
-            create your first star
-          </Text>
-          <Pressable onPress={beginFirstStar} hitSlop={20}>
+        <Pressable className="absolute inset-0" onPress={beginFirstStar}>
+          <Animated.View
+            entering={FadeIn.duration(2200).easing(Easing.out(Easing.ease))}
+            className="flex-1 items-center justify-center px-10"
+            pointerEvents="none"
+          >
+            <Text className="text-starlight font-display mb-10 text-center text-2xl font-semibold">
+              create your first star
+            </Text>
             <SparkPulse />
-          </Pressable>
-          <Text className="text-muted mt-10 text-center text-sm">Tap the spark to begin</Text>
-        </Animated.View>
+            <Text className="text-muted mt-10 text-center text-sm">Tap anywhere to begin</Text>
+          </Animated.View>
+        </Pressable>
       )}
     </View>
   );

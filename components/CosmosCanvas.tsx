@@ -411,10 +411,14 @@ function MemoryStarShape({
 
   return (
     <Group>
-      {/* Tight colored bloom (emotion tint), hugging the star */}
-      <Circle cx={pos.x} cy={pos.y} r={bloomR} color={color} opacity={bloomOpacity}>
-        <Blur blur={Math.max(3, radius * 0.6)} />
-      </Circle>
+      {/* Tight colored bloom (emotion tint), hugging the star. Animated opacity
+          lives on the wrapping Group — never directly on a node that holds a
+          <Blur> child, which is the fragile path that crashes Skia in Expo Go. */}
+      <Group opacity={bloomOpacity}>
+        <Circle cx={pos.x} cy={pos.y} r={bloomR} color={color}>
+          <Blur blur={Math.max(3, radius * 0.6)} />
+        </Circle>
+      </Group>
       {/* Subtle diffraction glint — thin cross that makes it read as a real star */}
       <Group opacity={spikeOpacity}>
         <Line
@@ -437,22 +441,25 @@ function MemoryStarShape({
         </Line>
       </Group>
       {/* Selection / forging ring — always mounted, opacity driven so the
-          node tree shape is stable across taps. */}
-      <Circle
-        cx={pos.x}
-        cy={pos.y}
-        r={radius + 10}
-        color={ringColor}
-        style="stroke"
-        strokeWidth={1.5}
-        opacity={ringOpacity}
-      />
+          node tree shape is stable across taps. No Blur child here. */}
+      <Group opacity={ringOpacity}>
+        <Circle
+          cx={pos.x}
+          cy={pos.y}
+          r={radius + 10}
+          color={ringColor}
+          style="stroke"
+          strokeWidth={1.5}
+        />
+      </Group>
       {/* Soft white-blue inner bloom */}
-      <Circle cx={pos.x} cy={pos.y} r={coreR + 1.5} color="#CFE3FF" opacity={coreOpacity}>
-        <Blur blur={1.4} />
-      </Circle>
-      {/* Bright white core */}
-      <Circle cx={pos.x} cy={pos.y} r={coreR} color="#FFFFFF" opacity={coreOpacity} />
+      <Group opacity={coreOpacity}>
+        <Circle cx={pos.x} cy={pos.y} r={coreR + 1.5} color="#CFE3FF">
+          <Blur blur={1.4} />
+        </Circle>
+        {/* Bright white core */}
+        <Circle cx={pos.x} cy={pos.y} r={coreR} color="#FFFFFF" />
+      </Group>
     </Group>
   );
 }
