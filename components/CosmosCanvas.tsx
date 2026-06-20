@@ -345,6 +345,11 @@ function MemoryStarShape({
     () => (0.18 + 0.32 * twinkle(clock.value)) * (active ? 1.4 : 1),
   );
 
+  // The selection ring is always mounted (opacity 0 when inactive) so the
+  // Skia node tree never changes shape on tap — adding/removing nodes mid-
+  // animation crashes the native Skia reconciler.
+  const ringOpacity = useDerivedValue(() => (active ? 0.85 : 0));
+
   return (
     <Group>
       {/* Tight colored bloom (emotion tint), hugging the star */}
@@ -372,18 +377,17 @@ function MemoryStarShape({
           <Blur blur={0.6} />
         </Line>
       </Group>
-      {/* Selection / forging ring */}
-      {active && (
-        <Circle
-          cx={pos.x}
-          cy={pos.y}
-          r={radius + 10}
-          color={isForging ? '#FFE066' : '#FFFFFF'}
-          style="stroke"
-          strokeWidth={1.5}
-          opacity={0.85}
-        />
-      )}
+      {/* Selection / forging ring — always mounted, opacity driven so the
+          node tree shape is stable across taps. */}
+      <Circle
+        cx={pos.x}
+        cy={pos.y}
+        r={radius + 10}
+        color={isForging ? '#FFE066' : '#FFFFFF'}
+        style="stroke"
+        strokeWidth={1.5}
+        opacity={ringOpacity}
+      />
       {/* Soft white-blue inner bloom */}
       <Circle cx={pos.x} cy={pos.y} r={coreR + 1.5} color="#CFE3FF" opacity={coreOpacity}>
         <Blur blur={1.4} />
