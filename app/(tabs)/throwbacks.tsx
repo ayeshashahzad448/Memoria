@@ -7,98 +7,16 @@ import { History, MapPin, Sparkles } from 'lucide-react-native';
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
-import type { MemoryStar, Throwback } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
-
-/** Build a lightweight demo star for the Recall showcase. */
-function demoStar(s: Partial<MemoryStar> & Pick<MemoryStar, 'id' | 'title'>): MemoryStar {
-  return {
-    story: '',
-    colorKey: 'cyan',
-    date: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-    photos: [],
-    voiceNotes: [],
-    taggedUserIds: [],
-    x: 0,
-    y: 0,
-    authorId: 'demo',
-    cosmosId: 'personal',
-    ...s,
-  };
-}
-
-/** Fake memories surfaced in the Recall tab for demonstration. */
-const DEMO_THROWBACKS: Throwback[] = [
-  {
-    id: 'demo-1',
-    headline: 'On this day in 2019',
-    detail: 'Six years ago today',
-    kind: 'anniversary',
-    star: demoStar({
-      id: 'demo-star-1',
-      title: 'Sunrise hike at Cradle Mountain',
-      colorKey: 'emerald',
-      location: { name: 'Cradle Mountain, Tasmania' },
-    }),
-  },
-  {
-    id: 'demo-2',
-    headline: 'A highlight from your archive',
-    detail: 'Resurfaced memory',
-    kind: 'highlight',
-    star: demoStar({
-      id: 'demo-star-2',
-      title: 'First apartment, first coffee',
-      colorKey: 'amber',
-      location: { name: 'Fitzroy, Melbourne' },
-    }),
-  },
-  {
-    id: 'demo-3',
-    headline: 'On this day in 2022',
-    detail: 'Three years ago today',
-    kind: 'anniversary',
-    star: demoStar({
-      id: 'demo-star-3',
-      title: 'Late-night drive along the coast',
-      colorKey: 'violet',
-      location: { name: 'Great Ocean Road' },
-    }),
-  },
-  {
-    id: 'demo-4',
-    headline: 'A highlight from your archive',
-    detail: 'Resurfaced memory',
-    kind: 'highlight',
-    star: demoStar({
-      id: 'demo-star-4',
-      title: 'Her laugh in the rain',
-      colorKey: 'rose',
-      location: { name: 'South Bank' },
-    }),
-  },
-  {
-    id: 'demo-5',
-    headline: 'On this day in 2017',
-    detail: 'Eight years ago today',
-    kind: 'anniversary',
-    star: demoStar({
-      id: 'demo-star-5',
-      title: 'The night we watched the meteor shower',
-      colorKey: 'cyan',
-      location: { name: 'Lake Tekapo' },
-    }),
-  },
-];
 
 export default function ThrowbacksTab() {
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
   const suggestThrowbacks = useMemoria((s) => s.suggestThrowbacks);
+  const setOpenMemoryStar = useMemoria((s) => s.setOpenMemoryStar);
 
   // Depend on stars so throwbacks recompute as memories change.
   const stars = useMemo(
@@ -111,9 +29,9 @@ export default function ThrowbacksTab() {
     [stars, suggestThrowbacks],
   );
 
-  // Real throwbacks first, then demo cards to showcase the feature.
+  // Every surfaced memory is a real star, so each card can be visited in the cosmos.
   const realStarIds = useMemo(() => new Set(allStars.map((s) => s.id)), [allStars]);
-  const cards = useMemo(() => [...throwbacks, ...DEMO_THROWBACKS], [throwbacks]);
+  const cards = throwbacks;
 
   return (
     <View className="bg-void flex-1">
@@ -143,9 +61,11 @@ export default function ThrowbacksTab() {
                 <Pressable
                   key={tb.id}
                   onPress={() => {
-                    if (canOpen) {
-                      router.push({ pathname: '/star/[id]', params: { id: tb.star.id } });
-                    }
+                    if (!canOpen) return;
+                    // Visit the memory in the cosmos: focus the star and open its
+                    // floating detail panel on the Cosmos tab.
+                    setOpenMemoryStar(tb.star.id);
+                    router.push('/(tabs)');
                   }}
                 >
                   <GlassCard contentClassName="gap-2 p-5">

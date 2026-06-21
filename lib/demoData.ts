@@ -277,6 +277,18 @@ const SEED: SeedStar[] = [
     tags: ['u-dad', 'u-sam'],
   },
   {
+    id: 'd-022b',
+    title: 'Midsummer picnic in the park',
+    story:
+      'Longest day of the year. We laid out blankets at noon and did not move until the light finally gave up near eleven. Strawberries, a slightly out-of-tune guitar, and the whole gang sprawled in the grass. One of those days you know you will remember while it is still happening.',
+    colorKey: 'amber',
+    date: '2023-06-21',
+    location: { name: 'London Fields' },
+    photos: 3,
+    voice: [37],
+    tags: ['u-sam', 'u-ava', 'u-leo'],
+  },
+  {
     id: 'd-023',
     title: 'Sam\u2019s health scare',
     story:
@@ -317,6 +329,18 @@ const SEED: SeedStar[] = [
     date: '2023-11-12',
     location: { name: 'Whitby' },
     photos: 2,
+  },
+  {
+    id: 'd-026b',
+    title: 'Solstice fire on the beach',
+    story:
+      'Drove down on a whim for the summer solstice. A handful of us, driftwood fire, the tide coming in slow under a sky that never fully went dark. Talked about everything and nothing until the embers died.',
+    colorKey: 'violet',
+    date: '2024-06-20',
+    location: { name: 'St Ives, Cornwall' },
+    photos: 2,
+    voice: [42],
+    tags: ['u-sam', 'u-leo'],
   },
 
   // ---- 2024 ----
@@ -487,12 +511,12 @@ const CONSTELLATION_DEFS: { id: string; name: string; starIds: string[] }[] = [
   {
     id: 'dc-coast',
     name: 'By the Sea',
-    starIds: ['d-024', 'd-026', 'd-029'],
+    starIds: ['d-024', 'd-026', 'd-026b', 'd-029'],
   },
   {
     id: 'dc-ava',
     name: 'Ava, Near and Far',
-    starIds: ['d-005', 'd-031', 'd-037'],
+    starIds: ['d-005', 'd-022b', 'd-031', 'd-037'],
   },
 ];
 
