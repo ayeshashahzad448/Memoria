@@ -118,6 +118,11 @@ interface MemoriaState {
   ) => Constellation | undefined;
   /** Add one or more stars to an existing constellation. */
   addStarsToConstellation: (id: string, starIds: string[]) => void;
+  /**
+   * Remove one star from a constellation. If the constellation would drop below
+   * two stars it is dissolved entirely (a constellation needs at least two).
+   */
+  removeStarFromConstellation: (id: string, starId: string) => void;
   removeConstellation: (id: string) => void;
 
   createSharedCosmos: (name: string, memberIds: string[]) => SharedCosmos;
@@ -267,6 +272,17 @@ export const useMemoria = create<MemoriaState>()(
           constellations: state.constellations.map((c) =>
             c.id === id ? { ...c, starIds: Array.from(new Set([...c.starIds, ...starIds])) } : c,
           ),
+        })),
+
+      removeStarFromConstellation: (id, starId) =>
+        set((state) => ({
+          constellations: state.constellations.flatMap((c) => {
+            if (c.id !== id) return [c];
+            const next = c.starIds.filter((s) => s !== starId);
+            // A constellation needs at least two stars; dissolve otherwise.
+            if (next.length < 2) return [];
+            return [{ ...c, starIds: next }];
+          }),
         })),
 
       createSharedCosmos: (name, memberIds) => {

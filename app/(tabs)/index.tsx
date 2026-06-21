@@ -15,6 +15,7 @@ import {
   Search,
   Sparkles,
   Spline,
+  Trash2,
   Users,
   X,
 } from 'lucide-react-native';
@@ -29,12 +30,14 @@ import type { Constellation, MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
+const DANGER = '#FF2A6D';
 
 export default function CosmosTab() {
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
+  const removeStarFromConstellation = useMemoria((s) => s.removeStarFromConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
   const focusStarId = useMemoria((s) => s.focusStarId);
@@ -72,6 +75,13 @@ export default function CosmosTab() {
   const [drawId, setDrawId] = useState<string | null>(null);
   // The memory whose floating detail panel is open (slides in on the right).
   const [viewingStar, setViewingStar] = useState<MemoryStar | null>(null);
+  // Pending "remove this star from this constellation?" confirmation.
+  const [removeTarget, setRemoveTarget] = useState<{
+    star: MemoryStar;
+    group: Constellation;
+  } | null>(null);
+  // Small transient toast shown after a star is removed from a constellation.
+  const [removedMessage, setRemovedMessage] = useState<string | null>(null);
 
   // Show the guided coachmark once for first-time users.
   useEffect(() => {
@@ -137,6 +147,12 @@ export default function CosmosTab() {
     const t = setTimeout(() => setDeletedMessage(null), 4200);
     return () => clearTimeout(t);
   }, [deletedMessage]);
+
+  useEffect(() => {
+    if (!removedMessage) return undefined;
+    const t = setTimeout(() => setRemovedMessage(null), 3200);
+    return () => clearTimeout(t);
+  }, [removedMessage]);
 
   const dismissTutorial = () => {
     setTutorialVisible(false);
@@ -240,6 +256,22 @@ export default function CosmosTab() {
     setSelectedStar(null);
     setAddToConstellationStar(star.id);
     router.push('/constellations');
+  };
+
+  // Confirm and apply removing a star from a constellation, then re-frame the
+  // group (minus that star) and replay the line-draw so it reads as connected.
+  const confirmRemoveFromConstellation = () => {
+    if (!removeTarget) return;
+    const { star, group } = removeTarget;
+    const remaining = group.starIds.filter((id) => id !== star.id);
+    removeStarFromConstellation(group.id, star.id);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setRemoveTarget(null);
+    setSelectedStar(null);
+    setViewingStar(null);
+    setRemovedMessage(group.name);
+    // Re-show the constellation without the removed star (if it still exists).
+    if (remaining.length >= 2) viewConstellation(remaining, group.id);
   };
   return (
     <View className="bg-void flex-1">
@@ -364,6 +396,7 @@ export default function CosmosTab() {
             onOpen={() => openMemory(selectedStar)}
             onAdd={() => onAddToConstellation(selectedStar)}
             onView={viewConstellation}
+            onRemove={(group) => setRemoveTarget({ star: selectedStar, group })}
             canConnect={stars.length >= 2}
             onClose={() => setSelectedStar(null)}
           />
@@ -439,6 +472,52 @@ export default function CosmosTab() {
         </View>
       )}
 
+      {removedMessage && (
+        <View
+          pointerEvents="none"
+          className="pt-safe-offset-28 absolute inset-x-0 top-0 items-center px-6"
+        >
+          <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(400)}>
+            <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
+              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+              <Text className="text-starlight text-sm font-medium" numberOfLines={1}>
+                {`Removed from ${removedMessage}`}
+              </Text>
+            </GlassCard>
+          </Animated.View>
+        </View>
+      )}
+
+      {/* Remove-from-constellation confirmation */}
+      {removeTarget && (
+        <View className="absolute inset-0 items-center justify-center px-8">
+          <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(200)}>
+            <GlassCard
+              intensity={60}
+              contentClassName="w-80 max-w-full items-center gap-3 px-6 py-7"
+            >
+              <View className="bg-danger/10 mb-1 h-12 w-12 items-center justify-center rounded-full">
+                <Spline size={22} color={DANGER} strokeWidth={2} />
+              </View>
+              <Text className="text-starlight font-display text-center text-lg font-semibold">
+                Remove from constellation?
+              </Text>
+              <Text className="text-muted text-center text-sm leading-5">
+                {`"${removeTarget.star.title}" will be removed from "${removeTarget.group.name}". The constellation stays connected through its other memories.`}
+              </Text>
+              <View className="mt-1 w-full gap-2.5">
+                <Button variant="danger" onPress={confirmRemoveFromConstellation}>
+                  Remove memory
+                </Button>
+                <Button variant="ghost" onPress={() => setRemoveTarget(null)}>
+                  Keep it
+                </Button>
+              </View>
+            </GlassCard>
+          </Animated.View>
+        </View>
+      )}
+
       {tutorialVisible && (
         <CosmosTutorial
           onDone={dismissTutorial}
@@ -457,6 +536,7 @@ function HudCard({
   onOpen,
   onAdd,
   onView,
+  onRemove,
   canConnect,
   onClose,
 }: {
@@ -465,6 +545,7 @@ function HudCard({
   onOpen: () => void;
   onAdd: () => void;
   onView: (starIds: string[], constellationId?: string) => void;
+  onRemove: (group: Constellation) => void;
   canConnect: boolean;
   onClose: () => void;
 }) {
@@ -539,13 +620,13 @@ function HudCard({
             className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
           >
             <Sparkles size={15} color={ACCENT} strokeWidth={2.1} />
-            <Text className="text-accent text-sm font-medium">Open memory</Text>
+            <Text className="text-accent text-sm font-medium">Open Memory</Text>
           </Pressable>
 
-          {groups.length > 0
-            ? groups.map((g) => (
+          {groups.length > 0 ? (
+            groups.map((g) => (
+              <View key={g.id} className="gap-2">
                 <Pressable
-                  key={g.id}
                   onPress={(e) => {
                     e.stopPropagation?.();
                     onView(g.starIds, g.id);
@@ -553,23 +634,34 @@ function HudCard({
                   className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
                 >
                   <Eye size={15} color={ACCENT} strokeWidth={2.1} />
-                  <Text className="text-accent text-sm font-medium" numberOfLines={1}>
-                    View {g.name}
-                  </Text>
+                  <Text className="text-accent text-sm font-medium">View Constellation</Text>
                 </Pressable>
-              ))
-            : canConnect && (
                 <Pressable
                   onPress={(e) => {
                     e.stopPropagation?.();
-                    onAdd();
+                    onRemove(g);
                   }}
                   className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
                 >
-                  <Spline size={15} color={ACCENT} strokeWidth={2.1} />
-                  <Text className="text-accent text-sm font-medium">Add to constellation</Text>
+                  <Trash2 size={15} color={DANGER} strokeWidth={2.1} />
+                  <Text className="text-sm font-medium" style={{ color: DANGER }}>
+                    Remove from constellation
+                  </Text>
                 </Pressable>
-              )}
+              </View>
+            ))
+          ) : canConnect ? (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onAdd();
+              }}
+              className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
+            >
+              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+              <Text className="text-accent text-sm font-medium">Add to constellation</Text>
+            </Pressable>
+          ) : null}
         </View>
       </GlassCard>
     </Pressable>
