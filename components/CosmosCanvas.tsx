@@ -483,6 +483,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             <ambientLight intensity={0.6} />
             <DustField />
             <MilkyWay />
+            <ShootingStars />
             <ConstellationLines
               placed={placed}
               constellations={constellations}
@@ -1186,6 +1187,167 @@ function MilkyWay() {
           material={mats[blobs.indexOf(b)]}
           position={b.pos}
           scale={[b.scale, b.scale, 1]}
+        />
+      ))}
+    </group>
+  );
+}
+
+// ---- Ambient shooting stars ----------------------------------------------
+//
+// Purely ambient, subtle and rare. A single comet at a time streaks across a
+// distant shell of the sky in one of the app accent colors, leaving a fading
+// tail, then a randomized quiet gap (20-40s) passes before the next one.
+
+/** App accent palette for ambient comets (cyan / violet / rose). */
+const COMET_COLORS = ['#45F3FF', '#9D5CFF', '#FF2A6D'];
+const COMET_TAIL = 7;
+
+/** Random number in [min, max). */
+function randRange(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+interface CometRun {
+  from: THREE.Vector3;
+  to: THREE.Vector3;
+  color: THREE.Color;
+  duration: number;
+}
+
+/** Build a fly-across run on a far shell, crossing a random chord of the sky. */
+function makeCometRun(): CometRun {
+  const shell = randRange(46, 60);
+  const pick = () => {
+    const theta = randRange(0, Math.PI * 2);
+    const phi = Math.acos(randRange(-0.6, 0.6));
+    return new THREE.Vector3(
+      shell * Math.sin(phi) * Math.cos(theta),
+      shell * Math.cos(phi),
+      shell * Math.sin(phi) * Math.sin(theta),
+    );
+  };
+  const from = pick();
+  let to = pick();
+  // Ensure a decent travel distance so the streak reads as motion.
+  let guard = 0;
+  while (from.distanceTo(to) < shell * 0.9 && guard < 6) {
+    to = pick();
+    guard += 1;
+  }
+  return {
+    from,
+    to,
+    color: new THREE.Color(COMET_COLORS[Math.floor(Math.random() * COMET_COLORS.length)]),
+    duration: randRange(1.1, 1.8),
+  };
+}
+
+function ShootingStars() {
+  const headRef = useRef<THREE.Sprite>(null);
+  const tailRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const headMat = useMemo(
+    () =>
+      new THREE.SpriteMaterial({
+        map: coreTex(),
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        depthWrite: false,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  );
+  const tailMats = useMemo(
+    () =>
+      Array.from(
+        { length: COMET_TAIL },
+        () =>
+          new THREE.SpriteMaterial({
+            map: glowTex(),
+            color: new THREE.Color('#ffffff'),
+            transparent: true,
+            depthWrite: false,
+            opacity: 0,
+            blending: THREE.AdditiveBlending,
+          }),
+      ),
+    [],
+  );
+
+  // Scheduling state held in refs so it survives frames without re-render.
+  const run = useRef<CometRun | null>(null);
+  const elapsed = useRef(0);
+  const nextAt = useRef(randRange(4, 9)); // first comet a few seconds in
+  const clockRef = useRef(0);
+  const headPos = useRef(new THREE.Vector3());
+
+  useFrame((_, rawDelta) => {
+    const delta = Math.min(rawDelta, 1 / 30);
+    clockRef.current += delta;
+
+    if (!run.current) {
+      // Idle: keep everything hidden, wait for the scheduled start time.
+      if (clockRef.current >= nextAt.current) {
+        run.current = makeCometRun();
+        elapsed.current = 0;
+        const c = run.current.color;
+        // eslint-disable-next-line react-compiler/react-compiler -- mutating three material in frame loop
+        headMat.color.copy(c).lerp(new THREE.Color('#ffffff'), 0.6);
+        for (const m of tailMats) m.color.copy(c);
+      }
+      return;
+    }
+
+    elapsed.current += delta;
+    const r = run.current;
+    const p = elapsed.current / r.duration;
+    if (p >= 1) {
+      // Done: hide and schedule the next quiet gap (20-40s).
+      run.current = null;
+      clockRef.current = 0;
+      nextAt.current = randRange(20, 40);
+      headMat.opacity = 0;
+      for (const m of tailMats) m.opacity = 0;
+      return;
+    }
+
+    // Fade in fast, fade out toward the end so it reads as a streak.
+    const envelope = Math.min(1, p / 0.12) * Math.min(1, (1 - p) / 0.3);
+    headPos.current.copy(r.from).lerp(r.to, p);
+    if (headRef.current) {
+      headRef.current.position.copy(headPos.current);
+      headRef.current.scale.setScalar(1.6);
+    }
+    headMat.opacity = 0.9 * envelope;
+
+    // Tail trails behind the head along the travel direction.
+    for (let i = 0; i < COMET_TAIL; i += 1) {
+      const back = (i + 1) / COMET_TAIL;
+      const tp = Math.max(0, p - back * 0.05);
+      const s = tailRefs.current[i];
+      const m = tailMats[i];
+      if (s) {
+        s.position.copy(r.from).lerp(r.to, tp);
+        const scale = 2.4 * (1 - back * 0.7);
+        s.scale.set(scale, scale, 1);
+      }
+      m.opacity = 0.5 * envelope * (1 - back);
+    }
+  });
+
+  return (
+    <group>
+      <sprite ref={headRef} material={headMat} scale={[1.6, 1.6, 1]} />
+      {tailMats.map((m, i) => (
+        <sprite
+          // eslint-disable-next-line react-x/no-array-index-key
+          key={i}
+          ref={(el) => {
+            tailRefs.current[i] = el;
+          }}
+          material={m}
+          scale={[2, 2, 1]}
         />
       ))}
     </group>
