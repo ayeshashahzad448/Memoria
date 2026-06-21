@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types';
 import { CURRENT_USER, INITIAL_FRIEND_IDS, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
+import { buildDemoDataset } from '@/lib/demoData';
 
 export const PERSONAL_COSMOS = 'personal';
 
@@ -96,6 +97,8 @@ interface MemoriaState {
   resetFlow: () => void;
   /** Wipe all persisted data and return to a fresh-install state. */
   resetApp: () => void;
+  /** Replace everything with the pre-populated demo profile (hidden demo entry). */
+  loadDemoProfile: () => void;
   completeOnboarding: () => void;
   completeTutorial: () => void;
   completeTabTour: () => void;
@@ -226,6 +229,29 @@ export const useMemoria = create<MemoriaState>()(
           constellations: [],
           sharedCosmoses: [],
         }),
+      loadDemoProfile: () => {
+        const data = buildDemoDataset();
+        set({
+          isAuthed: true,
+          hasOnboarded: true,
+          hasSeenTutorial: true,
+          hasSeenTabTour: true,
+          tier: 'premium',
+          activeCosmosId: PERSONAL_COSMOS,
+          focusStarId: null,
+          focusConstellationId: null,
+          addToConstellationStarId: null,
+          forgeSeedStarId: null,
+          openMemoryStarId: null,
+          recentlyDeletedTitle: null,
+          memoryPanelOpen: false,
+          profile: data.profile,
+          friendIds: data.friendIds,
+          stars: data.stars,
+          constellations: data.constellations,
+          sharedCosmoses: [],
+        });
+      },
       // Onboarding already walks the user through creating their first star, so
       // mark the in-cosmos coachmark as seen to avoid repeating the same intro.
       completeOnboarding: () => set({ hasOnboarded: true, hasSeenTutorial: true }),

@@ -35,6 +35,7 @@ export default function ProfileTab() {
   const signOut = useMemoria((s) => s.signOut);
   const setTier = useMemoria((s) => s.setTier);
   const updateProfile = useMemoria((s) => s.updateProfile);
+  const loadDemoProfile = useMemoria((s) => s.loadDemoProfile);
 
   const isPremium = tier === 'premium';
   const used = useMemo(() => totalMediaBytes(stars), [stars]);
@@ -82,6 +83,13 @@ export default function ProfileTab() {
   const onSignOut = () => {
     signOut();
     router.replace('/');
+  };
+
+  // Hidden demo entry: long-press the footer line to load a fully populated
+  // profile (years of memories + constellations) for live demos.
+  const onLoadDemo = () => {
+    loadDemoProfile();
+    router.replace('/(tabs)');
   };
 
   return (
@@ -309,9 +317,16 @@ export default function ProfileTab() {
           </GlassCard>
         </Pressable>
 
-        <Text className="text-muted mt-6 text-center text-[11px] leading-4">
-          Your memories are kept luminous among the stars.
-        </Text>
+        <Pressable
+          onLongPress={onLoadDemo}
+          delayLongPress={700}
+          hitSlop={12}
+          accessibilityLabel="Memoria"
+        >
+          <Text className="text-muted mt-6 text-center text-[11px] leading-4">
+            Your memories are kept luminous among the stars.
+          </Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
