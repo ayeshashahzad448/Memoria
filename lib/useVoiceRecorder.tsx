@@ -55,9 +55,10 @@ export function useVoiceRecorder(): VoiceRecorderApi {
     void (async () => {
       const status = await AudioModule.getRecordingPermissionsAsync();
       setPermission(status.granted ? 'granted' : 'unknown');
-      if (status.granted) {
-        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
-      }
+      // Default to a playback session (speaker route). We only flip
+      // allowsRecording on right before record() and flip it back off on stop,
+      // so playback always comes out of the loud speaker.
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
     })();
   }, []);
 
@@ -93,6 +94,14 @@ export function useVoiceRecorder(): VoiceRecorderApi {
     }
     const durationSec = startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0;
     startedAt.current = null;
+    // Leave recording mode once we stop. While allowsRecording is true, iOS keeps
+    // the audio session on the earpiece/receiver route, so subsequent playback is
+    // silent (or barely audible) through the loud speaker. Reset to a playback mode.
+    try {
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+    } catch {
+      // Non-fatal; playback will still attempt with the existing session.
+    }
     if (!recorder.uri) return null;
     return { uri: recorder.uri, durationSec };
   }, [recorder]);

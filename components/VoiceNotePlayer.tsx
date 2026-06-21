@@ -1,6 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { Text } from 'heroui-native';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Pause, Play } from 'lucide-react-native';
 
 import type { VoiceNote } from '@/lib/types';
@@ -17,6 +17,11 @@ export function VoiceNotePlayer({ note, index }: { note: VoiceNote; index: numbe
     if (status.playing) {
       player.pause();
     } else {
+      // Force a playback (loud speaker) audio route. If the session was last
+      // left in recording mode, iOS would otherwise play through the earpiece.
+      if (Platform.OS !== 'web') {
+        void setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+      }
       void player.seekTo(0);
       player.play();
     }
