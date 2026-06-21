@@ -60,6 +60,22 @@ export default function CreateStar() {
   const [taggedIds, setTaggedIds] = useState<string[]>([]);
   const [location, setLocation] = useState<StarLocation | undefined>();
 
+  // When the guided demo tour is driving the app, it pushes title/story/etc.
+  // into the store's transient demoCompose channel so the live star preview can
+  // grow on screen as if the user were typing. Mirror it into local state.
+  const demoCompose = useMemoria((s) => s.demoCompose);
+  useEffect(() => {
+    if (!demoCompose) return;
+    setTitle(demoCompose.title);
+    setStory(demoCompose.story);
+    setColorKey(demoCompose.colorKey);
+    setDate(new Date(demoCompose.date));
+    setPhotos(demoCompose.photos);
+    setVoiceNotes(demoCompose.voiceNotes);
+    setTaggedIds(demoCompose.taggedIds);
+    setLocation(demoCompose.location);
+  }, [demoCompose]);
+
   const usedBytes = useMemo(() => totalMediaBytes(allStars), [allStars]);
   const atLimit = tier === 'free' && usedBytes >= FREE_LIMIT_BYTES;
 

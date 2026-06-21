@@ -11,12 +11,32 @@ import type {
   AccountTier,
   AppSettings,
   UserProfile,
+  StarColorKey,
+  StarLocation,
+  VoiceNote,
 } from '@/lib/types';
 import { CURRENT_USER, INITIAL_FRIEND_IDS, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
 import { buildDemoDataset } from '@/lib/demoData';
 
 export const PERSONAL_COSMOS = 'personal';
+
+/**
+ * Transient channel the guided demo tour writes to so it can drive the live
+ * Create-memory screen (simulate typing a title/story, picking a color, adding
+ * photos) and have the star preview grow on screen. The Create screen mirrors
+ * this into its own local state while a tour is running. Never persisted.
+ */
+export interface DemoCompose {
+  title: string;
+  story: string;
+  colorKey: StarColorKey;
+  date: string;
+  photos: string[];
+  voiceNotes: VoiceNote[];
+  taggedIds: string[];
+  location?: StarLocation;
+}
 
 export const DEFAULT_SETTINGS: AppSettings = {
   haptics: true,
@@ -83,6 +103,8 @@ export interface MemoriaState {
   memoryPanelOpen: boolean;
   /** Transient: whether the guided demo walkthrough (for recording) is running. Not persisted. */
   demoTourActive: boolean;
+  /** Transient: when set, the Create-memory screen mirrors these fields (lets the demo tour simulate live typing). Not persisted. */
+  demoCompose: DemoCompose | null;
   /** Editable user profile. */
   profile: UserProfile;
   /** Accessibility / app preferences. */
@@ -126,6 +148,8 @@ export interface MemoriaState {
   setMemoryPanelOpen: (open: boolean) => void;
   /** Start/stop the guided demo walkthrough (for recording a demo video). */
   setDemoTourActive: (active: boolean) => void;
+  /** Set/clear the demo compose mirror so the tour can drive the Create screen. */
+  setDemoCompose: (compose: DemoCompose | null) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -188,6 +212,7 @@ export const useMemoria = create<MemoriaState>()(
       recentlyDeletedTitle: null,
       memoryPanelOpen: false,
       demoTourActive: false,
+      demoCompose: null,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -223,6 +248,7 @@ export const useMemoria = create<MemoriaState>()(
           openMemoryStarId: null,
           recentlyDeletedTitle: null,
           memoryPanelOpen: false,
+          demoCompose: null,
           profile: {
             displayName: CURRENT_USER.name,
             bio: '',
@@ -250,6 +276,7 @@ export const useMemoria = create<MemoriaState>()(
           openMemoryStarId: null,
           recentlyDeletedTitle: null,
           memoryPanelOpen: false,
+          demoCompose: null,
           profile: data.profile,
           friendIds: data.friendIds,
           stars: data.stars,
@@ -280,6 +307,7 @@ export const useMemoria = create<MemoriaState>()(
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
       setMemoryPanelOpen: (open) => set({ memoryPanelOpen: open }),
       setDemoTourActive: (active) => set({ demoTourActive: active }),
+      setDemoCompose: (compose) => set({ demoCompose: compose }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);

@@ -51,6 +51,58 @@ const DEMO = {
   constellationCoast: 'dc-coast', // By the Sea
 } as const;
 
+// The first memory the tour "writes" live on screen. Typed out so the viewer
+// sees the star grow brighter and larger the more story is added.
+const FIRST_STAR = {
+  title: 'The morning we got the keys',
+  // Built up word-by-word; the star preview grows as this fills in.
+  story:
+    'We picked up the keys just after nine, both of us still half asleep and grinning like idiots. The flat was completely empty — bare floors, light pouring through windows with no curtains yet — and it echoed when we laughed. We sat on the floor with coffee in paper cups and just looked around at the space that was finally ours, imagining where everything would go.',
+  colorKey: 'amber' as const, // Joy
+  photo: 'https://picsum.photos/seed/memoria-first-0/900/900',
+} as const;
+
+// A blank starting compose object for the live create screen.
+function emptyCompose() {
+  return {
+    title: '',
+    story: '',
+    colorKey: FIRST_STAR.colorKey,
+    date: new Date().toISOString(),
+    photos: [] as string[],
+    voiceNotes: [],
+    taggedIds: [] as string[],
+  };
+}
+
+// Carries the in-progress first memory between consecutive typing beats so each
+// beat builds on what the previous one typed. Reset when the tour restarts.
+let composeState: ReturnType<typeof emptyCompose> | null = null;
+
+/**
+ * Type `full` into `field` of the demo compose object, a few characters at a
+ * time, so the Create screen renders it as if a person were typing. Updates the
+ * store after each chunk and pauses with ctx.wait so it stays cancellable.
+ */
+async function typeInto(
+  ctx: TourContext,
+  base: ReturnType<typeof emptyCompose>,
+  field: 'title' | 'story',
+  full: string,
+  opts: { chunk: number; delay: number },
+) {
+  let shown = '';
+  for (let i = 0; i < full.length; i += opts.chunk) {
+    shown = full.slice(0, i + opts.chunk);
+    ctx.store.setDemoCompose({ ...base, [field]: shown });
+    base[field] = shown;
+    await ctx.wait(opts.delay);
+  }
+  // Ensure the full string is shown at the end.
+  base[field] = full;
+  ctx.store.setDemoCompose({ ...base });
+}
+
 /**
  * The walkthrough script. Pure data + closures; the overlay executes it.
  */
@@ -65,6 +117,8 @@ export const TOUR_STEPS: TourStep[] = [
       // Start from a clean, signed-out, un-onboarded slate so the viewer sees
       // exactly what a brand-new user sees.
       store.resetApp();
+      store.setDemoCompose(null);
+      composeState = null;
       router.replace('/');
     },
   },
@@ -88,13 +142,94 @@ export const TOUR_STEPS: TourStep[] = [
     },
   },
   {
-    id: 'first-memory',
+    id: 'open-create',
     narration:
-      'So you light your first star. You give a memory a title, write as little or as much as you like, add photos, a voice note, who you were with, and where it happened.',
-    duration: 8500,
-    action: ({ router, store }) => {
+      'So you light your first star. You tap to create a memory, and a blank star is already waiting — it just needs you to fill it with something real.',
+    duration: 6500,
+    action: async ({ router, store, wait }) => {
       store.completeOnboarding();
+      store.setDemoCompose(emptyCompose());
       router.replace('/(tabs)');
+      await wait(900);
+      router.push('/star/create');
+      await wait(1200);
+    },
+  },
+  {
+    id: 'type-title',
+    narration:
+      'You give it a title — the morning we got the keys. A small, ordinary moment, but one worth keeping.',
+    duration: 5500,
+    action: async (ctx) => {
+      const base = emptyCompose();
+      ctx.store.setDemoCompose(base);
+      await ctx.wait(500);
+      await typeInto(ctx, base, 'title', FIRST_STAR.title, { chunk: 2, delay: 95 });
+      // Stash so the next beat keeps the typed title.
+      composeState = base;
+    },
+  },
+  {
+    id: 'type-story-grows',
+    narration:
+      'Now watch the star itself. As you write the story — the empty rooms, the coffee in paper cups, the light through bare windows — the star grows brighter and larger. The deeper the memory, the brighter it shines.',
+    duration: 13000,
+    action: async (ctx) => {
+      const base = composeState ?? { ...emptyCompose(), title: FIRST_STAR.title };
+      ctx.store.setDemoCompose({ ...base });
+      await ctx.wait(700);
+      // Type the story in small chunks so the live preview visibly grows.
+      await typeInto(ctx, base, 'story', FIRST_STAR.story, { chunk: 3, delay: 130 });
+      composeState = base;
+    },
+  },
+  {
+    id: 'add-color-photo',
+    narration:
+      'You choose a colour for how it felt — warm gold for joy — and add a photo from that morning. Everything about the moment lives in this one point of light.',
+    duration: 7500,
+    action: async (ctx) => {
+      const base = composeState ?? {
+        ...emptyCompose(),
+        title: FIRST_STAR.title,
+        story: FIRST_STAR.story,
+      };
+      base.colorKey = FIRST_STAR.colorKey;
+      ctx.store.setDemoCompose({ ...base });
+      await ctx.wait(1400);
+      base.photos = [FIRST_STAR.photo];
+      ctx.store.setDemoCompose({ ...base });
+      composeState = base;
+      await ctx.wait(1600);
+    },
+  },
+  {
+    id: 'ignite',
+    narration:
+      'And when you save it, the star ignites — collapsing and flaring to life, finding its place in your sky. Your universe has its first point of light.',
+    duration: 8000,
+    action: async ({ router, store, wait }) => {
+      const c = composeState ?? {
+        ...emptyCompose(),
+        title: FIRST_STAR.title,
+        story: FIRST_STAR.story,
+        photos: [FIRST_STAR.photo],
+      };
+      const star = store.addStar({
+        title: c.title,
+        story: c.story,
+        colorKey: c.colorKey,
+        date: c.date,
+        location: undefined,
+        photos: c.photos,
+        voiceNotes: [],
+        taggedUserIds: [],
+        cosmosId: 'personal',
+      });
+      store.setDemoCompose(null);
+      composeState = null;
+      router.replace({ pathname: '/star/ignite', params: { id: star.id } });
+      await wait(5600);
     },
   },
 
