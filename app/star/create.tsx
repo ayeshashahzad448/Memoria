@@ -13,7 +13,17 @@ import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
-import { CalendarDays, Camera, MapPin, Mic, Plus, Square, X } from 'lucide-react-native';
+import {
+  CalendarDays,
+  Camera,
+  MapPin,
+  Mic,
+  Plus,
+  Sparkles,
+  Square,
+  Wand2,
+  X,
+} from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
@@ -27,11 +37,13 @@ import {
   CURRENT_USER,
   colorFor,
   starStats,
+  userById,
 } from '@/lib/memoria';
 import { searchPlaces, resolvePlace, placesEnabled, type PlacePrediction } from '@/lib/places';
 import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
+import { aiEnabled, aiWriteMemory } from '@/lib/ai';
 
 const MAX_PHOTOS = 2;
 const MAX_VOICE = 2;
@@ -189,6 +201,15 @@ export default function CreateStar() {
                 {story.trim().length} characters
               </Text>
             </View>
+
+            <AIWriteAssist
+              title={title}
+              story={story}
+              date={date}
+              location={location}
+              taggedIds={taggedIds}
+              onApply={setStory}
+            />
 
             <ColorGrid value={colorKey} onChange={setColorKey} />
 
@@ -481,6 +502,114 @@ export function TagPicker({
         </Text>
       )}
     </View>
+  );
+}
+
+/* ------------------------------ AI writing help --------------------------- */
+
+export function AIWriteAssist({
+  title,
+  story,
+  date,
+  location,
+  taggedIds,
+  onApply,
+}: {
+  title: string;
+  story: string;
+  date: Date;
+  location?: StarLocation;
+  taggedIds: string[];
+  onApply: (text: string) => void;
+}) {
+  const [loading, setLoading] = useState<'draft' | 'expand' | 'polish' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!aiEnabled()) return null;
+
+  const hasDraft = story.trim().length > 0;
+
+  const run = async (mode: 'draft' | 'expand' | 'polish') => {
+    if (loading) return;
+    setLoading(mode);
+    setError(null);
+    void Haptics.selectionAsync();
+    const people = taggedIds.map((id) => userById(id)?.name).filter((n): n is string => Boolean(n));
+    const result = await aiWriteMemory({
+      title,
+      draft: story,
+      date: date.toISOString(),
+      location: location?.name,
+      people,
+      mode,
+    });
+    if (result.ok) {
+      onApply(result.data);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      setError(result.error);
+    }
+    setLoading(null);
+  };
+
+  return (
+    <GlassCard contentClassName="gap-3 p-4">
+      <View className="flex-row items-center gap-2">
+        <Sparkles size={15} color={ACCENT} />
+        <Text className="text-starlight flex-1 font-semibold">Writing help</Text>
+      </View>
+      <Text className="text-muted text-xs leading-4">
+        {hasDraft
+          ? 'Let Memoria expand or polish what you have, using your title, place and people.'
+          : 'Not sure where to start? Memoria can draft a memory from your title, place and people.'}
+      </Text>
+      <View className="flex-row flex-wrap gap-2">
+        {!hasDraft && (
+          <Button size="sm" onPress={() => void run('draft')} isDisabled={loading !== null}>
+            {loading === 'draft' ? (
+              <ActivityIndicator size="small" color="#0B0C10" />
+            ) : (
+              <Wand2 size={14} color="#0B0C10" />
+            )}
+            <Button.Label>Draft for me</Button.Label>
+          </Button>
+        )}
+        {hasDraft && (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => void run('expand')}
+              isDisabled={loading !== null}
+            >
+              {loading === 'expand' ? (
+                <ActivityIndicator size="small" color={ACCENT} />
+              ) : (
+                <Sparkles size={14} color={ACCENT} />
+              )}
+              <Button.Label>Expand</Button.Label>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => void run('polish')}
+              isDisabled={loading !== null}
+            >
+              {loading === 'polish' ? (
+                <ActivityIndicator size="small" color={ACCENT} />
+              ) : (
+                <Wand2 size={14} color={ACCENT} />
+              )}
+              <Button.Label>Polish</Button.Label>
+            </Button>
+          </>
+        )}
+      </View>
+      {error && <Text className="text-warning text-xs leading-4">{error}</Text>}
+      <Text className="text-muted text-[10px] leading-3">
+        AI can replace your text. You can always edit it after.
+      </Text>
+    </GlassCard>
   );
 }
 

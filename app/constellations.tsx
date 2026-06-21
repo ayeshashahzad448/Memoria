@@ -1,14 +1,23 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, ChevronRight, Link2, Plus, Sparkles, Trash2 } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Link2,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+} from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { ConstellationPreview } from '@/components/ConstellationPreview';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
+import { aiEnabled, aiSuggestConstellations, type AISuggestion } from '@/lib/ai';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -21,7 +30,6 @@ export default function ConstellationsScreen() {
   const createConstellation = useMemoria((s) => s.createConstellation);
   const removeConstellation = useMemoria((s) => s.removeConstellation);
   const addStarsToConstellation = useMemoria((s) => s.addStarsToConstellation);
-  const suggestConstellations = useMemoria((s) => s.suggestConstellations);
   const focusConstellation = useMemoria((s) => s.focusConstellation);
   const addToConstellationStarId = useMemoria((s) => s.addToConstellationStarId);
   const setAddToConstellationStar = useMemoria((s) => s.setAddToConstellationStar);
@@ -43,19 +51,55 @@ export default function ConstellationsScreen() {
   );
   const isAddMode = Boolean(addStar);
 
-  // Recompute suggestions when stars/constellations change.
-  const suggestions = useMemo(
-    () => suggestConstellations(),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [stars, constellations, suggestConstellations],
-  );
+  // AI constellation suggestions. Fetched on demand (and once on mount when
+  // there are enough memories), filtered against constellations that already
+  // exist so the model never suggests a duplicate.
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const visibleSuggestions = suggestions.filter((s) => !dismissed.includes(s.id));
+
+  const existingSignatures = useMemo(
+    () => new Set(constellations.map((c) => c.starIds.slice().sort().join('|'))),
+    [constellations],
+  );
+
+  const refreshSuggestions = useCallback(async () => {
+    if (!aiEnabled()) {
+      setAiError('AI is not configured.');
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    const result = await aiSuggestConstellations(stars);
+    if (result.ok) {
+      setAiSuggestions(result.data);
+      if (result.data.length === 0) setAiError('No clear groupings found yet.');
+    } else {
+      setAiSuggestions([]);
+      setAiError(result.error);
+    }
+    setAiLoading(false);
+  }, [stars]);
+
+  // Auto-load once when entering the screen with enough memories.
+  const hasAutoLoaded = useMemo(() => ({ done: false }), []);
+  useEffect(() => {
+    if (isAddMode || hasAutoLoaded.done) return;
+    if (stars.length >= 3 && aiEnabled()) {
+      hasAutoLoaded.done = true;
+      void refreshSuggestions();
+    }
+  }, [isAddMode, stars.length, refreshSuggestions, hasAutoLoaded]);
+
+  const visibleSuggestions = aiSuggestions.filter(
+    (s) => !dismissed.includes(s.id) && !existingSignatures.has(s.starIds.slice().sort().join('|')),
+  );
 
   const starById = useMemo(() => new Map(stars.map((s) => [s.id, s])), [stars]);
 
-  const accept = (id: string, reason: string, starIds: string[]) => {
-    createConstellation(reason, starIds, 'suggested');
+  const accept = (id: string, name: string, starIds: string[]) => {
+    createConstellation(name, starIds, 'suggested');
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setDismissed((p) => [...p, id]);
   };
@@ -200,16 +244,69 @@ export default function ConstellationsScreen() {
             </Text>
 
             {/* AI suggestions */}
-            {visibleSuggestions.length > 0 && (
-              <View className="mb-6 gap-2.5">
-                <View className="flex-row items-center gap-2">
-                  <Sparkles size={16} color={ACCENT} />
-                  <Text className="text-starlight font-semibold">Suggested for you</Text>
-                </View>
-                {visibleSuggestions.map((s) => (
+            <View className="mb-6 gap-2.5">
+              <View className="flex-row items-center gap-2">
+                <Sparkles size={16} color={ACCENT} />
+                <Text className="text-starlight flex-1 font-semibold">AI suggestions</Text>
+                <Pressable
+                  onPress={() => void refreshSuggestions()}
+                  disabled={aiLoading}
+                  hitSlop={10}
+                  className="flex-row items-center gap-1.5"
+                >
+                  {aiLoading ? (
+                    <ActivityIndicator size="small" color={ACCENT} />
+                  ) : (
+                    <RefreshCw size={14} color={ACCENT} />
+                  )}
+                  <Text className="text-accent text-xs font-medium">
+                    {aiLoading ? 'Thinking' : 'Refresh'}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text className="text-muted text-xs leading-4">
+                Memoria reads your memories and proposes meaningful constellations.
+              </Text>
+
+              {aiLoading && visibleSuggestions.length === 0 && (
+                <GlassCard contentClassName="flex-row items-center gap-3 p-4">
+                  <ActivityIndicator size="small" color={ACCENT} />
+                  <Text className="text-muted flex-1 text-sm">
+                    Looking for threads between your memories…
+                  </Text>
+                </GlassCard>
+              )}
+
+              {!aiLoading && visibleSuggestions.length === 0 && aiError && (
+                <GlassCard contentClassName="gap-2 p-4">
+                  <Text className="text-muted text-sm leading-5">{aiError}</Text>
+                  <Button size="sm" variant="ghost" onPress={() => void refreshSuggestions()}>
+                    Try again
+                  </Button>
+                </GlassCard>
+              )}
+
+              {visibleSuggestions.map((s) => {
+                const members = s.starIds
+                  .map((id) => starById.get(id))
+                  .filter((m): m is NonNullable<typeof m> => Boolean(m));
+                return (
                   <GlassCard key={s.id} contentClassName="gap-3 p-4">
-                    <Text className="text-starlight text-sm">{s.reason}</Text>
-                    <Text className="text-muted text-xs">{s.starIds.length} memories</Text>
+                    <View className="flex-row items-center gap-2">
+                      <Sparkles size={14} color={ACCENT} />
+                      <Text className="text-starlight font-display flex-1 font-semibold">
+                        {s.name}
+                      </Text>
+                    </View>
+                    {s.reason.length > 0 && (
+                      <Text className="text-muted text-sm leading-5">{s.reason}</Text>
+                    )}
+                    {members.length > 0 && (
+                      <View className="border-glass-border bg-background/40 overflow-hidden rounded-xl border">
+                        <ConstellationPreview members={members} height={104} />
+                      </View>
+                    )}
+                    <Text className="text-muted text-[11px]">{members.length} memories</Text>
                     <View className="flex-row gap-2.5">
                       <Button
                         size="sm"
@@ -222,15 +319,15 @@ export default function ConstellationsScreen() {
                       <Button
                         size="sm"
                         className="flex-1"
-                        onPress={() => accept(s.id, s.reason, s.starIds)}
+                        onPress={() => accept(s.id, s.name, s.starIds)}
                       >
                         Create
                       </Button>
                     </View>
                   </GlassCard>
-                ))}
-              </View>
-            )}
+                );
+              })}
+            </View>
 
             {/* Existing constellations */}
             <Text className="text-starlight mb-2.5 font-semibold">Your constellations</Text>
