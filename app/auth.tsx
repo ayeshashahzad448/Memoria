@@ -41,8 +41,12 @@ export default function SignUpScreen() {
               style={{
                 fontFamily: wordmarkFamily(),
                 fontSize: 38,
+                lineHeight: 52,
                 letterSpacing: 2,
                 color: '#F8FAFC',
+                includeFontPadding: false,
+                paddingTop: 6,
+                textAlign: 'center',
               }}
             >
               MEMORIA
