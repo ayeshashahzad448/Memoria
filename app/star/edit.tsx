@@ -16,7 +16,6 @@ import {
   VoiceRecorder,
   TagPicker,
   LocationPicker,
-  AIWriteAssist,
 } from '@/app/star/create';
 import { useMemoria } from '@/lib/store';
 import { radiusForText } from '@/lib/memoria';
@@ -143,15 +142,6 @@ export default function EditStar() {
                 />
               </TextField>
             </View>
-
-            <AIWriteAssist
-              title={title}
-              story={story}
-              date={date}
-              location={location}
-              taggedIds={taggedIds}
-              onApply={setStory}
-            />
 
             <ColorGrid value={colorKey} onChange={setColorKey} />
 
