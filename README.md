@@ -8,6 +8,22 @@
 
 ---
 
+## ✦ Try it in 60 seconds (for judges)
+
+```sh
+git clone <YOUR_GIT_URL> memoria && cd memoria
+npm install
+npx expo start
+```
+
+Scan the QR code with **Expo Go** ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)), or press `w` to open it in your browser.
+
+**Then load the full demo instantly:** open the **Profile** tab and **long-press the footer line** ("Your memories are kept luminous among the stars."). This loads a populated profile — Alex Rivera, 38 memories across several years and 8 constellations — so the cosmos is full to explore.
+
+> No API keys or backend required to run and explore the app. Location search and any AI extras are optional and degrade gracefully when their keys aren't set.
+
+---
+
 ## ✦ The idea
 
 Most journals are lists. Memoria is a *sky*.
@@ -119,22 +135,22 @@ From the repo's "Code" button, open the "Codespaces" tab and launch a new Codesp
 
 ## How can I test this project?
 
-**Option 1: Instant Preview (Recommended)**
-
-Open the preview URL in your browser: `https://app.bilt.me/project/156683ab-3e17-439f-8ed0-8c9382b5d29a/preview`
-
-Scan the QR code with Expo Go ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)) on your phone.
-
-**Option 2: Run Locally**
+**Option 1: Run Locally (Recommended for reviewers)**
 
 ```sh
 npm install
 npx expo start
 ```
 
-Then scan the QR code with Expo Go.
+Then scan the QR code with Expo Go ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)), or press `w` to open it in your browser. No API keys or backend setup are needed.
 
-> Tip: there's a built-in demo profile (Alex Rivera — 38 memories across several years and 8 constellations) so the cosmos looks full when you explore.
+> Tip: load the built-in demo profile (Alex Rivera — 38 memories across several years and 8 constellations) by long-pressing the footer line on the Profile tab, so the cosmos looks full when you explore.
+
+**Option 2: Instant Preview**
+
+Open the preview URL: `https://app.bilt.me/project/156683ab-3e17-439f-8ed0-8c9382b5d29a/preview`
+
+Note: the hosted preview may require a Bilt login. If it isn't reachable, use Option 1 above — it works for everyone with no account.
 
 ## How can I deploy this project?
 
