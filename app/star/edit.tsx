@@ -4,9 +4,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { format } from 'date-fns';
+import { CalendarDays } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
+import { WheelDatePicker } from '@/components/WheelDatePicker';
 import {
   ColorGrid,
   PhotoPicker,
@@ -36,6 +39,8 @@ export default function EditStar() {
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>(star?.voiceNotes ?? []);
   const [taggedIds, setTaggedIds] = useState<string[]>(star?.taggedUserIds ?? []);
   const [location, setLocation] = useState<StarLocation | undefined>(star?.location);
+  const [date, setDate] = useState(() => (star ? new Date(star.date) : new Date()));
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Storage used by other stars (exclude this one so edits compare fairly).
   const usedBytes = useMemo(
@@ -65,6 +70,7 @@ export default function EditStar() {
       title: title.trim() || 'Untitled memory',
       story,
       colorKey,
+      date: date.toISOString(),
       photos,
       voiceNotes,
       taggedUserIds: taggedIds,
@@ -96,7 +102,10 @@ export default function EditStar() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerClassName="px-5 pt-6 pb-40" keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerClassName="px-5 pt-safe-offset-6 pb-40"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="mb-5 flex-row items-center justify-between">
             <Text className="text-starlight text-2xl font-bold">Edit memory</Text>
             <Pressable onPress={() => router.back()} hitSlop={12}>
@@ -135,6 +144,27 @@ export default function EditStar() {
             </View>
 
             <ColorGrid value={colorKey} onChange={setColorKey} />
+
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2">
+                <CalendarDays size={15} color="#94A3B8" />
+                <Label>When did this happen?</Label>
+              </View>
+              <Pressable
+                onPress={() => setShowDatePicker((v) => !v)}
+                className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3.5"
+              >
+                <Text className="text-starlight">{format(date, 'PPP')}</Text>
+                <Text className="text-accent text-sm font-medium">
+                  {showDatePicker ? 'Done' : 'Change'}
+                </Text>
+              </Pressable>
+              {showDatePicker && (
+                <GlassCard contentClassName="p-4">
+                  <WheelDatePicker value={date} onChange={setDate} minYear={1940} />
+                </GlassCard>
+              )}
+            </View>
 
             <PhotoPicker
               photos={photos}

@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { getDaysInMonth } from 'date-fns';
 
@@ -48,31 +41,48 @@ function WheelColumn({
   onActiveChange,
 }: WheelColumnProps) {
   const ref = useRef<ScrollView>(null);
-  const selectedIndex = values.findIndex((v) => v.value === selected);
+  const selectedIndex = Math.max(
+    0,
+    values.findIndex((v) => v.value === selected),
+  );
+  // True while the user is actively dragging/decelerating this column. We must
+  // never programmatically scroll during that window or the wheel fights the
+  // gesture and visibly stutters/flickers.
   const isScrolling = useRef(false);
+  // The offset we last settled on, so external `selected` changes that already
+  // match the current scroll position don't trigger a redundant re-scroll.
+  const settledIndex = useRef(selectedIndex);
+  const didInit = useRef(false);
+
+  // Position the wheel on the selected row once, after the content has laid out.
+  const onContentSizeChange = useCallback(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+    ref.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
+  }, [selectedIndex]);
 
   // Keep the wheel aligned with the selected value when it changes externally
-  // (e.g. month change clamps the day, or a parent reset).
+  // (e.g. month change clamps the day, or a parent reset) — but never while the
+  // user is interacting with this column.
   useEffect(() => {
     if (isScrolling.current) return undefined;
     const idx = values.findIndex((v) => v.value === selected);
-    if (idx < 0) return undefined;
+    if (idx < 0 || idx === settledIndex.current) return undefined;
+    settledIndex.current = idx;
     const id = setTimeout(() => {
       ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: false });
     }, 0);
     return () => clearTimeout(id);
   }, [selected, values]);
 
-  const handleMomentumEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const commit = useCallback(
+    (y: number) => {
       isScrolling.current = false;
       onActiveChange?.(false);
-      const y = e.nativeEvent.contentOffset.y;
       const idx = Math.max(0, Math.min(values.length - 1, Math.round(y / ITEM_HEIGHT)));
+      settledIndex.current = idx;
       const next = values[idx];
       if (next && next.value !== selected) onSelect(next.value);
-      // Snap exactly onto the row.
-      ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: true });
     },
     [onActiveChange, onSelect, selected, values],
   );
@@ -90,10 +100,9 @@ function WheelColumn({
           isScrolling.current = true;
           onActiveChange?.(true);
         }}
-        onMomentumScrollEnd={handleMomentumEnd}
-        onScrollEndDrag={handleMomentumEnd}
+        onMomentumScrollEnd={(e) => commit(e.nativeEvent.contentOffset.y)}
+        onContentSizeChange={onContentSizeChange}
         contentContainerStyle={{ paddingVertical: PAD * ITEM_HEIGHT }}
-        contentOffset={{ x: 0, y: Math.max(0, selectedIndex) * ITEM_HEIGHT }}
       >
         {values.map((item) => {
           const active = item.value === selected;
@@ -101,8 +110,9 @@ function WheelColumn({
             <Pressable
               key={item.value}
               onPress={() => {
-                onSelect(item.value);
                 const idx = values.findIndex((v) => v.value === item.value);
+                settledIndex.current = idx;
+                onSelect(item.value);
                 ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: true });
               }}
               style={{

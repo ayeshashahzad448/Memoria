@@ -46,6 +46,8 @@ export default function CosmosTab() {
   const focusConstellation = useMemoria((s) => s.focusConstellation);
   const forgeSeedStarId = useMemoria((s) => s.forgeSeedStarId);
   const setForgeSeedStar = useMemoria((s) => s.setForgeSeedStar);
+  const openMemoryStarId = useMemoria((s) => s.openMemoryStarId);
+  const setOpenMemoryStar = useMemoria((s) => s.setOpenMemoryStar);
   const setAddToConstellationStar = useMemoria((s) => s.setAddToConstellationStar);
   const recentlyDeletedTitle = useMemoria((s) => s.recentlyDeletedTitle);
   const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
@@ -127,6 +129,21 @@ export default function CosmosTab() {
     setForgeIds([seed.id]);
     setForgeName('');
   }, [forgeSeedStarId, stars, setForgeSeedStar]);
+
+  // After creating a memory (via the ignition flow) we land back here and open
+  // the freshly created star's floating detail panel automatically.
+  useEffect(() => {
+    if (!openMemoryStarId) return;
+    const target = stars.find((s) => s.id === openMemoryStarId);
+    setOpenMemoryStar(null);
+    if (!target) return;
+    setForging(false);
+    setFitIds(null);
+    setSelectedStar(target);
+    setViewingStar(target);
+    setCanvasFocusId(null);
+    requestAnimationFrame(() => setCanvasFocusId(target.id));
+  }, [openMemoryStarId, stars, setOpenMemoryStar]);
 
   // If the selected star is removed from the store (e.g. deleted via the
   // dissolve flow), drop its HUD card / detail panel instead of leaving stale UI.

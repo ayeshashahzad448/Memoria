@@ -12,10 +12,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Chip, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Camera, MapPin, Mic, Plus, Square, X } from 'lucide-react-native';
+import { format } from 'date-fns';
+import { CalendarDays, Camera, MapPin, Mic, Plus, Square, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
+import { WheelDatePicker } from '@/components/WheelDatePicker';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import {
   STAR_COLORS,
@@ -51,7 +53,8 @@ export default function CreateStar() {
   const [title, setTitle] = useState('');
   const [story, setStory] = useState('');
   const [colorKey, setColorKey] = useState<StarColorKey>(DEFAULT_STAR_COLOR);
-  const [date] = useState(() => new Date().toISOString());
+  const [date, setDate] = useState(() => new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
   const [taggedIds, setTaggedIds] = useState<string[]>([]);
@@ -77,7 +80,7 @@ export default function CreateStar() {
       title,
       story,
       colorKey,
-      date,
+      date: date.toISOString(),
       location,
       photos,
       voiceNotes,
@@ -112,7 +115,10 @@ export default function CreateStar() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerClassName="px-5 pt-6 pb-40" keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerClassName="px-5 pt-safe-offset-6 pb-40"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="mb-2 flex-row items-center justify-between">
             <Text className="text-starlight text-2xl font-bold">New memory</Text>
             <Pressable
@@ -185,6 +191,27 @@ export default function CreateStar() {
             </View>
 
             <ColorGrid value={colorKey} onChange={setColorKey} />
+
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2">
+                <CalendarDays size={15} color={MUTED} />
+                <Label>When did this happen?</Label>
+              </View>
+              <Pressable
+                onPress={() => setShowDatePicker((v) => !v)}
+                className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3.5"
+              >
+                <Text className="text-starlight">{format(date, 'PPP')}</Text>
+                <Text className="text-accent text-sm font-medium">
+                  {showDatePicker ? 'Done' : 'Change'}
+                </Text>
+              </Pressable>
+              {showDatePicker && (
+                <GlassCard contentClassName="p-4">
+                  <WheelDatePicker value={date} onChange={setDate} minYear={1940} />
+                </GlassCard>
+              )}
+            </View>
 
             <PhotoPicker
               photos={photos}

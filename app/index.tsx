@@ -81,8 +81,11 @@ export default function Index() {
             style={{
               fontFamily: wordmarkFamily(),
               fontSize: 44,
+              lineHeight: 60,
               letterSpacing: 2,
               color: '#F8FAFC',
+              includeFontPadding: false,
+              paddingTop: 8,
             }}
           >
             {shown}

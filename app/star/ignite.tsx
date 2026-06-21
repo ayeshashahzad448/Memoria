@@ -18,7 +18,7 @@ import { Flame, Sparkles, Sun, Weight } from 'lucide-react-native';
 import { GlassCard } from '@/components/GlassCard';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { StarIgnition } from '@/components/StarIgnition';
-import { useMemoria } from '@/lib/store';
+import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, starStatsForStar } from '@/lib/memoria';
 
 // Slower cinematic beats: drift-in, collapse, ignition flash, settle.
@@ -39,6 +39,7 @@ export default function IgniteStar() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
   const focusStar = useMemoria((s) => s.focusStar);
+  const setOpenMemoryStar = useMemoria((s) => s.setOpenMemoryStar);
 
   const progress = useSharedValue(0);
   const twinkle = useSharedValue(0);
@@ -110,6 +111,19 @@ export default function IgniteStar() {
     if (!star) router.back();
   }, [star, router]);
 
+  // Return to the cosmos this memory belongs to and open its floating detail
+  // panel (personal cosmos -> tabs, shared cosmos -> that space).
+  const enterCosmos = () => {
+    if (!star) return;
+    focusStar(star.id);
+    setOpenMemoryStar(star.id);
+    if (star.cosmosId && star.cosmosId !== PERSONAL_COSMOS) {
+      router.replace({ pathname: '/cosmos/[id]', params: { id: star.cosmosId } });
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
   if (!star || !stats) return <View className="bg-void flex-1" />;
 
   const tempNow = Math.round(stats.temperatureK * Math.min(1, statProgress * 1.1));
@@ -179,20 +193,12 @@ export default function IgniteStar() {
         <Button
           isDisabled={!done}
           onPress={() => {
-            focusStar(star.id);
-            router.replace({ pathname: '/star/[id]', params: { id: star.id, justCreated: '1' } });
+            enterCosmos();
           }}
         >
           {done ? 'Enter the cosmos' : 'Stabilizing…'}
         </Button>
-        <Pressable
-          onPress={() => {
-            focusStar(star.id);
-            router.replace({ pathname: '/star/[id]', params: { id: star.id } });
-          }}
-          hitSlop={10}
-          className="mt-3 items-center"
-        >
+        <Pressable onPress={enterCosmos} hitSlop={10} className="mt-3 items-center">
           <Text className="text-muted text-xs">Skip</Text>
         </Pressable>
       </View>

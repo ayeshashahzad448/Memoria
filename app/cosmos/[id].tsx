@@ -42,6 +42,8 @@ export default function SharedCosmosView() {
   const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
   const createConstellation = useMemoria((s) => s.createConstellation);
   const removeStarFromConstellation = useMemoria((s) => s.removeStarFromConstellation);
+  const openMemoryStarId = useMemoria((s) => s.openMemoryStarId);
+  const setOpenMemoryStar = useMemoria((s) => s.setOpenMemoryStar);
 
   const cosmos = useMemo(
     () => sharedCosmoses.find((c) => c.id === cosmosId),
@@ -122,6 +124,17 @@ export default function SharedCosmosView() {
     setCanvasFocusId(null);
     requestAnimationFrame(() => setCanvasFocusId(star.id));
   };
+
+  // After creating a memory in this shared cosmos (via the ignition flow) we
+  // land back here and open that star's floating detail panel automatically.
+  useEffect(() => {
+    if (!openMemoryStarId) return;
+    const target = stars.find((s) => s.id === openMemoryStarId);
+    setOpenMemoryStar(null);
+    if (target) openMemory(target);
+    // openMemory is stable for this transient trigger.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [openMemoryStarId, stars, setOpenMemoryStar]);
 
   const onTapStar = (star: MemoryStar) => {
     if (forging) {

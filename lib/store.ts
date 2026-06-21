@@ -72,6 +72,8 @@ interface MemoriaState {
   addToConstellationStarId: string | null;
   /** Transient: when set, the cosmos should begin forging a new constellation seeded with this star. Not persisted. */
   forgeSeedStarId: string | null;
+  /** Transient: a freshly created/selected star whose floating detail panel the cosmos should open. Not persisted. */
+  openMemoryStarId: string | null;
   /** Transient: title of the most recently deleted memory, used to surface a confirmation toast. Not persisted. */
   recentlyDeletedTitle: string | null;
   /** Editable user profile. */
@@ -106,6 +108,8 @@ interface MemoriaState {
   setAddToConstellationStar: (id: string | null) => void;
   /** Ask the cosmos to start forging a new constellation seeded with this star. Pass null to clear. */
   setForgeSeedStar: (id: string | null) => void;
+  /** Ask the cosmos to open the floating detail panel for this star (e.g. just after creation). Pass null to clear. */
+  setOpenMemoryStar: (id: string | null) => void;
   /** Set/clear the recently-deleted memory title (drives a confirmation toast). */
   setRecentlyDeletedTitle: (title: string | null) => void;
 
@@ -165,6 +169,7 @@ export const useMemoria = create<MemoriaState>()(
       focusConstellationId: null,
       addToConstellationStarId: null,
       forgeSeedStarId: null,
+      openMemoryStarId: null,
       recentlyDeletedTitle: null,
       profile: {
         displayName: CURRENT_USER.name,
@@ -197,6 +202,7 @@ export const useMemoria = create<MemoriaState>()(
           focusConstellationId: null,
           addToConstellationStarId: null,
           forgeSeedStarId: null,
+          openMemoryStarId: null,
           recentlyDeletedTitle: null,
           profile: {
             displayName: CURRENT_USER.name,
@@ -227,6 +233,7 @@ export const useMemoria = create<MemoriaState>()(
       focusConstellation: (id) => set({ focusConstellationId: id }),
       setAddToConstellationStar: (id) => set({ addToConstellationStarId: id }),
       setForgeSeedStar: (id) => set({ forgeSeedStarId: id }),
+      setOpenMemoryStar: (id) => set({ openMemoryStarId: id }),
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
 
       addStar: (input) => {
