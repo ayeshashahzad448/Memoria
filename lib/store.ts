@@ -115,6 +115,7 @@ interface MemoriaState {
     name: string,
     starIds: string[],
     origin: Constellation['origin'],
+    cosmosId?: string,
   ) => Constellation | undefined;
   /** Add one or more stars to an existing constellation. */
   addStarsToConstellation: (id: string, starIds: string[]) => void;
@@ -246,14 +247,14 @@ export const useMemoria = create<MemoriaState>()(
             .filter((c) => c.starIds.length >= 2),
         })),
 
-      createConstellation: (name, starIds, origin) => {
+      createConstellation: (name, starIds, origin, cosmosId) => {
         if (starIds.length < 2) return undefined;
-        const cosmosId = get().activeCosmosId;
+        const targetCosmos = cosmosId ?? get().activeCosmosId;
         const constellation: Constellation = {
           id: uid('const'),
           name: name.trim() || 'Constellation',
           starIds,
-          cosmosId,
+          cosmosId: targetCosmos,
           origin,
         };
         set((state) => ({
