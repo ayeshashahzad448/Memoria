@@ -86,6 +86,14 @@ export default function CosmosTab() {
     focusStar(null);
   }, [focusStarId, stars, focusStar]);
 
+  // If the selected star is removed from the store (e.g. deleted via the
+  // dissolve flow), drop its HUD card instead of leaving a stale card up.
+  useEffect(() => {
+    if (selectedStar && !stars.some((s) => s.id === selectedStar.id)) {
+      setSelectedStar(null);
+    }
+  }, [stars, selectedStar]);
+
   const dismissTutorial = () => {
     setTutorialVisible(false);
     completeTutorial();
