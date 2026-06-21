@@ -10,6 +10,8 @@ interface ConstellationPreviewProps {
   members: MemoryStar[];
   width?: number;
   height?: number;
+  /** When true, render as an open path (don't close 3+ stars into a loop). */
+  open?: boolean;
 }
 
 const PAD = 10;
@@ -24,6 +26,7 @@ export function ConstellationPreview({
   members,
   width = 300,
   height = 96,
+  open = false,
 }: ConstellationPreviewProps) {
   const points = useMemo(() => {
     if (members.length === 0) return [];
@@ -68,7 +71,7 @@ export function ConstellationPreview({
       key: `${points[i].star.id}-${points[i + 1].star.id}`,
     });
   }
-  if (points.length >= 3) {
+  if (points.length >= 3 && !open) {
     const first = points[0];
     const last = points[points.length - 1];
     segments.push({

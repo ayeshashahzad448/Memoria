@@ -281,17 +281,18 @@ export const TOUR_STEPS: TourStep[] = [
     duration: 8000,
     action: ({ store }) => {
       store.setOpenMemoryStar(null);
-      // Frame and draw a constellation right in the cosmos.
+      // Frame and draw the "M" constellation right in the cosmos.
       store.focusConstellation(DEMO.constellationFlat);
     },
   },
   {
     id: 'constellation-draw',
     narration:
-      'This one is called Life in the Flat — years of small moments in the same home, drawn together into a single shape in the sky.',
-    duration: 8500,
+      'This one is called Life in the Flat — years of small moments in the same home. Watch as the cosmos pulls back: the stars line up and draw a perfect letter M, hanging in the sky.',
+    duration: 9500,
     action: async ({ store, wait }) => {
-      await wait(4200);
+      // Linger on the M while it draws and the camera frames the full shape.
+      await wait(6500);
       store.focusConstellation(DEMO.constellationJapan);
     },
   },

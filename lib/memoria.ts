@@ -59,6 +59,22 @@ function hashSeed(str: string): number {
 export const WORLD_RADIUS = 10;
 
 /**
+ * Star ids that must lie on a flat plane (no depth scatter, no x/y jitter) so a
+ * shape constellation reads cleanly when viewed front-on — e.g. the demo "M"
+ * (the "Life in the Flat" constellation). Their normalized x/y are pinned in
+ * lib/demoData.ts (M_SHAPE_POS).
+ */
+export const FLAT_STAR_IDS = new Set<string>([
+  'd-001',
+  'd-015',
+  'd-025',
+  'd-030',
+  'd-033',
+  'd-038',
+  'd-008',
+]);
+
+/**
  * Map a memory's normalized 2D position (x,y in ~ -1..1) into a stable 3D
  * point. The depth (z) is derived deterministically from the star id so an
  * existing memory always lands at the same place in space without needing a
@@ -66,6 +82,11 @@ export const WORLD_RADIUS = 10;
  * id-seeded jitter so stars don't sit on a perfect plane.
  */
 export function star3DPosition(id: string, x: number, y: number): [number, number, number] {
+  // Shape-constellation members sit on a flat plane (no jitter, no depth) so
+  // they trace a crisp outline when the cosmos is viewed front-on.
+  if (FLAT_STAR_IDS.has(id)) {
+    return [x * WORLD_RADIUS, -y * WORLD_RADIUS, 0];
+  }
   const jx = (hashSeed(`${id}-jx`) - 0.5) * 0.5;
   const jy = (hashSeed(`${id}-jy`) - 0.5) * 0.5;
   const z = (hashSeed(`${id}-z`) - 0.5) * 2; // -1..1

@@ -828,7 +828,8 @@ function ConstellationLines({
         const pts = ordered.map((p) => new THREE.Vector3(...p.pos));
         // Close the loop: with 3+ stars, connect the last star back to the
         // first so the constellation forms a closed shape (no trailing gap).
-        if (ordered.length > 2) pts.push(new THREE.Vector3(...ordered[0].pos));
+        // Skip for "open" constellations (e.g. shape monograms like the M).
+        if (ordered.length > 2 && !c.open) pts.push(new THREE.Vector3(...ordered[0].pos));
         return (
           <ConstellationLine
             key={c.id}

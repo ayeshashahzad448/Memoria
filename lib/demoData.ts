@@ -487,7 +487,7 @@ const SEED: SeedStar[] = [
 ];
 
 /** Constellations linking the seed stars into meaningful threads. */
-const CONSTELLATION_DEFS: { id: string; name: string; starIds: string[] }[] = [
+const CONSTELLATION_DEFS: { id: string; name: string; starIds: string[]; open?: boolean }[] = [
   {
     id: 'dc-japan',
     name: 'Japan, Spring 2023',
@@ -506,7 +506,10 @@ const CONSTELLATION_DEFS: { id: string; name: string; starIds: string[] }[] = [
   {
     id: 'dc-flat',
     name: 'Life in the Flat',
-    starIds: ['d-001', 'd-015', 'd-025', 'd-030', 'd-038'],
+    // Ordered left-to-right so the line traces a clean "M" when zoomed out.
+    // Member positions are pinned (see M_SHAPE_POS) and kept on a flat plane.
+    starIds: ['d-001', 'd-015', 'd-025', 'd-030', 'd-033', 'd-038', 'd-008'],
+    open: true,
   },
   {
     id: 'dc-skies',
@@ -723,6 +726,23 @@ function seed01(str: string): number {
   return ((h >>> 0) % 100000) / 100000;
 }
 
+/**
+ * Pinned positions (normalized x right-positive, y up-positive) for the
+ * "Life in the Flat" constellation so its member stars trace a clean capital
+ * "M" when the cosmos is zoomed out and viewed front-on. The order matches the
+ * dc-flat starIds order. These ids are also kept on a flat plane (see
+ * FLAT_STAR_IDS / star3DPosition) so the M doesn't warp with depth.
+ */
+const M_SHAPE_POS: Record<string, { x: number; y: number }> = {
+  'd-001': { x: -0.72, y: -0.55 }, // bottom-left foot
+  'd-015': { x: -0.6, y: 0.55 }, // top-left peak
+  'd-025': { x: -0.3, y: -0.05 }, // inner-left stroke
+  'd-030': { x: 0.0, y: -0.45 }, // centre valley
+  'd-033': { x: 0.3, y: -0.05 }, // inner-right stroke
+  'd-038': { x: 0.6, y: 0.55 }, // top-right peak
+  'd-008': { x: 0.72, y: -0.55 }, // bottom-right foot
+};
+
 /** Spread the stars across the cosmos with stable, well-separated positions. */
 function buildStars(): MemoryStar[] {
   const all = [...SEED, ...SHARED_SEED];
@@ -734,13 +754,20 @@ function buildStars(): MemoryStar[] {
     // Deterministic placement biased away from the exact center, avoiding overlaps.
     let x = 0;
     let y = 0;
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      const a = seed01(`${s.id}-a-${attempt}`) * Math.PI * 2;
-      const d = 0.2 + seed01(`${s.id}-d-${attempt}`) * 0.78;
-      x = Math.cos(a) * d;
-      y = Math.sin(a) * d;
-      const tooClose = placed.some((p) => Math.hypot(p.x - x, p.y - y) < 0.16);
-      if (!tooClose) break;
+    const pinned = M_SHAPE_POS[s.id];
+    if (pinned) {
+      // Member of the "M" constellation: use its pinned shape position.
+      x = pinned.x;
+      y = pinned.y;
+    } else {
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const a = seed01(`${s.id}-a-${attempt}`) * Math.PI * 2;
+        const d = 0.2 + seed01(`${s.id}-d-${attempt}`) * 0.78;
+        x = Math.cos(a) * d;
+        y = Math.sin(a) * d;
+        const tooClose = placed.some((p) => Math.hypot(p.x - x, p.y - y) < 0.16);
+        if (!tooClose) break;
+      }
     }
     placed.push({ x, y });
     placedByCosmos.set(cosmosId, placed);
@@ -780,6 +807,7 @@ function buildConstellations(): Constellation[] {
     starIds: c.starIds,
     cosmosId: PERSONAL_COSMOS,
     origin: 'manual' as const,
+    open: c.open,
   }));
   const shared = SHARED_CONSTELLATION_DEFS.map((c) => ({
     id: c.id,

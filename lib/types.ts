@@ -66,6 +66,12 @@ export interface Constellation {
   cosmosId: string;
   /** Whether it was forged manually or accepted from an AI suggestion. */
   origin: 'manual' | 'suggested';
+  /**
+   * When true the line is drawn as an open path (the last star is NOT joined
+   * back to the first). Used for shape constellations like the demo "M".
+   * Defaults to false, i.e. 3+ star groups close into a loop.
+   */
+  open?: boolean;
 }
 
 export interface SharedCosmos {
