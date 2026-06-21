@@ -33,8 +33,10 @@ const MUTED = '#94A3B8';
 export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose: () => void }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  // Take roughly the right half on phones, capped for tablets/web.
-  const panelWidth = Math.min(Math.max(width * 0.56, 280), 420);
+  // Take the right portion of the screen, but always leave room on the left so
+  // the zoomed-in star stays visible. Cap so it never eats more than ~62% of
+  // the screen on phones, and clamp to a comfortable width on tablets/web.
+  const panelWidth = Math.min(Math.max(width * 0.54, 250), Math.min(width * 0.62, 420));
 
   const stats = useMemo(() => starStatsForStar(star), [star]);
   const color = colorFor(star.colorKey);
@@ -45,7 +47,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
       entering={SlideInRight.duration(380)}
       exiting={SlideOutRight.duration(280)}
       className="pt-safe-offset-4 pb-safe-offset-28 absolute inset-y-0 right-0 px-3"
-      style={{ width: panelWidth }}
+      style={{ width: panelWidth, zIndex: 50, elevation: 50 }}
     >
       <GlassCard className="flex-1" intensity={50} contentClassName="flex-1 p-0">
         <View className="border-glass-border flex-row items-center justify-between border-b px-4 py-3.5">

@@ -75,6 +75,8 @@ export default function CosmosTab() {
   const [drawId, setDrawId] = useState<string | null>(null);
   // The memory whose floating detail panel is open (slides in on the right).
   const [viewingStar, setViewingStar] = useState<MemoryStar | null>(null);
+  // The intro label fades away on its own after a short while.
+  const [showIntro, setShowIntro] = useState(true);
   // Pending "remove this star from this constellation?" confirmation.
   const [removeTarget, setRemoveTarget] = useState<{
     star: MemoryStar;
@@ -87,6 +89,13 @@ export default function CosmosTab() {
   useEffect(() => {
     if (!hasSeenTutorial) setTutorialVisible(true);
   }, [hasSeenTutorial]);
+
+  // The intro label drifts away on its own after a few seconds so it doesn't
+  // linger over the cosmos forever.
+  useEffect(() => {
+    const t = setTimeout(() => setShowIntro(false), 4500);
+    return () => clearTimeout(t);
+  }, []);
 
   // When search asks to focus a star, select it so its HUD card appears and
   // hand the id to the canvas so it animates the pan/zoom. Then clear the
@@ -299,52 +308,58 @@ export default function CosmosTab() {
       <View className="pt-safe-offset-12 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-2">
-            <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
-              Navigate Your{'\n'}Universe
-            </Text>
+            {showIntro && !viewingStar && (
+              <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(900)}>
+                <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
+                  Navigate Your{'\n'}Universe
+                </Text>
+              </Animated.View>
+            )}
           </View>
-          <View className="items-end gap-3.5">
-            <Pressable onPress={() => router.push('/search')} hitSlop={8}>
-              <View
-                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
-                style={{ borderWidth: 1 }}
+          {!viewingStar && (
+            <View className="items-end gap-3.5">
+              <Pressable onPress={() => router.push('/search')} hitSlop={8}>
+                <View
+                  className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
+                  style={{ borderWidth: 1 }}
+                >
+                  <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setView2D((v) => !v);
+                }}
+                hitSlop={8}
               >
-                <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                void Haptics.selectionAsync();
-                setView2D((v) => !v);
-              }}
-              hitSlop={8}
-            >
-              <View
-                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
-                style={{ borderWidth: 1 }}
+                <View
+                  className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
+                  style={{ borderWidth: 1 }}
+                >
+                  {view2D ? (
+                    <Square width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                  ) : (
+                    <Box width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                  )}
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  router.push('/constellations');
+                }}
+                hitSlop={8}
               >
-                {view2D ? (
-                  <Square width={22} height={22} color={ACCENT} strokeWidth={2.1} />
-                ) : (
-                  <Box width={22} height={22} color={ACCENT} strokeWidth={2.1} />
-                )}
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                void Haptics.selectionAsync();
-                router.push('/constellations');
-              }}
-              hitSlop={8}
-            >
-              <View
-                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
-                style={{ borderWidth: 1 }}
-              >
-                <Spline width={22} height={22} color={ACCENT} strokeWidth={2.1} />
-              </View>
-            </Pressable>
-          </View>
+                <View
+                  className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
+                  style={{ borderWidth: 1 }}
+                >
+                  <Spline width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                </View>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 
