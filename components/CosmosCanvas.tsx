@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { TextureLoader } from 'expo-three';
 import { clamp, useSharedValue } from 'react-native-reanimated';
 import * as THREE from 'three';
 
@@ -14,6 +15,57 @@ import {
   starWorldSize,
   WORLD_RADIUS,
 } from '@/lib/memoria';
+import {
+  type ActiveMedia,
+  buildCandidates,
+  nextGapMs,
+  pickCandidate,
+  REVEAL_DURATION_S,
+} from '@/lib/mediaCycle';
+
+/**
+ * Schedules the rare "memory comes alive" reveals: picks one media-bearing star
+ * at a time, waits a randomized quiet gap (>=30s), then returns it so the scene
+ * can fade a photo or waveform in and out. Returns the active media descriptor.
+ */
+function useMediaCycle(stars: MemoryStar[]): ActiveMedia | null {
+  const [active, setActive] = useState<ActiveMedia | null>(null);
+  const lastStarId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const pool = buildCandidates(stars);
+    if (pool.length === 0) {
+      setActive(null);
+      return () => {};
+    }
+    let revealTimer: ReturnType<typeof setTimeout> | undefined;
+    let gapTimer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
+    const runCycle = () => {
+      if (cancelled) return;
+      const pick = pickCandidate(pool, lastStarId.current);
+      if (!pick) return;
+      lastStarId.current = pick.starId;
+      setActive(pick);
+      revealTimer = setTimeout(() => {
+        if (cancelled) return;
+        setActive(null);
+        gapTimer = setTimeout(runCycle, nextGapMs());
+      }, REVEAL_DURATION_S * 1000);
+    };
+
+    // First reveal after an initial quiet gap so the scene settles first.
+    gapTimer = setTimeout(runCycle, nextGapMs());
+    return () => {
+      cancelled = true;
+      if (revealTimer) clearTimeout(revealTimer);
+      if (gapTimer) clearTimeout(gapTimer);
+    };
+  }, [stars]);
+
+  return active;
+}
 
 interface CosmosCanvasProps {
   stars: MemoryStar[];
@@ -175,6 +227,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
       }),
     [stars],
   );
+
+  // Rare, subtle "memory comes alive" reveal — at most one star at a time.
+  const activeMedia = useMediaCycle(stars);
 
   // ---- Orbit camera state (shared values, written by gestures) -----------
   // We keep two layers: the *desired* angles the gesture writes, and the
@@ -426,6 +481,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
                 placed={p}
                 selected={p.star.id === selectedStarId}
                 forging={forgingStarIds.includes(p.star.id)}
+                media={activeMedia && activeMedia.starId === p.star.id ? activeMedia : null}
                 onPress={() => handleTapStar(p.star)}
               />
             ))}
@@ -596,11 +652,13 @@ function StarSprite({
   placed,
   selected,
   forging,
+  media,
   onPress,
 }: {
   placed: PlacedStar;
   selected: boolean;
   forging: boolean;
+  media: ActiveMedia | null;
   onPress: () => void;
 }) {
   const { star, pos, size, color } = placed;
@@ -677,6 +735,126 @@ function StarSprite({
       <sprite ref={ringRef} material={ringMat} scale={[(size + 0.5) * 2, (size + 0.5) * 2, 1]} />
       <sprite material={glowMat} scale={[glowScale, glowScale, 1]} />
       <sprite material={coreMat} scale={[coreScale, coreScale, 1]} />
+      {media ? <MediaReveal media={media} size={Math.max(size, 0.6)} color={color} /> : null}
+    </group>
+  );
+}
+
+/** Smooth fade envelope (0..1) across a reveal of `duration` seconds. */
+function revealEnvelope(elapsed: number, duration: number): number {
+  const fade = Math.min(1.4, duration * 0.22);
+  if (elapsed <= 0) return 0;
+  if (elapsed >= duration) return 0;
+  if (elapsed < fade) return elapsed / fade;
+  if (elapsed > duration - fade) return Math.max(0, (duration - elapsed) / fade);
+  return 1;
+}
+
+function MediaReveal({
+  media,
+  size,
+  color,
+}: {
+  media: ActiveMedia;
+  size: number;
+  color: THREE.Color;
+}) {
+  if (media.kind === 'photo' && media.photoUri) {
+    return <PhotoReveal uri={media.photoUri} size={size} />;
+  }
+  return <WaveformReveal size={size} color={color} />;
+}
+
+function PhotoReveal({ uri, size }: { uri: string; size: number }) {
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+  const startRef = useRef<number | null>(null);
+  const tex = useMemo(() => {
+    try {
+      // expo-three's TextureLoader resolves native + remote URIs without DOM.
+      return new TextureLoader().load(uri);
+    } catch {
+      return null;
+    }
+  }, [uri]);
+
+  useFrame((state) => {
+    const mat = matRef.current;
+    if (!mat) return;
+    if (startRef.current === null) startRef.current = state.clock.elapsedTime;
+    const elapsed = state.clock.elapsedTime - startRef.current;
+    mat.opacity = revealEnvelope(elapsed, REVEAL_DURATION_S) * 0.85;
+  });
+
+  if (!tex) return null;
+  const s = size * 2.6;
+  return (
+    <sprite scale={[s, s, 1]}>
+      <spriteMaterial
+        ref={matRef}
+        map={tex}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </sprite>
+  );
+}
+
+function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const startRef = useRef<number | null>(null);
+  const bars = 7;
+  const barRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const mat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: color.clone().lerp(new THREE.Color('#ffffff'), 0.4),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [color],
+  );
+  const span = size * 2.4;
+  const barW = span / (bars * 1.8);
+
+  useFrame((state) => {
+    if (startRef.current === null) startRef.current = state.clock.elapsedTime;
+    const elapsed = state.clock.elapsedTime - startRef.current;
+    const env = revealEnvelope(elapsed, REVEAL_DURATION_S);
+    mat.opacity = env * 0.9;
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < bars; i += 1) {
+      const m = barRefs.current[i];
+      if (!m) continue;
+      // Slow, gentle waveform — each bar oscillates at its own phase.
+      const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + i * 0.9);
+      const h = (0.25 + wave * 0.75) * size * 1.6;
+      m.scale.y = Math.max(0.05, h);
+    }
+    if (groupRef.current) groupRef.current.visible = env > 0.01;
+  });
+
+  return (
+    <group ref={groupRef}>
+      {Array.from({ length: bars }).map((_, i) => {
+        const x = (i - (bars - 1) / 2) * barW * 1.8;
+        return (
+          <mesh
+            // eslint-disable-next-line react/no-array-index-key
+            key={i}
+            position={[x, 0, 0]}
+            material={mat}
+            ref={(el) => {
+              barRefs.current[i] = el;
+            }}
+          >
+            <planeGeometry args={[barW, 1]} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
