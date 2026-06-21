@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button, Input, Text, TextField } from 'heroui-native';
+import { Button, Input, Text, TextField, useToast } from 'heroui-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import {
@@ -41,6 +41,9 @@ export default function CosmosTab() {
   const focusStar = useMemoria((s) => s.focusStar);
   const focusConstellationId = useMemoria((s) => s.focusConstellationId);
   const focusConstellation = useMemoria((s) => s.focusConstellation);
+  const recentlyDeletedTitle = useMemoria((s) => s.recentlyDeletedTitle);
+  const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
+  const { toast } = useToast();
 
   // The central Cosmos is always the user's personal universe. Shared cosmos
   // spaces live in the Shared tab.
@@ -93,6 +96,17 @@ export default function CosmosTab() {
       setSelectedStar(null);
     }
   }, [stars, selectedStar]);
+
+  // After a memory is dissolved, confirm the deletion with a toast.
+  useEffect(() => {
+    if (!recentlyDeletedTitle) return;
+    toast.show({
+      variant: 'default',
+      label: 'Memory deleted',
+      description: `"${recentlyDeletedTitle}" has faded from your cosmos.`,
+    });
+    setRecentlyDeletedTitle(null);
+  }, [recentlyDeletedTitle, toast, setRecentlyDeletedTitle]);
 
   const dismissTutorial = () => {
     setTutorialVisible(false);

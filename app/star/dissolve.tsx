@@ -32,6 +32,7 @@ export default function DissolveStar() {
   // Snapshot the star once so it survives removal mid-animation.
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
   const removeStar = useMemoria((s) => s.removeStar);
+  const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
 
   const snapshot = useRef(star ?? null);
   if (star && !snapshot.current) snapshot.current = star;
@@ -56,6 +57,7 @@ export default function DissolveStar() {
     if (removed.current || !captured) return;
     removed.current = true;
     removeStar(captured.id);
+    setRecentlyDeletedTitle(captured.title);
   }
 
   function finish() {

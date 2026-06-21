@@ -68,6 +68,8 @@ interface MemoriaState {
   focusStarId: string | null;
   /** Transient: a constellation the cosmos should frame and draw (e.g. from the Constellations list). Not persisted. */
   focusConstellationId: string | null;
+  /** Transient: title of the most recently deleted memory, used to surface a confirmation toast. Not persisted. */
+  recentlyDeletedTitle: string | null;
   /** Editable user profile. */
   profile: UserProfile;
   /** Accessibility / app preferences. */
@@ -94,6 +96,8 @@ interface MemoriaState {
   focusStar: (id: string | null) => void;
   /** Request the cosmos to frame and draw a constellation. Pass null to clear. */
   focusConstellation: (id: string | null) => void;
+  /** Set/clear the recently-deleted memory title (drives a confirmation toast). */
+  setRecentlyDeletedTitle: (title: string | null) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -143,6 +147,7 @@ export const useMemoria = create<MemoriaState>()(
       activeCosmosId: PERSONAL_COSMOS,
       focusStarId: null,
       focusConstellationId: null,
+      recentlyDeletedTitle: null,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -177,6 +182,7 @@ export const useMemoria = create<MemoriaState>()(
         set((state) => ({ friendIds: state.friendIds.filter((f) => f !== id) })),
       focusStar: (id) => set({ focusStarId: id }),
       focusConstellation: (id) => set({ focusConstellationId: id }),
+      setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);
