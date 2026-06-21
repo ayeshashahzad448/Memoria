@@ -51,6 +51,7 @@ export default function CosmosTab() {
   const setAddToConstellationStar = useMemoria((s) => s.setAddToConstellationStar);
   const recentlyDeletedTitle = useMemoria((s) => s.recentlyDeletedTitle);
   const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
+  const setMemoryPanelOpen = useMemoria((s) => s.setMemoryPanelOpen);
 
   // Centered, readable confirmation shown after a memory dissolves.
   const [deletedMessage, setDeletedMessage] = useState<string | null>(null);
@@ -159,6 +160,15 @@ export default function CosmosTab() {
       if (fresh && fresh !== viewingStar) setViewingStar(fresh);
     }
   }, [stars, selectedStar, viewingStar]);
+
+  // Mirror the floating detail panel's open state into the store so the bottom
+  // tab walkthrough (in the tabs layout) can wait until the user closes the
+  // just-created memory before it appears.
+  useEffect(() => {
+    setMemoryPanelOpen(!!viewingStar);
+  }, [viewingStar, setMemoryPanelOpen]);
+
+  useEffect(() => () => setMemoryPanelOpen(false), [setMemoryPanelOpen]);
 
   // After a memory is dissolved, confirm the deletion with a centered message
   // that lingers long enough to read, then fades out on its own.

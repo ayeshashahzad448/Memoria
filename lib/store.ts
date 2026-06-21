@@ -78,6 +78,8 @@ interface MemoriaState {
   openMemoryStarId: string | null;
   /** Transient: title of the most recently deleted memory, used to surface a confirmation toast. Not persisted. */
   recentlyDeletedTitle: string | null;
+  /** Transient: whether a floating memory detail panel is currently open on the cosmos. Not persisted. */
+  memoryPanelOpen: boolean;
   /** Editable user profile. */
   profile: UserProfile;
   /** Accessibility / app preferences. */
@@ -115,6 +117,8 @@ interface MemoriaState {
   setOpenMemoryStar: (id: string | null) => void;
   /** Set/clear the recently-deleted memory title (drives a confirmation toast). */
   setRecentlyDeletedTitle: (title: string | null) => void;
+  /** Mark whether a floating memory detail panel is currently open on the cosmos. */
+  setMemoryPanelOpen: (open: boolean) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -175,6 +179,7 @@ export const useMemoria = create<MemoriaState>()(
       forgeSeedStarId: null,
       openMemoryStarId: null,
       recentlyDeletedTitle: null,
+      memoryPanelOpen: false,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -209,6 +214,7 @@ export const useMemoria = create<MemoriaState>()(
           forgeSeedStarId: null,
           openMemoryStarId: null,
           recentlyDeletedTitle: null,
+          memoryPanelOpen: false,
           profile: {
             displayName: CURRENT_USER.name,
             bio: '',
@@ -241,6 +247,7 @@ export const useMemoria = create<MemoriaState>()(
       setForgeSeedStar: (id) => set({ forgeSeedStarId: id }),
       setOpenMemoryStar: (id) => set({ openMemoryStarId: id }),
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
+      setMemoryPanelOpen: (open) => set({ memoryPanelOpen: open }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);

@@ -50,19 +50,23 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const hasSeenTabTour = useMemoria((s) => s.hasSeenTabTour);
   const completeTabTour = useMemoria((s) => s.completeTabTour);
   const starCount = useMemoria((s) => s.stars.length);
+  const memoryPanelOpen = useMemoria((s) => s.memoryPanelOpen);
   const [tourVisible, setTourVisible] = useState(false);
 
   const activeRouteName = state.routes[state.index]?.name;
   const onCosmos = activeRouteName === 'index';
 
   // Once the user has created their first star, walk them through the tab bar
-  // a single time. Only while the Cosmos tab is active and after the in-cosmos
-  // coachmark, with a short delay so the create/ignition return settles first.
+  // a single time. We wait until they have closed the freshly created memory's
+  // floating detail panel (memoryPanelOpen === false) so the tour starts only
+  // after they press exit, never interrupting the memory they just made.
   useEffect(() => {
-    if (hasSeenTabTour || !hasSeenTutorial || !onCosmos || starCount === 0) return undefined;
-    const t = setTimeout(() => setTourVisible(true), 1100);
+    if (hasSeenTabTour || !hasSeenTutorial || !onCosmos || starCount === 0 || memoryPanelOpen) {
+      return undefined;
+    }
+    const t = setTimeout(() => setTourVisible(true), 600);
     return () => clearTimeout(t);
-  }, [hasSeenTabTour, hasSeenTutorial, onCosmos, starCount]);
+  }, [hasSeenTabTour, hasSeenTutorial, onCosmos, starCount, memoryPanelOpen]);
 
   const dismissTour = () => {
     setTourVisible(false);
