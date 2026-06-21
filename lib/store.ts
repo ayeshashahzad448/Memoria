@@ -254,7 +254,7 @@ export const useMemoria = create<MemoriaState>()(
           friendIds: data.friendIds,
           stars: data.stars,
           constellations: data.constellations,
-          sharedCosmoses: [],
+          sharedCosmoses: data.sharedCosmoses,
         });
       },
       // Onboarding already walks the user through creating their first star, so

@@ -30,7 +30,7 @@ Then:
 
 ## ✦ The idea
 
-Most journals are lists. Memoria is a *sky*.
+Most journals are lists. Memoria is a _sky_.
 
 - A short note becomes a small, faint star. A long, photo-rich, voice-laden memory ignites into a bright giant. The weight of what you lived is reflected in how brightly it burns.
 - Pan, pinch and orbit through your own universe. Tap any star to relive the moment.

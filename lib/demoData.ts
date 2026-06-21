@@ -1,4 +1,10 @@
-import type { Constellation, MemoryStar, StarColorKey, UserProfile } from '@/lib/types';
+import type {
+  Constellation,
+  MemoryStar,
+  SharedCosmos,
+  StarColorKey,
+  UserProfile,
+} from '@/lib/types';
 import { CURRENT_USER } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
 
@@ -29,6 +35,10 @@ interface SeedStar {
   voice?: number[];
   /** Tagged friend ids (from DIRECTORY_USERS). */
   tags?: string[];
+  /** Cosmos this memory belongs to (defaults to PERSONAL_COSMOS). */
+  cosmosId?: string;
+  /** Author of this memory (defaults to the current user). For shared cosmoses, a member id. */
+  authorId?: string;
 }
 
 // Stable placeholder image URIs (so photo grids render in the demo).
@@ -520,6 +530,189 @@ const CONSTELLATION_DEFS: { id: string; name: string; starIds: string[] }[] = [
   },
 ];
 
+/** Shared (collaborative) cosmos spaces in the demo profile. */
+const SHARED_COSMOS_DEFS: { id: string; name: string; memberIds: string[] }[] = [
+  // The current user is always a member of their shared spaces.
+  { id: 'sc-family', name: 'The Rivera Family', memberIds: ['u-me', 'u-mom', 'u-dad'] },
+  { id: 'sc-trip', name: 'Japan 2023 Trip', memberIds: ['u-me', 'u-sam'] },
+  { id: 'sc-crew', name: 'The Old Crew', memberIds: ['u-me', 'u-ava', 'u-leo', 'u-sam'] },
+];
+
+/** Memories that live inside the shared cosmos spaces (co-authored by members). */
+const SHARED_SEED: SeedStar[] = [
+  // ---- The Rivera Family ----
+  {
+    id: 's-fam-01',
+    title: 'Sunday roast, all of us',
+    story:
+      'Three generations around one table for the first time in too long. Mom carved, Dad fell asleep before dessert, and the noise of everyone talking over each other was the best sound in the world.',
+    colorKey: 'amber',
+    date: '2024-04-14',
+    location: { name: 'Whitby' },
+    photos: 3,
+    voice: [33],
+    cosmosId: 'sc-family',
+    authorId: 'u-me',
+    tags: ['u-mom', 'u-dad'],
+  },
+  {
+    id: 's-fam-02',
+    title: 'Dad found the old photo albums',
+    story:
+      'He scanned a whole box of photos from the 80s and shared them. Me as a toddler covered in cake. Grandma young and laughing. A whole life I half-remember.',
+    colorKey: 'violet',
+    date: '2024-05-02',
+    location: { name: 'Whitby' },
+    photos: 2,
+    cosmosId: 'sc-family',
+    authorId: 'u-dad',
+  },
+  {
+    id: 's-fam-03',
+    title: 'Mom learned to video call',
+    story:
+      'She called just to show me the garden. Forty minutes of tomatoes and neighbourhood gossip. I would not trade it for anything.',
+    colorKey: 'emerald',
+    date: '2024-07-19',
+    photos: 1,
+    voice: [41],
+    cosmosId: 'sc-family',
+    authorId: 'u-mom',
+  },
+  {
+    id: 's-fam-04',
+    title: 'Christmas morning chaos',
+    story:
+      'Everyone in pyjamas, wrapping paper everywhere, Dad insisting on his annual terrible cracker jokes. Recorded a clip of the whole room laughing.',
+    colorKey: 'amber',
+    date: '2024-12-25',
+    location: { name: 'Whitby' },
+    photos: 3,
+    voice: [28],
+    cosmosId: 'sc-family',
+    authorId: 'u-me',
+    tags: ['u-mom', 'u-dad'],
+  },
+
+  // ---- Japan 2023 Trip ----
+  {
+    id: 's-trip-01',
+    title: 'Landed in Tokyo',
+    story:
+      'Jet-lagged and grinning in the arrivals hall. We just stood on the platform watching the trains for ten minutes, completely overwhelmed in the best way.',
+    colorKey: 'cyan',
+    date: '2023-04-01',
+    location: { name: 'Tokyo, Japan' },
+    photos: 2,
+    cosmosId: 'sc-trip',
+    authorId: 'u-me',
+    tags: ['u-sam'],
+  },
+  {
+    id: 's-trip-02',
+    title: 'Best ramen of my life',
+    story:
+      'Sam found this tiny place down an alley with no English menu. We pointed at a picture and it was perfect. Slurped in happy silence.',
+    colorKey: 'amber',
+    date: '2023-04-03',
+    location: { name: 'Tokyo, Japan' },
+    photos: 1,
+    voice: [22],
+    cosmosId: 'sc-trip',
+    authorId: 'u-sam',
+  },
+  {
+    id: 's-trip-03',
+    title: 'Blossom on the Philosopher\u2019s Path',
+    story:
+      'We walked it slowly, petals coming down like snow. Sam took a hundred photos and I just tried to stand still and keep it.',
+    colorKey: 'emerald',
+    date: '2023-04-04',
+    location: { name: 'Kyoto, Japan' },
+    photos: 3,
+    voice: [44],
+    cosmosId: 'sc-trip',
+    authorId: 'u-me',
+    tags: ['u-sam'],
+  },
+  {
+    id: 's-trip-04',
+    title: 'Last night, rooftop bar',
+    story:
+      'Toasted to the trip with the whole city lit up below us. Already planning when we can come back.',
+    colorKey: 'violet',
+    date: '2023-04-07',
+    location: { name: 'Tokyo, Japan' },
+    photos: 2,
+    cosmosId: 'sc-trip',
+    authorId: 'u-sam',
+    tags: ['u-me'],
+  },
+
+  // ---- The Old Crew ----
+  {
+    id: 's-crew-01',
+    title: 'Festival weekend',
+    story:
+      'Mud, terrible tents, and a headline set we screamed every word to. The whole crew together before everyone scattered across the map.',
+    colorKey: 'rose',
+    date: '2023-07-15',
+    location: { name: 'Somerset' },
+    photos: 3,
+    voice: [37],
+    cosmosId: 'sc-crew',
+    authorId: 'u-leo',
+    tags: ['u-ava', 'u-sam'],
+  },
+  {
+    id: 's-crew-02',
+    title: 'Ava\u2019s leaving drinks',
+    story:
+      'A loud, happy, slightly tearful night before Berlin. We made her promise to keep this cosmos going so we never lose the thread.',
+    colorKey: 'violet',
+    date: '2024-08-17',
+    location: { name: 'Hackney, London' },
+    photos: 2,
+    cosmosId: 'sc-crew',
+    authorId: 'u-ava',
+    tags: ['u-leo', 'u-sam'],
+  },
+  {
+    id: 's-crew-03',
+    title: 'New Year video call',
+    story:
+      'Four time zones, four screens, one terrible synchronised countdown. We were off by about nine seconds and it did not matter at all.',
+    colorKey: 'cyan',
+    date: '2025-01-01',
+    photos: 1,
+    voice: [31],
+    cosmosId: 'sc-crew',
+    authorId: 'u-me',
+    tags: ['u-ava', 'u-leo'],
+  },
+];
+
+/** Constellations that live inside the shared cosmoses. */
+const SHARED_CONSTELLATION_DEFS: {
+  id: string;
+  name: string;
+  cosmosId: string;
+  starIds: string[];
+}[] = [
+  {
+    id: 'sc-trip-arc',
+    name: 'Tokyo to Kyoto',
+    cosmosId: 'sc-trip',
+    starIds: ['s-trip-01', 's-trip-02', 's-trip-03', 's-trip-04'],
+  },
+  {
+    id: 'sc-fam-gather',
+    name: 'Around the Table',
+    cosmosId: 'sc-family',
+    starIds: ['s-fam-01', 's-fam-04'],
+  },
+];
+
 /** Deterministic [0,1) from a string seed (FNV-1a) — no Math.random. */
 function seed01(str: string): number {
   let h = 2166136261;
@@ -532,8 +725,12 @@ function seed01(str: string): number {
 
 /** Spread the stars across the cosmos with stable, well-separated positions. */
 function buildStars(): MemoryStar[] {
-  const placed: { x: number; y: number }[] = [];
-  return SEED.map((s) => {
+  const all = [...SEED, ...SHARED_SEED];
+  // Track placed positions per cosmos so spacing is computed within each space.
+  const placedByCosmos = new Map<string, { x: number; y: number }[]>();
+  return all.map((s) => {
+    const cosmosId = s.cosmosId ?? PERSONAL_COSMOS;
+    const placed = placedByCosmos.get(cosmosId) ?? [];
     // Deterministic placement biased away from the exact center, avoiding overlaps.
     let x = 0;
     let y = 0;
@@ -546,6 +743,7 @@ function buildStars(): MemoryStar[] {
       if (!tooClose) break;
     }
     placed.push({ x, y });
+    placedByCosmos.set(cosmosId, placed);
 
     const photos = photoUris(s.photos ?? 0, s.id);
     const voiceNotes = (s.voice ?? []).map((durationSec, i) => ({
@@ -568,26 +766,52 @@ function buildStars(): MemoryStar[] {
       taggedUserIds: s.tags ?? [],
       x,
       y,
-      authorId: CURRENT_USER.id,
-      cosmosId: PERSONAL_COSMOS,
+      authorId: s.authorId ?? CURRENT_USER.id,
+      cosmosId,
     };
     return star;
   });
 }
 
 function buildConstellations(): Constellation[] {
-  return CONSTELLATION_DEFS.map((c) => ({
+  const personal = CONSTELLATION_DEFS.map((c) => ({
     id: c.id,
     name: c.name,
     starIds: c.starIds,
     cosmosId: PERSONAL_COSMOS,
     origin: 'manual' as const,
   }));
+  const shared = SHARED_CONSTELLATION_DEFS.map((c) => ({
+    id: c.id,
+    name: c.name,
+    starIds: c.starIds,
+    cosmosId: c.cosmosId,
+    origin: 'manual' as const,
+  }));
+  return [...personal, ...shared];
+}
+
+/** Build the demo shared cosmos spaces. */
+function buildSharedCosmoses(): SharedCosmos[] {
+  return SHARED_COSMOS_DEFS.map((c) => {
+    // Anchor each space's createdAt to its earliest memory for realism.
+    const dates = SHARED_SEED.filter((s) => s.cosmosId === c.id)
+      .map((s) => s.date)
+      .sort();
+    const created = dates[0] ?? '2023-01-01';
+    return {
+      id: c.id,
+      name: c.name,
+      memberIds: c.memberIds,
+      createdAt: `${created}T12:00:00.000Z`,
+    };
+  });
 }
 
 export interface DemoDataset {
   stars: MemoryStar[];
   constellations: Constellation[];
+  sharedCosmoses: SharedCosmos[];
   profile: UserProfile;
   friendIds: string[];
 }
@@ -597,6 +821,7 @@ export function buildDemoDataset(): DemoDataset {
   return {
     stars: buildStars(),
     constellations: buildConstellations(),
+    sharedCosmoses: buildSharedCosmoses(),
     profile: {
       displayName: 'Alex Rivera',
       bio: 'Documenting the constellations of an ordinary, extraordinary life.',
