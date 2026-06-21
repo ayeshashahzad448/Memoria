@@ -22,6 +22,23 @@ export const aiEnabled = (): boolean => Boolean(API_KEY && API_KEY.length > 0);
 
 type ChatMessage = { role: 'system' | 'user'; content: string };
 
+/** Turn an OpenAI HTTP failure into a clear, user-facing message. */
+function friendlyApiError(status: number, body: string): string {
+  const lower = body.toLowerCase();
+  if (status === 429) {
+    // 429 covers both rate limiting and "no credits left" — they read differently.
+    if (lower.includes('insufficient_quota') || lower.includes('quota')) {
+      return 'The AI account has run out of credits. Add billing or a new key in your OpenAI account, then try again.';
+    }
+    return 'The AI is busy right now. Wait a moment and try again.';
+  }
+  if (status === 401)
+    return 'The AI key is invalid or missing. Check your OpenAI key and try again.';
+  if (status === 403) return 'This AI key is not allowed to use this model.';
+  if (status >= 500) return 'The AI service is temporarily unavailable. Please try again shortly.';
+  return 'AI request failed. Please try again.';
+}
+
 interface ChatChoice {
   message?: { content?: string | null };
 }
@@ -52,7 +69,7 @@ async function chat(messages: ChatMessage[], opts?: { json?: boolean }): Promise
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`AI request failed (${res.status}). ${text.slice(0, 140)}`);
+    throw new Error(friendlyApiError(res.status, text));
   }
   const raw: unknown = await res.json();
   if (!isChatResponse(raw)) throw new Error('AI returned an unexpected response shape.');
