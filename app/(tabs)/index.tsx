@@ -258,6 +258,22 @@ export default function CosmosTab() {
                 )}
               </View>
             </Pressable>
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                router.push('/constellations');
+              }}
+              hitSlop={8}
+              className="items-center"
+            >
+              <View
+                className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
+                style={{ borderWidth: 1 }}
+              >
+                <Spline width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+              </View>
+              <Text className="text-muted mt-1 text-[10px] font-medium">Constellations</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -395,17 +411,6 @@ export default function CosmosTab() {
               </Button>
             </View>
           </GlassCard>
-        </View>
-      )}
-
-      {/* Bottom action row */}
-      {!selectedStar && !forging && !addStarTarget && !drawId && !fitIds && stars.length >= 2 && (
-        <View className="pb-safe-offset-28 absolute inset-x-0 bottom-0 flex-row items-center justify-center px-8">
-          <Pressable onPress={() => router.push('/constellations')}>
-            <GlassCard contentClassName="px-5 py-3.5">
-              <Text className="text-starlight font-medium">Constellations</Text>
-            </GlassCard>
-          </Pressable>
         </View>
       )}
 
