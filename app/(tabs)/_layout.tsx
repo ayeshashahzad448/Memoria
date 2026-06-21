@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text } from 'heroui-native';
@@ -10,6 +10,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colorFor } from '@/lib/memoria';
 import { PERSONAL_COSMOS, useMemoria } from '@/lib/store';
 import { TabBarTour } from '@/components/TabBarTour';
+import type { TabSpotlight } from '@/components/TabBarTour';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -52,6 +53,21 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const starCount = useMemoria((s) => s.stars.length);
   const memoryPanelOpen = useMemoria((s) => s.memoryPanelOpen);
   const [tourVisible, setTourVisible] = useState(false);
+  // Measured screen-space centers of each tab icon (by slot index), so the
+  // tour spotlight aligns exactly with the real tabs across devices.
+  const [spotlights, setSpotlights] = useState<TabSpotlight[]>([]);
+  const spotlightsRef = useRef<TabSpotlight[]>([]);
+
+  const reportSpotlight = useCallback((slot: number, s: TabSpotlight) => {
+    const prev = spotlightsRef.current[slot];
+    if (prev && Math.abs(prev.centerX - s.centerX) < 1 && Math.abs(prev.centerY - s.centerY) < 1) {
+      return;
+    }
+    const nextArr = spotlightsRef.current.slice();
+    nextArr[slot] = s;
+    spotlightsRef.current = nextArr;
+    setSpotlights(nextArr);
+  }, []);
 
   const activeRouteName = state.routes[state.index]?.name;
   const onCosmos = activeRouteName === 'index';
@@ -81,7 +97,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <>
-      {tourVisible && <TabBarTour onDone={dismissTour} />}
+      {tourVisible && <TabBarTour onDone={dismissTour} spotlights={spotlights} />}
       <View
         className="border-glass-border absolute inset-x-0 bottom-0 border-t"
         style={{
@@ -102,7 +118,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           <View className="bg-void/70 absolute inset-0" />
         </View>
         <View className="pb-safe-offset-4 flex-row items-end px-2 pt-2.5">
-          {ordered.map(({ tab, route, index }) => {
+          {ordered.map(({ tab, route, index }, slot) => {
             const focused = state.index === index;
             const Icon = tab.icon;
             const onPress = () => {
@@ -122,6 +138,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                   icon={Icon}
                   focused={focused}
                   onPress={onPress}
+                  onMeasure={(s) => reportSpotlight(slot, s)}
                   onCreate={() =>
                     router.push({
                       pathname: '/star/create',
@@ -133,30 +150,55 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             }
 
             return (
-              <Pressable
+              <TabButton
                 key={route.key}
+                label={tab.label}
+                icon={Icon}
+                focused={focused}
                 onPress={onPress}
-                className="flex-1 items-center justify-end gap-1 pb-1"
-                hitSlop={4}
-              >
-                <Icon
-                  size={21}
-                  color={focused ? ACCENT : MUTED}
-                  strokeWidth={focused ? 2.2 : 1.7}
-                />
-                <Text
-                  className="text-[10px] font-medium"
-                  style={{ color: focused ? ACCENT : MUTED }}
-                  numberOfLines={1}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
+                onMeasure={(s) => reportSpotlight(slot, s)}
+              />
             );
           })}
         </View>
       </View>
     </>
+  );
+}
+
+function TabButton({
+  label,
+  icon: Icon,
+  focused,
+  onPress,
+  onMeasure,
+}: {
+  label: string;
+  icon: LucideIcon;
+  focused: boolean;
+  onPress: () => void;
+  onMeasure: (s: TabSpotlight) => void;
+}) {
+  const iconRef = useRef<View>(null);
+  const measure = useCallback(() => {
+    iconRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 || h > 0) onMeasure({ centerX: x + w / 2, centerY: y + h / 2 });
+    });
+  }, [onMeasure]);
+
+  return (
+    <Pressable onPress={onPress} className="flex-1 items-center justify-end gap-1 pb-1" hitSlop={4}>
+      <View ref={iconRef} onLayout={measure}>
+        <Icon size={21} color={focused ? ACCENT : MUTED} strokeWidth={focused ? 2.2 : 1.7} />
+      </View>
+      <Text
+        className="text-[10px] font-medium"
+        style={{ color: focused ? ACCENT : MUTED }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -166,16 +208,25 @@ function CenterTab({
   focused,
   onPress,
   onCreate,
+  onMeasure,
 }: {
   label: string;
   icon: LucideIcon;
   focused: boolean;
   onPress: () => void;
   onCreate: () => void;
+  onMeasure: (s: TabSpotlight) => void;
 }) {
   // When Cosmos is the active tab, the center button becomes a create (+)
   // affordance so adding a memory is always one tap away from the cosmos.
   const DisplayIcon = focused ? Plus : Icon;
+  const ringRef = useRef<View>(null);
+  const measure = useCallback(() => {
+    ringRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 || h > 0) onMeasure({ centerX: x + w / 2, centerY: y + h / 2 });
+    });
+  }, [onMeasure]);
+
   return (
     <Pressable
       onPress={focused ? onCreate : onPress}
@@ -184,6 +235,8 @@ function CenterTab({
       style={{ marginTop: -26 }}
     >
       <View
+        ref={ringRef}
+        onLayout={measure}
         className="h-[62px] w-[62px] items-center justify-center rounded-full border"
         style={{
           backgroundColor: '#0B0C10',

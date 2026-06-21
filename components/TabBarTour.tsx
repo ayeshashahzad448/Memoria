@@ -10,6 +10,14 @@ import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
 
+/** Measured screen-space center of each tab icon, reported by the tab bar. */
+export interface TabSpotlight {
+  /** Horizontal center of the tab, in screen pixels. */
+  centerX: number;
+  /** Vertical center of the tab icon, in screen pixels. */
+  centerY: number;
+}
+
 interface TourStop {
   /** Slot index in the 5-tab bar (left to right). */
   slot: number;
@@ -61,17 +69,30 @@ const TAB_COUNT = 5;
  * One-time guided walkthrough of the bottom tab bar, shown after the user
  * creates their first star. Dims the screen, points a spotlight at each tab in
  * turn, and explains it in plain language.
+ *
+ * `spotlights` are the measured screen-space centers of each tab icon, so the
+ * spotlight ring lines up exactly with the real tabs (accounting for tab-bar
+ * padding and the safe-area inset). Falls back to an even split if unmeasured.
  */
-export function TabBarTour({ onDone }: { onDone: () => void }) {
-  const { width } = useWindowDimensions();
+export function TabBarTour({
+  onDone,
+  spotlights,
+}: {
+  onDone: () => void;
+  spotlights?: TabSpotlight[];
+}) {
+  const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const stop = STOPS[index];
   const isLast = index === STOPS.length - 1;
   const Icon = stop.icon;
 
+  const measured = spotlights?.[stop.slot];
   const slotWidth = width / TAB_COUNT;
-  const spotlightCenterX = slotWidth * (stop.slot + 0.5);
   const spotSize = stop.raised ? 78 : 60;
+  const spotlightCenterX = measured ? measured.centerX : slotWidth * (stop.slot + 0.5);
+  // Fall back to a sensible height near the bottom if we have no measurement.
+  const spotlightCenterY = measured ? measured.centerY : height - (stop.raised ? 64 : 44);
 
   const next = () => {
     if (isLast) onDone();
@@ -95,7 +116,7 @@ export function TabBarTour({ onDone }: { onDone: () => void }) {
         className="absolute items-center justify-center rounded-full border-2"
         style={{
           left: spotlightCenterX - spotSize / 2,
-          bottom: stop.raised ? 26 : 12,
+          top: spotlightCenterY - spotSize / 2,
           width: spotSize,
           height: spotSize,
           borderColor: ACCENT,
