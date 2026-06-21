@@ -26,6 +26,15 @@ const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
 
 /**
+ * Width the floating memory panel takes on a given screen. Kept in sync with
+ * the same calculation in {@link MemoryDetailPanel} so the cosmos can shift the
+ * focused star to the exact center of the strip left of the panel.
+ */
+export function memoryPanelWidth(screenWidth: number): number {
+  return Math.min(Math.max(screenWidth * 0.54, 250), Math.min(screenWidth * 0.62, 420));
+}
+
+/**
  * Floating memory card that slides in from the right while the star stays
  * zoomed-in on the left of the cosmos. Replaces the full-screen detail route
  * for in-cosmos viewing.
@@ -36,7 +45,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
   // Take the right portion of the screen, but always leave room on the left so
   // the zoomed-in star stays visible. Cap so it never eats more than ~62% of
   // the screen on phones, and clamp to a comfortable width on tablets/web.
-  const panelWidth = Math.min(Math.max(width * 0.54, 250), Math.min(width * 0.62, 420));
+  const panelWidth = memoryPanelWidth(width);
 
   const stats = useMemo(() => starStatsForStar(star), [star]);
   const color = colorFor(star.colorKey);

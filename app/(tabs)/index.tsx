@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -23,7 +23,7 @@ import {
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
 import { CosmosTutorial } from '@/components/CosmosTutorial';
-import { MemoryDetailPanel } from '@/components/MemoryDetailPanel';
+import { MemoryDetailPanel, memoryPanelWidth } from '@/components/MemoryDetailPanel';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { Constellation, MemoryStar } from '@/lib/types';
@@ -34,6 +34,7 @@ const DANGER = '#FF2A6D';
 
 export default function CosmosTab() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
@@ -190,6 +191,12 @@ export default function CosmosTab() {
     return () => clearTimeout(t);
   }, [removedMessage]);
 
+  // While the detail panel is open the camera nudges the focused star left so it
+  // lands centered in the strip beside the panel. The shift (a fraction of the
+  // visible half-width) is derived from the actual panel width so it stays
+  // consistent across phone, tablet and web sizes.
+  const panelShift = useMemo(() => memoryPanelWidth(width) / width, [width]);
+
   const dismissTutorial = () => {
     setTutorialVisible(false);
     completeTutorial();
@@ -323,6 +330,7 @@ export default function CosmosTab() {
         onDrawComplete={() => setDrawId(null)}
         view2D={view2D}
         panelOpen={!!viewingStar}
+        panelShift={panelShift}
         onTapStar={onTapStar}
         onTapEmpty={() => {
           setSelectedStar(null);

@@ -18,7 +18,7 @@ export default function SearchTab() {
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
-  const focusStar = useMemoria((s) => s.focusStar);
+  const setOpenMemoryStar = useMemoria((s) => s.setOpenMemoryStar);
 
   const stars = useMemo(
     () => allStars.filter((s) => s.cosmosId === activeCosmosId),
@@ -60,10 +60,11 @@ export default function SearchTab() {
     });
   }, [stars, keywords, locationFilter, selectedDate, userFilter, constFilter, constellations]);
 
-  // Take the user to the star in their cosmos: request the focus, then switch
-  // to the Cosmos tab where it pans/zooms in and opens its card.
+  // Take the user to the star in their cosmos: request it be opened, then switch
+  // to the Cosmos tab where it pans/zooms in on the left and its detail panel
+  // slides in on the right — the same view you get by tapping a star.
   const open = (star: MemoryStar) => {
-    focusStar(star.id);
+    setOpenMemoryStar(star.id);
     router.navigate('/(tabs)');
   };
 

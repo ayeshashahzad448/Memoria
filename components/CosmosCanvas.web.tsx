@@ -80,6 +80,8 @@ interface CosmosCanvasProps {
   view2D?: boolean;
   /** Nudges the framed star left so it stays visible beside a right-side panel. */
   panelOpen?: boolean;
+  /** Fraction of the visible half-width to push the star left (default 0.34). */
+  panelShift?: number;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -154,6 +156,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     onDrawComplete,
     view2D = false,
     panelOpen = false,
+    panelShift = 0.34,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -214,9 +217,9 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const shiftX = useSharedValue(0);
   const shiftXActual = useSharedValue(0);
   useEffect(() => {
-    shiftX.value = panelOpen ? -0.34 : 0;
+    shiftX.value = panelOpen ? -Math.abs(panelShift) : 0;
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelOpen]);
+  }, [panelOpen, panelShift]);
   useEffect(() => {
     flat.value = view2D ? 1 : 0;
     if (view2D) {
@@ -536,8 +539,13 @@ function OrbitRig({
     const tz = tzActual.value;
 
     const sinP = Math.sin(pol);
+    // Exact horizontal half-width of the frustum at the target distance so the
+    // shift is a true fraction of the visible half-width on any screen size.
+    // eslint-disable-next-line no-unsafe-type-assertion -- orbit camera is always perspective
+    const cam = camera as THREE.PerspectiveCamera;
+    const halfW = rad * Math.tan(((cam.fov || 60) * Math.PI) / 360) * (cam.aspect || 1);
     if (flat.value === 1) {
-      const offX = rad * 0.46 * shiftXActual.value;
+      const offX = halfW * shiftXActual.value;
       camera.position.set(tx + offX, ty, tz + rad);
       camera.up.set(0, 1, 0);
       camera.lookAt(tx + offX, ty, tz);
@@ -555,7 +563,7 @@ function OrbitRig({
     const rlen = Math.hypot(rx, rz) || 1;
     rx /= rlen;
     rz /= rlen;
-    const off = rad * 0.46 * shiftXActual.value;
+    const off = halfW * shiftXActual.value;
     camera.position.set(x + rx * off, y, z + rz * off);
     camera.lookAt(tx + rx * off, ty, tz + rz * off);
   });
