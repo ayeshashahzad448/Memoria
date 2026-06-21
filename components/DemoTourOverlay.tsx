@@ -40,21 +40,32 @@ const CANCELLED = Symbol('tour-cancelled');
  * play/pause, step back/forward, hide, and exit — none of which need to appear
  * in the final recording (you can crop it, or hide it entirely).
  *
- * Mounted at the root so it survives navigation between screens.
+ * Mounted at the root so it survives navigation between screens. A second,
+ * `embedded` copy can be rendered inside native modal screens (e.g. the
+ * paywall) so the teleprompter stays visible above the modal — the embedded
+ * copy is display + controls only and does not run the tour actions, so the
+ * single root runner stays the sole driver.
  */
-export function DemoTourOverlay() {
+export function DemoTourOverlay({ embedded = false }: { embedded?: boolean }) {
   const active = useMemoria((s) => s.demoTourActive);
   if (!active) return null;
-  return <TourRunner />;
+  return embedded ? <TourController /> : <TourRunner />;
 }
 
+/**
+ * The root, driving instance. Owns the action/timer loop and publishes its
+ * current step + paused state to the store, then renders the shared controller.
+ */
 function TourRunner() {
   const router = useRouter();
+  const index = useMemoria((s) => s.demoTourIndex);
+  const paused = useMemoria((s) => s.demoTourPaused);
+  const setIndex = useMemoria((s) => s.setDemoTourIndex);
   const setDemoTourActive = useMemoria((s) => s.setDemoTourActive);
 
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const step = TOUR_STEPS[index];
+
+  const progress = useSharedValue(0);
 
   // Cancellation: every pending wait checks this token; bumping it unwinds the
   // current step so we can jump/pause without overlapping timers.
@@ -62,23 +73,8 @@ function TourRunner() {
   const pausedRef = useRef(false);
   pausedRef.current = paused;
 
-  const step = TOUR_STEPS[index];
-  const total = TOUR_STEPS.length;
-
-  const progress = useSharedValue(0);
-
-  const exit = useCallback(() => {
-    tokenRef.current += 1;
-    setDemoTourActive(false);
-  }, [setDemoTourActive]);
-
-  const goTo = useCallback((next: number) => {
-    tokenRef.current += 1;
-    setIndex(Math.max(0, Math.min(TOUR_STEPS.length - 1, next)));
-  }, []);
-
   // Run the active step: perform its action, then hold for its duration while
-  // respecting pause. Bumping tokenRef (via goTo/exit/pause) cancels in flight.
+  // respecting pause. Bumping tokenRef (via store index/active changes) cancels.
   useEffect(() => {
     const myToken = (tokenRef.current += 1);
     let cancelled = false;
@@ -133,7 +129,8 @@ function TourRunner() {
         if (index < TOUR_STEPS.length - 1) {
           setIndex(index + 1);
         } else {
-          exit();
+          tokenRef.current += 1;
+          setDemoTourActive(false);
         }
       } catch (e) {
         if (e !== CANCELLED) throw e;
@@ -145,13 +142,46 @@ function TourRunner() {
     return () => {
       cancelled = true;
     };
-  }, [index, step, router, exit, progress]);
+  }, [index, step, router, setIndex, setDemoTourActive, progress]);
 
-  // Pause is observed directly by the running hold/wait loops via pausedRef, so
-  // no extra effect is needed to freeze the progress bar.
+  return <TourController progress={progress} />;
+}
 
+/**
+ * The shared visual controller. Reads the current step + paused state from the
+ * store and writes control intents back to it (so both the root runner and any
+ * embedded copy stay in sync). When `progress` is omitted (embedded copies) the
+ * bar is driven from the store-published step instead.
+ */
+function TourController({ progress }: { progress?: ReturnType<typeof useSharedValue<number>> }) {
+  const index = useMemoria((s) => s.demoTourIndex);
+  const paused = useMemoria((s) => s.demoTourPaused);
+  const setIndex = useMemoria((s) => s.setDemoTourIndex);
+  const setPaused = useMemoria((s) => s.setDemoTourPaused);
+  const setDemoTourActive = useMemoria((s) => s.setDemoTourActive);
+
+  const [hidden, setHidden] = useState(false);
+
+  const step = TOUR_STEPS[index];
+  const total = TOUR_STEPS.length;
+
+  const goTo = useCallback(
+    (next: number) => {
+      setIndex(Math.max(0, Math.min(TOUR_STEPS.length - 1, next)));
+    },
+    [setIndex],
+  );
+
+  const exit = useCallback(() => {
+    setDemoTourActive(false);
+  }, [setDemoTourActive]);
+
+  // Embedded copies have no live progress signal, so fall back to a static bar
+  // that reflects how far through the script we are.
+  const fallback = useSharedValue(0);
+  fallback.value = total > 1 ? index / (total - 1) : 0;
   const barStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
+    width: `${(progress ?? fallback).value * 100}%`,
   }));
 
   const narration = useMemo(() => step.narration, [step]);
@@ -231,7 +261,7 @@ function TourRunner() {
             <Pressable onPress={() => goTo(index - 1)} hitSlop={10} disabled={index === 0}>
               <SkipBack size={20} color={index === 0 ? 'rgba(148,163,184,0.4)' : MUTED} />
             </Pressable>
-            <Pressable onPress={() => setPaused((p) => !p)} hitSlop={12}>
+            <Pressable onPress={() => setPaused(!paused)} hitSlop={12}>
               <View
                 className="h-11 w-11 items-center justify-center rounded-full"
                 style={{

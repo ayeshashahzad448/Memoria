@@ -15,6 +15,7 @@ import { Check, Lock, Sparkles, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { StorageBar } from '@/components/StorageBar';
+import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes, totalMediaBytes } from '@/lib/storage';
@@ -187,6 +188,10 @@ export default function Paywall() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Keep the demo-tour teleprompter visible above this modal so the
+          pricing beats stay narrated without manually exiting the paywall. */}
+      <DemoTourOverlay embedded />
     </View>
   );
 }

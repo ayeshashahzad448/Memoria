@@ -50,6 +50,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const hasSeenTabTour = useMemoria((s) => s.hasSeenTabTour);
   const completeTabTour = useMemoria((s) => s.completeTabTour);
+  const demoTourActive = useMemoria((s) => s.demoTourActive);
   const starCount = useMemoria((s) => s.stars.length);
   const memoryPanelOpen = useMemoria((s) => s.memoryPanelOpen);
   const [tourVisible, setTourVisible] = useState(false);
@@ -77,12 +78,20 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   // floating detail panel (memoryPanelOpen === false) so the tour starts only
   // after they press exit, never interrupting the memory they just made.
   useEffect(() => {
-    if (hasSeenTabTour || !hasSeenTutorial || !onCosmos || starCount === 0 || memoryPanelOpen) {
+    if (
+      demoTourActive ||
+      hasSeenTabTour ||
+      !hasSeenTutorial ||
+      !onCosmos ||
+      starCount === 0 ||
+      memoryPanelOpen
+    ) {
+      if (demoTourActive) setTourVisible(false);
       return undefined;
     }
     const t = setTimeout(() => setTourVisible(true), 600);
     return () => clearTimeout(t);
-  }, [hasSeenTabTour, hasSeenTutorial, onCosmos, starCount, memoryPanelOpen]);
+  }, [demoTourActive, hasSeenTabTour, hasSeenTutorial, onCosmos, starCount, memoryPanelOpen]);
 
   const dismissTour = () => {
     setTourVisible(false);

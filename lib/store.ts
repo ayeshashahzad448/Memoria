@@ -103,6 +103,10 @@ export interface MemoriaState {
   memoryPanelOpen: boolean;
   /** Transient: whether the guided demo walkthrough (for recording) is running. Not persisted. */
   demoTourActive: boolean;
+  /** Transient: current 0-based step index of the running demo tour (published by the runner so embedded teleprompters can mirror it). Not persisted. */
+  demoTourIndex: number;
+  /** Transient: whether the running demo tour is paused. Not persisted. */
+  demoTourPaused: boolean;
   /** Transient: when set, the Create-memory screen mirrors these fields (lets the demo tour simulate live typing). Not persisted. */
   demoCompose: DemoCompose | null;
   /** Editable user profile. */
@@ -146,8 +150,12 @@ export interface MemoriaState {
   setRecentlyDeletedTitle: (title: string | null) => void;
   /** Mark whether a floating memory detail panel is currently open on the cosmos. */
   setMemoryPanelOpen: (open: boolean) => void;
-  /** Start/stop the guided demo walkthrough (for recording a demo video). */
+  /** Start/stop the guided demo walkthrough (for recording a demo video). Stopping also resets the published step/pause state. */
   setDemoTourActive: (active: boolean) => void;
+  /** Published by the runner: the current step index. Embedded teleprompters mirror this. */
+  setDemoTourIndex: (index: number) => void;
+  /** Set the paused state of the running demo tour (read by the runner). */
+  setDemoTourPaused: (paused: boolean) => void;
   /** Set/clear the demo compose mirror so the tour can drive the Create screen. */
   setDemoCompose: (compose: DemoCompose | null) => void;
 
@@ -212,6 +220,8 @@ export const useMemoria = create<MemoriaState>()(
       recentlyDeletedTitle: null,
       memoryPanelOpen: false,
       demoTourActive: false,
+      demoTourIndex: 0,
+      demoTourPaused: false,
       demoCompose: null,
       profile: {
         displayName: CURRENT_USER.name,
@@ -306,7 +316,14 @@ export const useMemoria = create<MemoriaState>()(
       setOpenMemoryStar: (id) => set({ openMemoryStarId: id }),
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
       setMemoryPanelOpen: (open) => set({ memoryPanelOpen: open }),
-      setDemoTourActive: (active) => set({ demoTourActive: active }),
+      setDemoTourActive: (active) =>
+        set(
+          active
+            ? { demoTourActive: true }
+            : { demoTourActive: false, demoTourIndex: 0, demoTourPaused: false },
+        ),
+      setDemoTourIndex: (index) => set({ demoTourIndex: index }),
+      setDemoTourPaused: (paused) => set({ demoTourPaused: paused }),
       setDemoCompose: (compose) => set({ demoCompose: compose }),
 
       addStar: (input) => {

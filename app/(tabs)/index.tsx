@@ -41,6 +41,7 @@ export default function CosmosTab() {
   const removeStarFromConstellation = useMemoria((s) => s.removeStarFromConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
+  const demoTourActive = useMemoria((s) => s.demoTourActive);
   const focusStarId = useMemoria((s) => s.focusStarId);
   const focusStar = useMemoria((s) => s.focusStar);
   const focusConstellationId = useMemoria((s) => s.focusConstellationId);
@@ -89,10 +90,12 @@ export default function CosmosTab() {
   // Small transient toast shown after a star is removed from a constellation.
   const [removedMessage, setRemovedMessage] = useState<string | null>(null);
 
-  // Show the guided coachmark once for first-time users.
+  // Show the guided coachmark once for first-time users. Suppressed while the
+  // recorded demo tour is running so its overlays never blur the cosmos.
   useEffect(() => {
-    if (!hasSeenTutorial) setTutorialVisible(true);
-  }, [hasSeenTutorial]);
+    if (!hasSeenTutorial && !demoTourActive) setTutorialVisible(true);
+    if (demoTourActive) setTutorialVisible(false);
+  }, [hasSeenTutorial, demoTourActive]);
 
   // The intro label drifts away on its own after a few seconds so it doesn't
   // linger over the cosmos forever.
