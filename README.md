@@ -50,6 +50,33 @@ All generated and orchestrated by Bilt from natural-language instructions.
 
 ---
 
+## ✦ Showcase
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/cosmos.jpg" alt="The 3D cosmos of memories" width="100%" /><br/>
+      <sub><b>The cosmos</b> — every memory a twinkling star</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/ignition.jpg" alt="Star ignition with stellar stats" width="100%" /><br/>
+      <sub><b>Star ignition</b> — a new memory is born</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/constellations.jpg" alt="A constellation drawn between memories" width="100%" /><br/>
+      <sub><b>Constellations</b> — lines drawn between moments</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/recall.jpg" alt="Recall: anniversaries and highlights" width="100%" /><br/>
+      <sub><b>Recall</b> — anniversaries &amp; highlights resurfaced</sub>
+    </td>
+  </tr>
+</table>
+
+> Captured from the built-in demo profile (long-press the Profile footer to load it), so the sky looks full.
+
+---
+
 ## Project info
 
 **Preview URL**: https://app.bilt.me/project/156683ab-3e17-439f-8ed0-8c9382b5d29a/preview
