@@ -11,7 +11,6 @@ import {
   MapPin,
   Mic,
   Box,
-  Plus,
   Square,
   Search,
   Sparkles,
@@ -351,7 +350,6 @@ export default function CosmosTab() {
             groups={selectedStarGroups}
             onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
             onAdd={() => onAddToConstellation(selectedStar)}
-            onCreate={() => beginForge(selectedStar.id)}
             onView={viewConstellation}
             canConnect={stars.length >= 2}
             onClose={() => setSelectedStar(null)}
@@ -475,7 +473,6 @@ function HudCard({
   groups,
   onOpen,
   onAdd,
-  onCreate,
   onView,
   canConnect,
   onClose,
@@ -484,7 +481,6 @@ function HudCard({
   groups: Constellation[];
   onOpen: () => void;
   onAdd: () => void;
-  onCreate: () => void;
   onView: (starIds: string[], constellationId?: string) => void;
   canConnect: boolean;
   onClose: () => void;
@@ -533,70 +529,65 @@ function HudCard({
           </View>
         )}
 
-        <View className="flex-row items-center gap-3.5 pt-0.5">
-          {star.photos.length > 0 && (
-            <View className="flex-row items-center gap-1">
-              <Camera size={12} color={MUTED} />
-              <Text className="text-muted text-xs">{star.photos.length}</Text>
-            </View>
-          )}
-          {star.voiceNotes.length > 0 && (
-            <View className="flex-row items-center gap-1">
-              <Mic size={12} color={MUTED} />
-              <Text className="text-muted text-xs">{star.voiceNotes.length}</Text>
-            </View>
-          )}
-          <View className="ml-auto flex-row items-center gap-1">
-            <Sparkles size={12} color={ACCENT} />
-            <Text className="text-accent text-xs">Open memory</Text>
+        {(star.photos.length > 0 || star.voiceNotes.length > 0) && (
+          <View className="flex-row items-center gap-3.5 pt-0.5">
+            {star.photos.length > 0 && (
+              <View className="flex-row items-center gap-1">
+                <Camera size={12} color={MUTED} />
+                <Text className="text-muted text-xs">{star.photos.length}</Text>
+              </View>
+            )}
+            {star.voiceNotes.length > 0 && (
+              <View className="flex-row items-center gap-1">
+                <Mic size={12} color={MUTED} />
+                <Text className="text-muted text-xs">{star.voiceNotes.length}</Text>
+              </View>
+            )}
           </View>
+        )}
+
+        {/* Actions — equal-sized stacked buttons */}
+        <View className="gap-2 pt-0.5">
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onOpen();
+            }}
+            className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
+          >
+            <Sparkles size={15} color={ACCENT} strokeWidth={2.1} />
+            <Text className="text-accent text-sm font-medium">Open memory</Text>
+          </Pressable>
+
+          {groups.length > 0
+            ? groups.map((g) => (
+                <Pressable
+                  key={g.id}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    onView(g.starIds, g.id);
+                  }}
+                  className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
+                >
+                  <Eye size={15} color={ACCENT} strokeWidth={2.1} />
+                  <Text className="text-accent text-sm font-medium" numberOfLines={1}>
+                    View {g.name}
+                  </Text>
+                </Pressable>
+              ))
+            : canConnect && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    onAdd();
+                  }}
+                  className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
+                >
+                  <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+                  <Text className="text-accent text-sm font-medium">Add to constellation</Text>
+                </Pressable>
+              )}
         </View>
-
-        {/* Constellation actions */}
-        {groups.length > 0 && (
-          <View className="gap-2">
-            {groups.map((g) => (
-              <Pressable
-                key={g.id}
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  onView(g.starIds, g.id);
-                }}
-                className="border-glass-border flex-row items-center justify-center gap-2 rounded-xl border py-2.5"
-              >
-                <Eye size={15} color={ACCENT} strokeWidth={2.1} />
-                <Text className="text-accent text-sm font-medium" numberOfLines={1}>
-                  View {g.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {canConnect && groups.length === 0 && (
-          <View className="flex-row gap-2">
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                onAdd();
-              }}
-              className="border-glass-border flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5"
-            >
-              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
-              <Text className="text-accent text-sm font-medium">Add to</Text>
-            </Pressable>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                onCreate();
-              }}
-              className="border-glass-border flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5"
-            >
-              <Plus size={15} color={ACCENT} strokeWidth={2.1} />
-              <Text className="text-accent text-sm font-medium">Create</Text>
-            </Pressable>
-          </View>
-        )}
       </GlassCard>
     </Pressable>
   );
