@@ -88,6 +88,8 @@ interface MemoriaState {
   signIn: () => void;
   signOut: () => void;
   resetFlow: () => void;
+  /** Wipe all persisted data and return to a fresh-install state. */
+  resetApp: () => void;
   completeOnboarding: () => void;
   completeTutorial: () => void;
   setActiveCosmos: (id: string) => void;
@@ -183,6 +185,29 @@ export const useMemoria = create<MemoriaState>()(
           hasOnboarded: false,
           hasSeenTutorial: false,
           activeCosmosId: PERSONAL_COSMOS,
+        }),
+      resetApp: () =>
+        set({
+          hasOnboarded: false,
+          hasSeenTutorial: false,
+          isAuthed: false,
+          tier: 'free',
+          activeCosmosId: PERSONAL_COSMOS,
+          focusStarId: null,
+          focusConstellationId: null,
+          addToConstellationStarId: null,
+          forgeSeedStarId: null,
+          recentlyDeletedTitle: null,
+          profile: {
+            displayName: CURRENT_USER.name,
+            bio: '',
+            avatarColorKey: 'cyan',
+          },
+          settings: DEFAULT_SETTINGS,
+          friendIds: INITIAL_FRIEND_IDS,
+          stars: [],
+          constellations: [],
+          sharedCosmoses: [],
         }),
       completeOnboarding: () => set({ hasOnboarded: true }),
       completeTutorial: () => set({ hasSeenTutorial: true }),

@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Separator, Switch, Text } from 'heroui-native';
+import { Button, Separator, Switch, Text } from 'heroui-native';
 import {
   ChevronLeft,
   Contrast,
   Eye,
   Globe,
   Lock,
+  Trash2,
   Type,
   UserCheck,
   Vibrate,
@@ -23,6 +25,7 @@ import type { MemoryPrivacy, TextSize } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
+const DANGER = '#FF2A6D';
 
 const TEXT_SIZES: { value: TextSize; label: string }[] = [
   { value: 'small', label: 'Small' },
@@ -109,6 +112,13 @@ export default function SettingsScreen() {
   const router = useRouter();
   const settings = useMemoria((s) => s.settings);
   const updateSettings = useMemoria((s) => s.updateSettings);
+  const resetApp = useMemoria((s) => s.resetApp);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const handleReset = () => {
+    resetApp();
+    router.replace('/');
+  };
 
   return (
     <View className="bg-void flex-1">
@@ -234,10 +244,64 @@ export default function SettingsScreen() {
           </Row>
         </GlassCard>
 
+        {/* Data */}
+        <SectionTitle>Data</SectionTitle>
+        <GlassCard contentClassName="p-1">
+          <Pressable onPress={() => setConfirmReset(true)}>
+            <View className="flex-row items-center gap-3 px-4 py-3.5">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(255,42,109,0.12)' }}
+              >
+                <Trash2 size={17} color={DANGER} />
+              </View>
+              <View className="flex-1">
+                <Text className="font-medium" style={{ color: DANGER }}>
+                  Reset app
+                </Text>
+                <Text className="text-muted text-xs leading-4">
+                  Erase all memories, constellations and settings
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        </GlassCard>
+
         <Text className="text-muted mt-6 text-center text-[11px] leading-4">
           Preferences are saved on this device.
         </Text>
       </ScrollView>
+
+      {confirmReset ? (
+        <View
+          className="absolute inset-0 items-center justify-center px-8"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+        >
+          <GlassCard contentClassName="gap-4 p-6">
+            <View className="items-center gap-2">
+              <View
+                className="h-12 w-12 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(255,42,109,0.12)' }}
+              >
+                <Trash2 size={22} color={DANGER} />
+              </View>
+              <Text className="text-starlight font-display text-xl font-bold">Reset app?</Text>
+              <Text className="text-muted text-center text-sm leading-5">
+                This permanently erases every memory, constellation, shared cosmos and preference on
+                this device. You will start over from a blank cosmos.
+              </Text>
+            </View>
+            <View className="gap-2">
+              <Button variant="danger" onPress={handleReset}>
+                <Button.Label>Erase everything</Button.Label>
+              </Button>
+              <Button variant="ghost" onPress={() => setConfirmReset(false)}>
+                <Button.Label>Cancel</Button.Label>
+              </Button>
+            </View>
+          </GlassCard>
+        </View>
+      ) : null}
     </View>
   );
 }
