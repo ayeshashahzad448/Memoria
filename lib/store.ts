@@ -59,6 +59,8 @@ interface MemoriaState {
   hasOnboarded: boolean;
   /** Whether the in-cosmos coachmark tutorial has been shown. */
   hasSeenTutorial: boolean;
+  /** Whether the bottom-tab walkthrough (shown after the first star) has been seen. */
+  hasSeenTabTour: boolean;
   isAuthed: boolean;
   /** Account tier; gates cloud storage. */
   tier: AccountTier;
@@ -94,6 +96,7 @@ interface MemoriaState {
   resetApp: () => void;
   completeOnboarding: () => void;
   completeTutorial: () => void;
+  completeTabTour: () => void;
   setActiveCosmos: (id: string) => void;
   setTier: (tier: AccountTier) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
@@ -162,6 +165,7 @@ export const useMemoria = create<MemoriaState>()(
     (set, get) => ({
       hasOnboarded: false,
       hasSeenTutorial: false,
+      hasSeenTabTour: false,
       isAuthed: false,
       tier: 'free',
       activeCosmosId: PERSONAL_COSMOS,
@@ -195,6 +199,7 @@ export const useMemoria = create<MemoriaState>()(
         set({
           hasOnboarded: false,
           hasSeenTutorial: false,
+          hasSeenTabTour: false,
           isAuthed: false,
           tier: 'free',
           activeCosmosId: PERSONAL_COSMOS,
@@ -219,6 +224,7 @@ export const useMemoria = create<MemoriaState>()(
       // mark the in-cosmos coachmark as seen to avoid repeating the same intro.
       completeOnboarding: () => set({ hasOnboarded: true, hasSeenTutorial: true }),
       completeTutorial: () => set({ hasSeenTutorial: true }),
+      completeTabTour: () => set({ hasSeenTabTour: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
       setTier: (tier) => set({ tier }),
       updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
@@ -480,6 +486,7 @@ export const useMemoria = create<MemoriaState>()(
       partialize: (state) => ({
         hasOnboarded: state.hasOnboarded,
         hasSeenTutorial: state.hasSeenTutorial,
+        hasSeenTabTour: state.hasSeenTabTour,
         isAuthed: state.isAuthed,
         tier: state.tier,
         activeCosmosId: state.activeCosmosId,

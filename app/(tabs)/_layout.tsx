@@ -1,4 +1,5 @@
 import { Tabs, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text } from 'heroui-native';
@@ -7,7 +8,8 @@ import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { colorFor } from '@/lib/memoria';
-import { PERSONAL_COSMOS } from '@/lib/store';
+import { PERSONAL_COSMOS, useMemoria } from '@/lib/store';
+import { TabBarTour } from '@/components/TabBarTour';
 
 const ACCENT = colorFor('cyan').hex;
 const MUTED = '#94A3B8';
@@ -44,6 +46,29 @@ export default function TabsLayout() {
 
 function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const router = useRouter();
+  const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
+  const hasSeenTabTour = useMemoria((s) => s.hasSeenTabTour);
+  const completeTabTour = useMemoria((s) => s.completeTabTour);
+  const starCount = useMemoria((s) => s.stars.length);
+  const [tourVisible, setTourVisible] = useState(false);
+
+  const activeRouteName = state.routes[state.index]?.name;
+  const onCosmos = activeRouteName === 'index';
+
+  // Once the user has created their first star, walk them through the tab bar
+  // a single time. Only while the Cosmos tab is active and after the in-cosmos
+  // coachmark, with a short delay so the create/ignition return settles first.
+  useEffect(() => {
+    if (hasSeenTabTour || !hasSeenTutorial || !onCosmos || starCount === 0) return undefined;
+    const t = setTimeout(() => setTourVisible(true), 1100);
+    return () => clearTimeout(t);
+  }, [hasSeenTabTour, hasSeenTutorial, onCosmos, starCount]);
+
+  const dismissTour = () => {
+    setTourVisible(false);
+    completeTabTour();
+  };
+
   // Render in the requested visual order regardless of route registration order.
   const ordered = TABS.map((tab) => {
     const index = state.routes.findIndex((r) => r.name === tab.name);
@@ -51,76 +76,83 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   }).filter((o) => o.route);
 
   return (
-    <View
-      className="border-glass-border absolute inset-x-0 bottom-0 border-t"
-      style={{
-        shadowColor: ACCENT,
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: -4 },
-      }}
-    >
-      {/* Clipped frosted-glass background. Kept separate so the raised center
+    <>
+      {tourVisible && <TabBarTour onDone={dismissTour} />}
+      <View
+        className="border-glass-border absolute inset-x-0 bottom-0 border-t"
+        style={{
+          shadowColor: ACCENT,
+          shadowOpacity: 0.1,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: -4 },
+        }}
+      >
+        {/* Clipped frosted-glass background. Kept separate so the raised center
           button can overflow above the bar without being cut off. */}
-      <View style={StyleSheet.absoluteFill} className="overflow-hidden">
-        <BlurView
-          intensity={Platform.OS === 'android' ? 28 : 44}
-          tint="dark"
-          className="absolute inset-0"
-        />
-        <View className="bg-void/70 absolute inset-0" />
-      </View>
-      <View className="pb-safe-offset-4 flex-row items-end px-2 pt-2.5">
-        {ordered.map(({ tab, route, index }) => {
-          const focused = state.index === index;
-          const Icon = tab.icon;
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
-          };
+        <View style={StyleSheet.absoluteFill} className="overflow-hidden">
+          <BlurView
+            intensity={Platform.OS === 'android' ? 28 : 44}
+            tint="dark"
+            className="absolute inset-0"
+          />
+          <View className="bg-void/70 absolute inset-0" />
+        </View>
+        <View className="pb-safe-offset-4 flex-row items-end px-2 pt-2.5">
+          {ordered.map(({ tab, route, index }) => {
+            const focused = state.index === index;
+            const Icon = tab.icon;
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+            };
 
-          if (tab.center) {
+            if (tab.center) {
+              return (
+                <CenterTab
+                  key={route.key}
+                  label={tab.label}
+                  icon={Icon}
+                  focused={focused}
+                  onPress={onPress}
+                  onCreate={() =>
+                    router.push({
+                      pathname: '/star/create',
+                      params: { cosmosId: PERSONAL_COSMOS },
+                    })
+                  }
+                />
+              );
+            }
+
             return (
-              <CenterTab
+              <Pressable
                 key={route.key}
-                label={tab.label}
-                icon={Icon}
-                focused={focused}
                 onPress={onPress}
-                onCreate={() =>
-                  router.push({
-                    pathname: '/star/create',
-                    params: { cosmosId: PERSONAL_COSMOS },
-                  })
-                }
-              />
-            );
-          }
-
-          return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              className="flex-1 items-center justify-end gap-1 pb-1"
-              hitSlop={4}
-            >
-              <Icon size={21} color={focused ? ACCENT : MUTED} strokeWidth={focused ? 2.2 : 1.7} />
-              <Text
-                className="text-[10px] font-medium"
-                style={{ color: focused ? ACCENT : MUTED }}
-                numberOfLines={1}
+                className="flex-1 items-center justify-end gap-1 pb-1"
+                hitSlop={4}
               >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+                <Icon
+                  size={21}
+                  color={focused ? ACCENT : MUTED}
+                  strokeWidth={focused ? 2.2 : 1.7}
+                />
+                <Text
+                  className="text-[10px] font-medium"
+                  style={{ color: focused ? ACCENT : MUTED }}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
