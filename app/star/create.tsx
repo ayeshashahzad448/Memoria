@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { CalendarDays, Camera, MapPin, Mic, Plus, Square, X } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
+import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 import { StarPreview } from '@/components/StarPreview';
 import { WheelDatePicker } from '@/components/WheelDatePicker';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
@@ -255,6 +256,7 @@ export default function CreateStar() {
           </Button>
         </View>
       </KeyboardAvoidingView>
+      <DemoTourOverlay embedded />
     </View>
   );
 }

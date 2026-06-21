@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Flame, Sparkles, Sun, Weight } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
+import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { StarIgnition } from '@/components/StarIgnition';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
@@ -202,6 +203,7 @@ export default function IgniteStar() {
           <Text className="text-muted text-xs">Skip</Text>
         </Pressable>
       </View>
+      <DemoTourOverlay embedded />
     </View>
   );
 }
