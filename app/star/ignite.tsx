@@ -38,6 +38,7 @@ export default function IgniteStar() {
   const params = useLocalSearchParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
+  const focusStar = useMemoria((s) => s.focusStar);
 
   const progress = useSharedValue(0);
   const twinkle = useSharedValue(0);
@@ -177,14 +178,18 @@ export default function IgniteStar() {
       <View className="mt-8 w-full">
         <Button
           isDisabled={!done}
-          onPress={() =>
-            router.replace({ pathname: '/star/[id]', params: { id: star.id, justCreated: '1' } })
-          }
+          onPress={() => {
+            focusStar(star.id);
+            router.replace({ pathname: '/star/[id]', params: { id: star.id, justCreated: '1' } });
+          }}
         >
           {done ? 'Enter the cosmos' : 'Stabilizing…'}
         </Button>
         <Pressable
-          onPress={() => router.replace({ pathname: '/star/[id]', params: { id: star.id } })}
+          onPress={() => {
+            focusStar(star.id);
+            router.replace({ pathname: '/star/[id]', params: { id: star.id } });
+          }}
           hitSlop={10}
           className="mt-3 items-center"
         >

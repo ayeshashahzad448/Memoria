@@ -32,7 +32,15 @@ export default function StarDetail() {
   const id = params.id;
   const justCreated = params.justCreated === '1';
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
+  const focusStar = useMemoria((s) => s.focusStar);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // When closing a freshly created memory, frame it in the cosmos so the user
+  // lands right on their new star instead of having to hunt for it.
+  const closeToCosmos = () => {
+    if (justCreated && star) focusStar(star.id);
+    router.back();
+  };
 
   const stats = useMemo(() => (star ? starStatsForStar(star) : null), [star]);
 
@@ -83,7 +91,7 @@ export default function StarDetail() {
               <Pencil size={15} color={ACCENT} />
               <Text className="text-accent">Edit</Text>
             </Pressable>
-            <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Pressable onPress={closeToCosmos} hitSlop={12}>
               <Text className="text-muted">Close</Text>
             </Pressable>
           </View>

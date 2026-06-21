@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button, Input, Text, TextField, useToast } from 'heroui-native';
+import { Button, Input, Text, TextField } from 'heroui-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import {
@@ -43,7 +44,9 @@ export default function CosmosTab() {
   const focusConstellation = useMemoria((s) => s.focusConstellation);
   const recentlyDeletedTitle = useMemoria((s) => s.recentlyDeletedTitle);
   const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
-  const { toast } = useToast();
+
+  // Centered, readable confirmation shown after a memory dissolves.
+  const [deletedMessage, setDeletedMessage] = useState<string | null>(null);
 
   // The central Cosmos is always the user's personal universe. Shared cosmos
   // spaces live in the Shared tab.
@@ -97,16 +100,19 @@ export default function CosmosTab() {
     }
   }, [stars, selectedStar]);
 
-  // After a memory is dissolved, confirm the deletion with a toast.
+  // After a memory is dissolved, confirm the deletion with a centered message
+  // that lingers long enough to read, then fades out on its own.
   useEffect(() => {
     if (!recentlyDeletedTitle) return;
-    toast.show({
-      variant: 'default',
-      label: 'Memory deleted',
-      description: `"${recentlyDeletedTitle}" has faded from your cosmos.`,
-    });
+    setDeletedMessage(recentlyDeletedTitle);
     setRecentlyDeletedTitle(null);
-  }, [recentlyDeletedTitle, toast, setRecentlyDeletedTitle]);
+  }, [recentlyDeletedTitle, setRecentlyDeletedTitle]);
+
+  useEffect(() => {
+    if (!deletedMessage) return undefined;
+    const t = setTimeout(() => setDeletedMessage(null), 4200);
+    return () => clearTimeout(t);
+  }, [deletedMessage]);
 
   const dismissTutorial = () => {
     setTutorialVisible(false);
@@ -431,6 +437,24 @@ export default function CosmosTab() {
               </Button>
             </View>
           </GlassCard>
+        </View>
+      )}
+
+      {deletedMessage && (
+        <View pointerEvents="none" className="absolute inset-0 items-center justify-center px-10">
+          <Animated.View entering={FadeIn.duration(280)} exiting={FadeOut.duration(600)}>
+            <GlassCard contentClassName="items-center gap-2 px-7 py-6">
+              <View className="bg-accent/10 mb-1 h-11 w-11 items-center justify-center rounded-full">
+                <Sparkles size={22} color={ACCENT} strokeWidth={2} />
+              </View>
+              <Text className="text-starlight font-display text-lg font-semibold">
+                Memory deleted
+              </Text>
+              <Text className="text-muted text-center text-sm leading-5">
+                {`"${deletedMessage}" has faded from your cosmos.`}
+              </Text>
+            </GlassCard>
+          </Animated.View>
         </View>
       )}
 
