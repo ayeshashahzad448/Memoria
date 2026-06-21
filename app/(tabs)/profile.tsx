@@ -36,6 +36,7 @@ export default function ProfileTab() {
   const setTier = useMemoria((s) => s.setTier);
   const updateProfile = useMemoria((s) => s.updateProfile);
   const loadDemoProfile = useMemoria((s) => s.loadDemoProfile);
+  const setDemoTourActive = useMemoria((s) => s.setDemoTourActive);
 
   const isPremium = tier === 'premium';
   const used = useMemo(() => totalMediaBytes(stars), [stars]);
@@ -90,6 +91,13 @@ export default function ProfileTab() {
   const onLoadDemo = () => {
     loadDemoProfile();
     router.replace('/(tabs)');
+  };
+
+  // Hidden demo entry: long-press the @handle to start the auto-playing guided
+  // walkthrough (for recording a demo video). It runs from the blank first-run
+  // perspective through to the populated cosmos on its own.
+  const onStartTour = () => {
+    setDemoTourActive(true);
   };
 
   return (
@@ -204,7 +212,9 @@ export default function ProfileTab() {
                 <Text className="text-starlight text-lg font-semibold">
                   {profile.displayName || CURRENT_USER.name}
                 </Text>
-                <Text className="text-muted text-xs">@{CURRENT_USER.handle}</Text>
+                <Pressable onLongPress={onStartTour} delayLongPress={800} hitSlop={8}>
+                  <Text className="text-muted text-xs">@{CURRENT_USER.handle}</Text>
+                </Pressable>
               </View>
               <View
                 className="rounded-full border px-3 py-1"

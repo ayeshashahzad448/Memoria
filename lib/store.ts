@@ -56,7 +56,7 @@ export interface NewStarInput {
   cosmosId: string;
 }
 
-interface MemoriaState {
+export interface MemoriaState {
   hasOnboarded: boolean;
   /** Whether the in-cosmos coachmark tutorial has been shown. */
   hasSeenTutorial: boolean;
@@ -81,6 +81,8 @@ interface MemoriaState {
   recentlyDeletedTitle: string | null;
   /** Transient: whether a floating memory detail panel is currently open on the cosmos. Not persisted. */
   memoryPanelOpen: boolean;
+  /** Transient: whether the guided demo walkthrough (for recording) is running. Not persisted. */
+  demoTourActive: boolean;
   /** Editable user profile. */
   profile: UserProfile;
   /** Accessibility / app preferences. */
@@ -122,6 +124,8 @@ interface MemoriaState {
   setRecentlyDeletedTitle: (title: string | null) => void;
   /** Mark whether a floating memory detail panel is currently open on the cosmos. */
   setMemoryPanelOpen: (open: boolean) => void;
+  /** Start/stop the guided demo walkthrough (for recording a demo video). */
+  setDemoTourActive: (active: boolean) => void;
 
   addStar: (input: NewStarInput) => MemoryStar;
   updateStar: (id: string, patch: Partial<MemoryStar>) => void;
@@ -183,6 +187,7 @@ export const useMemoria = create<MemoriaState>()(
       openMemoryStarId: null,
       recentlyDeletedTitle: null,
       memoryPanelOpen: false,
+      demoTourActive: false,
       profile: {
         displayName: CURRENT_USER.name,
         bio: '',
@@ -274,6 +279,7 @@ export const useMemoria = create<MemoriaState>()(
       setOpenMemoryStar: (id) => set({ openMemoryStarId: id }),
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
       setMemoryPanelOpen: (open) => set({ memoryPanelOpen: open }),
+      setDemoTourActive: (active) => set({ demoTourActive: active }),
 
       addStar: (input) => {
         const { x, y } = placeStar(get().stars, input.cosmosId);

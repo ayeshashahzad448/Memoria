@@ -32,6 +32,7 @@ import {
 import { initPostHog } from '@/lib/posthog';
 import { reportErrorToParent } from '@/lib/reportPreviewError';
 import { getMokotoFontMap, injectMokotoWebFont } from '@/lib/fonts';
+import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 
 /**
  * Custom ErrorBoundary that reports React render errors to the parent window (Bilt preview iframe)
@@ -213,6 +214,9 @@ function RootNavigator() {
           }}
         />
       </Stack>
+      {/* Guided demo walkthrough controller (hidden until started). Mounted at
+          the root so it persists across navigation while it drives the app. */}
+      <DemoTourOverlay />
     </>
   );
 }
