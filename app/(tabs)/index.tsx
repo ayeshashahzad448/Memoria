@@ -264,7 +264,7 @@ export default function CosmosTab() {
                 router.push('/constellations');
               }}
               hitSlop={8}
-              className="items-center"
+              className="h-11 w-11"
             >
               <View
                 className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
@@ -272,7 +272,13 @@ export default function CosmosTab() {
               >
                 <Spline width={22} height={22} color={ACCENT} strokeWidth={2.1} />
               </View>
-              <Text className="text-muted mt-1 text-[10px] font-medium">Constellations</Text>
+              <Text
+                className="text-muted absolute -bottom-4 text-center text-[9px] font-medium"
+                style={{ width: 64, left: -10 }}
+                numberOfLines={1}
+              >
+                Constellations
+              </Text>
             </Pressable>
           </View>
         </View>
