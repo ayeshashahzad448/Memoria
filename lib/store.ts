@@ -209,7 +209,9 @@ export const useMemoria = create<MemoriaState>()(
           constellations: [],
           sharedCosmoses: [],
         }),
-      completeOnboarding: () => set({ hasOnboarded: true }),
+      // Onboarding already walks the user through creating their first star, so
+      // mark the in-cosmos coachmark as seen to avoid repeating the same intro.
+      completeOnboarding: () => set({ hasOnboarded: true, hasSeenTutorial: true }),
       completeTutorial: () => set({ hasSeenTutorial: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
       setTier: (tier) => set({ tier }),

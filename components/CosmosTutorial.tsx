@@ -95,7 +95,7 @@ export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCre
                 </Button>
               )}
               <Button size="sm" onPress={next}>
-                <Button.Label>{isLast ? 'Create your first star' : 'Next'}</Button.Label>
+                <Button.Label>{isLast ? 'Add a memory' : 'Next'}</Button.Label>
               </Button>
             </View>
           </View>
