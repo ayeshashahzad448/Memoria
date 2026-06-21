@@ -68,6 +68,10 @@ interface MemoriaState {
   focusStarId: string | null;
   /** Transient: a constellation the cosmos should frame and draw (e.g. from the Constellations list). Not persisted. */
   focusConstellationId: string | null;
+  /** Transient: a star the user is adding to a constellation (drives the Constellations screen add mode). Not persisted. */
+  addToConstellationStarId: string | null;
+  /** Transient: when set, the cosmos should begin forging a new constellation seeded with this star. Not persisted. */
+  forgeSeedStarId: string | null;
   /** Transient: title of the most recently deleted memory, used to surface a confirmation toast. Not persisted. */
   recentlyDeletedTitle: string | null;
   /** Editable user profile. */
@@ -96,6 +100,10 @@ interface MemoriaState {
   focusStar: (id: string | null) => void;
   /** Request the cosmos to frame and draw a constellation. Pass null to clear. */
   focusConstellation: (id: string | null) => void;
+  /** Begin the "add this star to a constellation" flow (drives the Constellations screen). Pass null to clear. */
+  setAddToConstellationStar: (id: string | null) => void;
+  /** Ask the cosmos to start forging a new constellation seeded with this star. Pass null to clear. */
+  setForgeSeedStar: (id: string | null) => void;
   /** Set/clear the recently-deleted memory title (drives a confirmation toast). */
   setRecentlyDeletedTitle: (title: string | null) => void;
 
@@ -147,6 +155,8 @@ export const useMemoria = create<MemoriaState>()(
       activeCosmosId: PERSONAL_COSMOS,
       focusStarId: null,
       focusConstellationId: null,
+      addToConstellationStarId: null,
+      forgeSeedStarId: null,
       recentlyDeletedTitle: null,
       profile: {
         displayName: CURRENT_USER.name,
@@ -182,6 +192,8 @@ export const useMemoria = create<MemoriaState>()(
         set((state) => ({ friendIds: state.friendIds.filter((f) => f !== id) })),
       focusStar: (id) => set({ focusStarId: id }),
       focusConstellation: (id) => set({ focusConstellationId: id }),
+      setAddToConstellationStar: (id) => set({ addToConstellationStarId: id }),
+      setForgeSeedStar: (id) => set({ forgeSeedStarId: id }),
       setRecentlyDeletedTitle: (title) => set({ recentlyDeletedTitle: title }),
 
       addStar: (input) => {

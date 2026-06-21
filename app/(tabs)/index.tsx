@@ -22,6 +22,7 @@ import {
 import { CosmosCanvas } from '@/components/CosmosCanvas';
 import { GlassCard } from '@/components/GlassCard';
 import { CosmosTutorial } from '@/components/CosmosTutorial';
+import { MemoryDetailPanel } from '@/components/MemoryDetailPanel';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { Constellation, MemoryStar } from '@/lib/types';
@@ -34,13 +35,15 @@ export default function CosmosTab() {
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
-  const addStarsToConstellation = useMemoria((s) => s.addStarsToConstellation);
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const completeTutorial = useMemoria((s) => s.completeTutorial);
   const focusStarId = useMemoria((s) => s.focusStarId);
   const focusStar = useMemoria((s) => s.focusStar);
   const focusConstellationId = useMemoria((s) => s.focusConstellationId);
   const focusConstellation = useMemoria((s) => s.focusConstellation);
+  const forgeSeedStarId = useMemoria((s) => s.forgeSeedStarId);
+  const setForgeSeedStar = useMemoria((s) => s.setForgeSeedStar);
+  const setAddToConstellationStar = useMemoria((s) => s.setAddToConstellationStar);
   const recentlyDeletedTitle = useMemoria((s) => s.recentlyDeletedTitle);
   const setRecentlyDeletedTitle = useMemoria((s) => s.setRecentlyDeletedTitle);
 
@@ -67,8 +70,8 @@ export default function CosmosTab() {
   const [fitIds, setFitIds] = useState<string[] | null>(null);
   // Constellation id the canvas should play the glowing line-draw animation for.
   const [drawId, setDrawId] = useState<string | null>(null);
-  // A star awaiting "add to an existing constellation" selection.
-  const [addStarTarget, setAddStarTarget] = useState<MemoryStar | null>(null);
+  // The memory whose floating detail panel is open (slides in on the right).
+  const [viewingStar, setViewingStar] = useState<MemoryStar | null>(null);
 
   // Show the guided coachmark once for first-time users.
   useEffect(() => {
@@ -91,13 +94,35 @@ export default function CosmosTab() {
     focusStar(null);
   }, [focusStarId, stars, focusStar]);
 
+  // When returning from the Constellations screen with a "create new from this
+  // star" request, begin the forge seeded with that star.
+  useEffect(() => {
+    if (!forgeSeedStarId) return;
+    const seed = stars.find((s) => s.id === forgeSeedStarId);
+    setForgeSeedStar(null);
+    if (!seed) return;
+    setViewingStar(null);
+    setSelectedStar(null);
+    setFitIds(null);
+    setForging(true);
+    setForgeIds([seed.id]);
+    setForgeName('');
+  }, [forgeSeedStarId, stars, setForgeSeedStar]);
+
   // If the selected star is removed from the store (e.g. deleted via the
-  // dissolve flow), drop its HUD card instead of leaving a stale card up.
+  // dissolve flow), drop its HUD card / detail panel instead of leaving stale UI.
   useEffect(() => {
     if (selectedStar && !stars.some((s) => s.id === selectedStar.id)) {
       setSelectedStar(null);
     }
-  }, [stars, selectedStar]);
+    if (viewingStar && !stars.some((s) => s.id === viewingStar.id)) {
+      setViewingStar(null);
+    } else if (viewingStar) {
+      // Keep the open panel in sync with edits made to the memory.
+      const fresh = stars.find((s) => s.id === viewingStar.id);
+      if (fresh && fresh !== viewingStar) setViewingStar(fresh);
+    }
+  }, [stars, selectedStar, viewingStar]);
 
   // After a memory is dissolved, confirm the deletion with a centered message
   // that lingers long enough to read, then fades out on its own.
@@ -143,15 +168,12 @@ export default function CosmosTab() {
       setForgeIds((p) => (p.includes(star.id) ? p.filter((x) => x !== star.id) : [...p, star.id]));
       return;
     }
+    // If the detail panel is open, swap it to the newly tapped memory.
+    if (viewingStar) {
+      openMemory(star);
+      return;
+    }
     setSelectedStar(star);
-  };
-
-  const beginForge = (seedStarId?: string) => {
-    setSelectedStar(null);
-    setFitIds(null);
-    setForging(true);
-    setForgeIds(seedStarId ? [seedStarId] : []);
-    setForgeName('');
   };
 
   const confirmForge = () => {
@@ -179,8 +201,8 @@ export default function CosmosTab() {
   const viewConstellation = (starIds: string[], constellationId?: string) => {
     void Haptics.selectionAsync();
     setSelectedStar(null);
+    setViewingStar(null);
     setForging(false);
-    setAddStarTarget(null);
     // Re-fire even if the same group is requested again.
     setFitIds(null);
     setDrawId(null);
@@ -200,36 +222,25 @@ export default function CosmosTab() {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [focusConstellationId, constellations, focusConstellation]);
 
-  // Constellations a given star is NOT already part of (candidates to add to).
-  const addCandidates = useMemo(() => {
-    if (!addStarTarget) return [];
-    return constellations.filter((c) => !c.starIds.includes(addStarTarget.id));
-  }, [addStarTarget, constellations]);
+  // Open the memory's floating detail panel and zoom into the star on the left.
+  const openMemory = (star: MemoryStar) => {
+    void Haptics.selectionAsync();
+    setForging(false);
+    setFitIds(null);
+    setSelectedStar(star);
+    setViewingStar(star);
+    setCanvasFocusId(null);
+    requestAnimationFrame(() => setCanvasFocusId(star.id));
+  };
 
-  // "Add to" a star: if there are existing constellations to join, open the
-  // picker; otherwise start a fresh forge seeded with this star.
+  // "Add to constellation": hand the star to the Constellations screen so the
+  // user can pick an existing one or start a new one there.
   const onAddToConstellation = (star: MemoryStar) => {
-    const candidates = constellations.filter((c) => !c.starIds.includes(star.id));
-    if (candidates.length > 0) {
-      setSelectedStar(null);
-      setAddStarTarget(star);
-      return;
-    }
-    beginForge(star.id);
+    void Haptics.selectionAsync();
+    setSelectedStar(null);
+    setAddToConstellationStar(star.id);
+    router.push('/constellations');
   };
-
-  const confirmAddToExisting = (constellation: Constellation) => {
-    if (!addStarTarget) return;
-    addStarsToConstellation(constellation.id, [addStarTarget.id]);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const allIds = Array.from(new Set([...constellation.starIds, addStarTarget.id]));
-    setAddStarTarget(null);
-    // Frame the group and replay the glowing draw across the updated lines.
-    setFitIds(allIds);
-    setDrawId(null);
-    requestAnimationFrame(() => setDrawId(constellation.id));
-  };
-
   return (
     <View className="bg-void flex-1">
       <CosmosCanvas
@@ -246,6 +257,7 @@ export default function CosmosTab() {
         onTapStar={onTapStar}
         onTapEmpty={() => {
           setSelectedStar(null);
+          setViewingStar(null);
           setFitIds(null);
         }}
       />
@@ -343,12 +355,12 @@ export default function CosmosTab() {
       )}
 
       {/* HUD card on tap */}
-      {selectedStar && !forging && (
+      {selectedStar && !viewingStar && !forging && (
         <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
           <HudCard
             star={selectedStar}
             groups={selectedStarGroups}
-            onOpen={() => router.push({ pathname: '/star/[id]', params: { id: selectedStar.id } })}
+            onOpen={() => openMemory(selectedStar)}
             onAdd={() => onAddToConstellation(selectedStar)}
             onView={viewConstellation}
             canConnect={stars.length >= 2}
@@ -357,46 +369,16 @@ export default function CosmosTab() {
         </View>
       )}
 
-      {/* Add-to-existing constellation picker */}
-      {addStarTarget && (
-        <View className="pb-safe-offset-32 absolute inset-x-0 bottom-0 px-4">
-          <GlassCard contentClassName="gap-3 p-5">
-            <Text className="text-starlight font-semibold">Add to a constellation</Text>
-            <Text className="text-muted text-xs" numberOfLines={1}>
-              Link {addStarTarget.title} into an existing constellation.
-            </Text>
-            <View className="gap-2">
-              {addCandidates.map((c) => (
-                <Pressable
-                  key={c.id}
-                  onPress={() => confirmAddToExisting(c)}
-                  className="border-glass-border flex-row items-center gap-2 rounded-xl border px-3.5 py-3"
-                >
-                  <Spline size={15} color={ACCENT} strokeWidth={2.1} />
-                  <Text className="text-starlight flex-1 text-sm font-medium" numberOfLines={1}>
-                    {c.name}
-                  </Text>
-                  <Text className="text-muted text-xs">{c.starIds.length}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View className="flex-row gap-3">
-              <Button variant="ghost" className="flex-1" onPress={() => setAddStarTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onPress={() => {
-                  const seed = addStarTarget.id;
-                  setAddStarTarget(null);
-                  beginForge(seed);
-                }}
-              >
-                New instead
-              </Button>
-            </View>
-          </GlassCard>
-        </View>
+      {/* Floating memory detail panel — slides in from the right, star stays
+          zoomed-in on the left. */}
+      {viewingStar && (
+        <MemoryDetailPanel
+          star={viewingStar}
+          onClose={() => {
+            setViewingStar(null);
+            setSelectedStar(null);
+          }}
+        />
       )}
 
       {/* Forge controls — compact so memories stay easy to tap */}
