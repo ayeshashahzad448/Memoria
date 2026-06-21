@@ -172,6 +172,7 @@ function RootNavigator() {
         <Stack.Screen name="login" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="cosmos/[id]" />
         <Stack.Screen name="constellations" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="friends" />
@@ -202,10 +203,6 @@ function RootNavigator() {
             animation: 'fade',
             contentStyle: { backgroundColor: 'transparent' },
           }}
-        />
-        <Stack.Screen
-          name="cosmos-spaces"
-          options={{ presentation: 'modal', contentStyle: { backgroundColor: overlay } }}
         />
         <Stack.Screen
           name="paywall"
