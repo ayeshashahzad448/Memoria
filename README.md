@@ -10,13 +10,17 @@
 
 ## ✦ Try it in 60 seconds (for judges)
 
-```sh
-git clone <YOUR_GIT_URL> memoria && cd memoria
-npm install
-npx expo start
-```
+**On your phone, install Expo Go first:** [iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)
 
-Scan the QR code with **Expo Go** ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)), or press `w` to open it in your browser.
+Then:
+
+1. **On your laptop**, open the live preview:
+   **https://app.bilt.me/project/156683ab-3e17-439f-8ed0-8c9382b5d29a/preview**
+2. A **QR code** is shown on that page.
+3. **Scan it with Expo Go** (Android: tap "Scan QR code" in the app · iPhone: point the Camera app at it and tap the banner).
+4. Memoria opens on your phone — no install, no terminal, no setup.
+
+> Prefer to skip your phone? The same preview page lets you run the app right in your browser.
 
 **Then load the full demo instantly:** open the **Profile** tab and **long-press the footer line** ("Your memories are kept luminous among the stars."). This loads a populated profile — Alex Rivera, 38 memories across several years and 8 constellations — so the cosmos is full to explore.
 
