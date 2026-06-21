@@ -573,7 +573,7 @@ function HudCard({
           </View>
         )}
 
-        {canConnect && (
+        {canConnect && groups.length === 0 && (
           <View className="flex-row gap-2">
             <Pressable
               onPress={(e) => {
