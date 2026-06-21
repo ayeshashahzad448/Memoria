@@ -210,11 +210,31 @@ export const TOUR_STEPS: TourStep[] = [
     },
   },
   {
+    id: 'pricing',
+    narration:
+      'Memoria is free to start — five gigabytes of secure storage, your starfield, and everything you need to begin remembering. When your sky fills up, Premium unlocks unlimited cloud storage, uncompressed photos and voice notes, full constellation mapping, and the Reflections recall feed — two ninety-nine a month, or twenty-nine ninety-nine a year.',
+    duration: 11000,
+    action: async ({ router, store, wait }) => {
+      store.setOpenMemoryStar(null);
+      store.focusConstellation(null);
+      await wait(300);
+      router.push('/paywall');
+    },
+  },
+  {
+    id: 'pricing-family',
+    narration:
+      'And because some memories belong to a whole family, there is a Family plan — everything in Premium for up to five people, with one shared cosmos to pass down across generations — seven ninety-nine a month, or seventy-nine ninety-nine a year. Every plan is cancel-anytime, private, and end-to-end encrypted.',
+    duration: 10000,
+  },
+  {
     id: 'outro',
     narration:
       'That is Memoria. Not somewhere you scroll, but somewhere you return — a universe of everything worth remembering, and it only gets brighter with time.',
     duration: 9000,
     action: async ({ router, store, wait }) => {
+      router.back();
+      await wait(400);
       router.navigate('/(tabs)');
       await wait(600);
       // Leave the viewer on the full, glowing cosmos.
