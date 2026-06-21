@@ -21,7 +21,7 @@ export default function SignUpScreen() {
     const trimmed = name.trim();
     if (trimmed) updateProfile({ displayName: trimmed });
     signIn();
-    router.replace('/(tabs)');
+    router.replace('/onboarding');
   };
 
   return (

@@ -38,7 +38,13 @@ export default function StarDetail() {
   // When closing a freshly created memory, frame it in the cosmos so the user
   // lands right on their new star instead of having to hunt for it.
   const closeToCosmos = () => {
-    if (justCreated && star) focusStar(star.id);
+    if (justCreated && star) {
+      focusStar(star.id);
+      // The create flow replaces the stack (onboarding -> create -> ignite ->
+      // detail), so there's no cosmos to pop back to. Route there explicitly.
+      router.replace('/(tabs)');
+      return;
+    }
     router.back();
   };
 
