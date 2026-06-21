@@ -78,6 +78,8 @@ interface CosmosCanvasProps {
   /** Fired when the line-draw animation finishes. */
   onDrawComplete?: () => void;
   view2D?: boolean;
+  /** Nudges the framed star left so it stays visible beside a right-side panel. */
+  panelOpen?: boolean;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -151,6 +153,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     drawConstellationId,
     onDrawComplete,
     view2D = false,
+    panelOpen = false,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -207,6 +210,13 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const toZ = useSharedValue(0);
   const toRadius = useSharedValue(20);
   const flat = useSharedValue(view2D ? 1 : 0);
+  // Horizontal screen-shift so a focused star stays visible beside the panel.
+  const shiftX = useSharedValue(0);
+  const shiftXActual = useSharedValue(0);
+  useEffect(() => {
+    shiftX.value = panelOpen ? -0.34 : 0;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelOpen]);
   useEffect(() => {
     flat.value = view2D ? 1 : 0;
     if (view2D) {
@@ -348,6 +358,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               polar={polar}
               radius={radius}
               flat={flat}
+              shiftX={shiftX}
+              shiftXActual={shiftXActual}
               targetX={targetX}
               targetY={targetY}
               targetZ={targetZ}
@@ -407,6 +419,8 @@ function OrbitRig({
   polar,
   radius,
   flat,
+  shiftX,
+  shiftXActual,
   targetX,
   targetY,
   targetZ,
@@ -436,6 +450,8 @@ function OrbitRig({
   polar: { value: number };
   radius: { value: number };
   flat: { value: number };
+  shiftX: { value: number };
+  shiftXActual: { value: number };
   targetX: { value: number };
   targetY: { value: number };
   targetZ: { value: number };
@@ -509,6 +525,7 @@ function OrbitRig({
     txActual.value = smooth(txActual.value, targetX.value, life);
     tyActual.value = smooth(tyActual.value, targetY.value, life);
     tzActual.value = smooth(tzActual.value, targetZ.value, life);
+    shiftXActual.value = smooth(shiftXActual.value, shiftX.value, 0.22);
 
     const az = azActual.value;
     const pol = polarActual.value;
@@ -519,16 +536,27 @@ function OrbitRig({
 
     const sinP = Math.sin(pol);
     if (flat.value === 1) {
-      camera.position.set(tx, ty, tz + rad);
+      const offX = rad * 0.46 * shiftXActual.value;
+      camera.position.set(tx + offX, ty, tz + rad);
       camera.up.set(0, 1, 0);
-      camera.lookAt(tx, ty, tz);
+      camera.lookAt(tx + offX, ty, tz);
       return;
     }
     const x = tx + rad * sinP * Math.sin(az);
     const y = ty + rad * Math.cos(pol);
     const z = tz + rad * sinP * Math.cos(az);
-    camera.position.set(x, y, z);
-    camera.lookAt(tx, ty, tz);
+    // Screen-right vector = normalize(viewDir x worldUp); slide eye + target
+    // along it so the framed star moves toward the left of the screen.
+    const vdx = tx - x;
+    const vdz = tz - z;
+    let rx = vdz;
+    let rz = -vdx;
+    const rlen = Math.hypot(rx, rz) || 1;
+    rx /= rlen;
+    rz /= rlen;
+    const off = rad * 0.46 * shiftXActual.value;
+    camera.position.set(x + rx * off, y, z + rz * off);
+    camera.lookAt(tx + rx * off, ty, tz + rz * off);
   });
   return null;
 }

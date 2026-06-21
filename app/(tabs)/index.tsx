@@ -254,6 +254,7 @@ export default function CosmosTab() {
         drawConstellationId={drawId}
         onDrawComplete={() => setDrawId(null)}
         view2D={view2D}
+        panelOpen={!!viewingStar}
         onTapStar={onTapStar}
         onTapEmpty={() => {
           setSelectedStar(null);

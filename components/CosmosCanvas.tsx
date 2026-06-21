@@ -85,6 +85,11 @@ interface CosmosCanvasProps {
   onDrawComplete?: () => void;
   /** When true, lock the camera to a flat front-on view (pan + zoom only). */
   view2D?: boolean;
+  /**
+   * When true, a detail panel covers the right portion of the screen, so the
+   * camera nudges the framed star toward the left so it stays fully visible.
+   */
+  panelOpen?: boolean;
   onTapStar: (star: MemoryStar) => void;
   onTapEmpty: () => void;
 }
@@ -210,6 +215,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     drawConstellationId,
     onDrawComplete,
     view2D = false,
+    panelOpen = false,
     onTapStar,
     onTapEmpty,
   } = props;
@@ -274,6 +280,14 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   const toRadius = useSharedValue(20);
   // Mirror the 2D flag into a shared value the worklets/frame loop can read.
   const flat = useSharedValue(view2D ? 1 : 0);
+  // Desired + smoothed horizontal screen-shift (0 centered, negative pushes the
+  // framed point left so it stays visible beside an open right-side panel).
+  const shiftX = useSharedValue(0);
+  const shiftXActual = useSharedValue(0);
+  useEffect(() => {
+    shiftX.value = panelOpen ? -0.34 : 0;
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelOpen]);
   useEffect(() => {
     flat.value = view2D ? 1 : 0;
     if (view2D) {
@@ -439,6 +453,8 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
               polar={polar}
               radius={radius}
               flat={flat}
+              shiftX={shiftX}
+              shiftXActual={shiftXActual}
               targetX={targetX}
               targetY={targetY}
               targetZ={targetZ}
@@ -499,6 +515,8 @@ function OrbitRig({
   polar,
   radius,
   flat,
+  shiftX,
+  shiftXActual,
   targetX,
   targetY,
   targetZ,
@@ -528,6 +546,8 @@ function OrbitRig({
   polar: { value: number };
   radius: { value: number };
   flat: { value: number };
+  shiftX: { value: number };
+  shiftXActual: { value: number };
   targetX: { value: number };
   targetY: { value: number };
   targetZ: { value: number };
@@ -611,6 +631,8 @@ function OrbitRig({
     txActual.value = smooth(txActual.value, targetX.value, life);
     tyActual.value = smooth(tyActual.value, targetY.value, life);
     tzActual.value = smooth(tzActual.value, targetZ.value, life);
+    // Panel shift eases a touch slower so the star glides aside gracefully.
+    shiftXActual.value = smooth(shiftXActual.value, shiftX.value, 0.22);
 
     const az = azActual.value;
     const pol = polarActual.value;
@@ -622,16 +644,29 @@ function OrbitRig({
     const sinP = Math.sin(pol);
     if (flat.value === 1) {
       // 2D: lock to a straight front-on view (camera on +z looking at target).
-      camera.position.set(tx, ty, tz + rad);
+      // Right vector is simply +x; shift both eye + target so the point slides.
+      const offX = rad * 0.46 * shiftXActual.value;
+      camera.position.set(tx + offX, ty, tz + rad);
       camera.up.set(0, 1, 0);
-      camera.lookAt(tx, ty, tz);
+      camera.lookAt(tx + offX, ty, tz);
       return;
     }
     const x = tx + rad * sinP * Math.sin(az);
     const y = ty + rad * Math.cos(pol);
     const z = tz + rad * sinP * Math.cos(az);
-    camera.position.set(x, y, z);
-    camera.lookAt(tx, ty, tz);
+    // Screen-right vector of the orbit camera = normalize(viewDir x worldUp).
+    // viewDir points from camera toward target; cross with +y gives the right
+    // axis. Offsetting eye + target along it slides the framed point sideways.
+    const vdx = tx - x;
+    const vdz = tz - z;
+    let rx = vdz; // (viewDir cross (0,1,0)).x = vd.z
+    let rz = -vdx; // .z = -vd.x   (y component is 0)
+    const rlen = Math.hypot(rx, rz) || 1;
+    rx /= rlen;
+    rz /= rlen;
+    const off = rad * 0.46 * shiftXActual.value;
+    camera.position.set(x + rx * off, y, z + rz * off);
+    camera.lookAt(tx + rx * off, ty, tz + rz * off);
   });
   return null;
 }
