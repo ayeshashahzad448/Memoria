@@ -13,13 +13,32 @@ import type {
   UserProfile,
   StarColorKey,
   StarLocation,
+  SyncState,
   VoiceNote,
 } from '@/lib/types';
 import { CURRENT_USER, INITIAL_FRIEND_IDS, userById } from '@/lib/memoria';
 import { estimateStarBytes } from '@/lib/storage';
 import { buildDemoDataset } from '@/lib/demoData';
+import { rebaseMediaUri } from '@/lib/media';
 
 export const PERSONAL_COSMOS = 'personal';
+
+/** Bump when the persisted shape changes and add a step to `migrate` below. */
+const STORE_VERSION = 2;
+
+/** "Never edited": a fresh install has nothing to push to the cloud. */
+const EPOCH = new Date(0).toISOString();
+
+export const DEFAULT_SYNC: SyncState = { enabled: false };
+
+/** The slice of state that cloud sync mirrors between devices. */
+export interface CloudData {
+  stars: MemoryStar[];
+  constellations: Constellation[];
+  sharedCosmoses: SharedCosmos[];
+  profile: UserProfile;
+  friendIds: string[];
+}
 
 /**
  * Transient channel the guided demo tour writes to so it can drive the live
@@ -78,6 +97,8 @@ export interface NewStarInput {
 
 export interface MemoriaState {
   hasOnboarded: boolean;
+  /** The person has accepted the Terms of Service and Privacy Policy. */
+  hasAcceptedTerms: boolean;
   /** Whether the in-cosmos coachmark tutorial has been shown. */
   hasSeenTutorial: boolean;
   /** Whether the bottom-tab walkthrough (shown after the first star) has been seen. */
@@ -120,6 +141,14 @@ export interface MemoriaState {
   constellations: Constellation[];
   sharedCosmoses: SharedCosmos[];
 
+  /** ISO time the synced data (see CloudData) last changed on this device. */
+  dataUpdatedAt: string;
+  /** Cloud sync (iCloud / Google Drive) status. */
+  sync: SyncState;
+  setSync: (patch: Partial<SyncState>) => void;
+  /** Replace the synced data with a copy from the cloud, adopting its version stamp. */
+  applyCloudData: (data: CloudData, updatedAt: string, sync: Partial<SyncState>) => void;
+
   signIn: () => void;
   signOut: () => void;
   resetFlow: () => void;
@@ -128,6 +157,7 @@ export interface MemoriaState {
   /** Replace everything with the pre-populated demo profile (hidden demo entry). */
   loadDemoProfile: () => void;
   completeOnboarding: () => void;
+  acceptTerms: () => void;
   completeTutorial: () => void;
   completeTabTour: () => void;
   setActiveCosmos: (id: string) => void;
@@ -207,6 +237,7 @@ export const useMemoria = create<MemoriaState>()(
   persist(
     (set, get) => ({
       hasOnboarded: false,
+      hasAcceptedTerms: false,
       hasSeenTutorial: false,
       hasSeenTabTour: false,
       isAuthed: false,
@@ -233,6 +264,16 @@ export const useMemoria = create<MemoriaState>()(
       stars: [],
       constellations: [],
       sharedCosmoses: [],
+      dataUpdatedAt: EPOCH,
+      sync: DEFAULT_SYNC,
+
+      setSync: (patch) => set((state) => ({ sync: { ...state.sync, ...patch } })),
+      applyCloudData: (data, updatedAt, sync) =>
+        set((state) => ({
+          ...data,
+          dataUpdatedAt: updatedAt,
+          sync: { ...state.sync, ...sync },
+        })),
 
       signIn: () => set({ isAuthed: true }),
       signOut: () => set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
@@ -240,12 +281,15 @@ export const useMemoria = create<MemoriaState>()(
         set({
           isAuthed: false,
           hasOnboarded: false,
+          hasAcceptedTerms: false,
           hasSeenTutorial: false,
+          hasSeenTabTour: false,
           activeCosmosId: PERSONAL_COSMOS,
         }),
       resetApp: () =>
         set({
           hasOnboarded: false,
+          hasAcceptedTerms: false,
           hasSeenTutorial: false,
           hasSeenTabTour: false,
           isAuthed: false,
@@ -269,12 +313,16 @@ export const useMemoria = create<MemoriaState>()(
           stars: [],
           constellations: [],
           sharedCosmoses: [],
+          // Resetting must never propagate an empty library to the cloud copy.
+          dataUpdatedAt: EPOCH,
+          sync: DEFAULT_SYNC,
         }),
       loadDemoProfile: () => {
         const data = buildDemoDataset();
         set({
           isAuthed: true,
           hasOnboarded: true,
+          hasAcceptedTerms: true,
           hasSeenTutorial: true,
           hasSeenTabTour: true,
           tier: 'premium',
@@ -292,11 +340,14 @@ export const useMemoria = create<MemoriaState>()(
           stars: data.stars,
           constellations: data.constellations,
           sharedCosmoses: data.sharedCosmoses,
+          // Demo data is throwaway; keep it out of the user's cloud copy.
+          sync: DEFAULT_SYNC,
         });
       },
-      // Onboarding already walks the user through creating their first star, so
-      // mark the in-cosmos coachmark as seen to avoid repeating the same intro.
-      completeOnboarding: () => set({ hasOnboarded: true, hasSeenTutorial: true }),
+      // First-run order: intro -> cosmos walkthrough -> tab tour -> first memory. The
+      // walkthrough and tour have their own "seen" flags, so finishing the intro leaves them on.
+      completeOnboarding: () => set({ hasOnboarded: true }),
+      acceptTerms: () => set({ hasAcceptedTerms: true }),
       completeTutorial: () => set({ hasSeenTutorial: true }),
       completeTabTour: () => set({ hasSeenTabTour: true }),
       setActiveCosmos: (id) => set({ activeCosmosId: id }),
@@ -565,10 +616,13 @@ export const useMemoria = create<MemoriaState>()(
       },
     }),
     {
+      // Kept as-is so existing installs find their data; schema changes go through `version`.
       name: 'memoria-store-v1',
+      version: STORE_VERSION,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         hasOnboarded: state.hasOnboarded,
+        hasAcceptedTerms: state.hasAcceptedTerms,
         hasSeenTutorial: state.hasSeenTutorial,
         hasSeenTabTour: state.hasSeenTabTour,
         isAuthed: state.isAuthed,
@@ -576,10 +630,58 @@ export const useMemoria = create<MemoriaState>()(
         activeCosmosId: state.activeCosmosId,
         profile: state.profile,
         settings: state.settings,
+        friendIds: state.friendIds,
         stars: state.stars,
         constellations: state.constellations,
         sharedCosmoses: state.sharedCosmoses,
+        dataUpdatedAt: state.dataUpdatedAt,
+        sync: state.sync,
       }),
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<MemoriaState>;
+        if (version < 2) {
+          // v1 never saved friendIds, a version stamp, or sync status. Existing
+          // memories count as "edited now" so a first cloud sync uploads them.
+          const hasData = (state.stars?.length ?? 0) > 0 || (state.constellations?.length ?? 0) > 0;
+          return {
+            ...state,
+            dataUpdatedAt: hasData ? new Date().toISOString() : EPOCH,
+            sync: DEFAULT_SYNC,
+          };
+        }
+        return state;
+      },
+      // Re-point saved media URIs at this launch's app container (it can move on iOS).
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<MemoriaState>;
+        const merged = { ...current, ...saved };
+        return {
+          ...merged,
+          stars: merged.stars.map((s) => ({
+            ...s,
+            photos: s.photos.map(rebaseMediaUri),
+            voiceNotes: s.voiceNotes.map((n) => ({ ...n, uri: rebaseMediaUri(n.uri) })),
+          })),
+          profile: merged.profile.avatarUri
+            ? { ...merged.profile, avatarUri: rebaseMediaUri(merged.profile.avatarUri) }
+            : merged.profile,
+        };
+      },
     },
   ),
 );
+
+const SYNCED_KEYS = ['stars', 'constellations', 'sharedCosmoses', 'profile', 'friendIds'] as const;
+
+/**
+ * Stamp `dataUpdatedAt` whenever synced data changes so sync can tell which side is
+ * newer. Updates that already carry their own stamp (applying a cloud copy) are left alone.
+ */
+useMemoria.subscribe((state, prev) => {
+  // Loading saved data from disk isn't an edit.
+  if (!useMemoria.persist.hasHydrated()) return;
+  if (state.dataUpdatedAt !== prev.dataUpdatedAt) return;
+  if (SYNCED_KEYS.some((key) => state[key] !== prev[key])) {
+    useMemoria.setState({ dataUpdatedAt: new Date().toISOString() });
+  }
+});

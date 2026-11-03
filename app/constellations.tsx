@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { ArrowLeft, ChevronRight, Link2, Plus, Sparkles, Trash2 } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
@@ -11,7 +11,7 @@ import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 export default function ConstellationsScreen() {
   const router = useRouter();
@@ -129,7 +129,7 @@ export default function ConstellationsScreen() {
               <ArrowLeft size={20} color={MUTED} />
             </View>
           </Pressable>
-          <Text className="text-starlight font-display text-2xl font-bold">
+          <Text className="text-starlight font-heading text-3xl">
             {isAddMode ? 'Add to constellation' : 'Constellations'}
           </Text>
         </View>

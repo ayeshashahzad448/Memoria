@@ -6,11 +6,12 @@ import { ChevronLeft, Search, UserMinus, UserPlus, X } from 'lucide-react-native
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
+import { goBack } from '@/lib/navigation';
 import { CURRENT_USER, DIRECTORY_USERS, colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
 const DANGER = colorFor('rose').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 const PEOPLE = DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id);
 
@@ -40,15 +41,15 @@ export default function FriendsScreen() {
     <View className="bg-void flex-1">
       <View className="pt-safe-offset-3 flex-row items-center gap-3 px-5 pb-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
           className="h-9 w-9 items-center justify-center rounded-full"
           style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
         >
-          <ChevronLeft size={20} color="#F8FAFC" />
+          <ChevronLeft size={20} color="#F4F1EA" />
         </Pressable>
         <View className="flex-1">
-          <Text className="text-starlight font-display text-2xl font-bold">Friends</Text>
+          <Text className="text-starlight font-heading text-3xl">Friends</Text>
           <Text className="text-muted text-xs">{friendIds.length} connected</Text>
         </View>
       </View>
@@ -151,9 +152,9 @@ function PersonRow({ name, handle, avatar, action, onPress }: PersonRowProps) {
         hitSlop={6}
         className="h-9 flex-row items-center gap-1.5 rounded-full px-3.5"
         style={{
-          backgroundColor: isAdd ? 'rgba(69,243,255,0.12)' : 'rgba(255,255,255,0.06)',
+          backgroundColor: isAdd ? 'rgba(165,180,252,0.12)' : 'rgba(255,255,255,0.06)',
           borderWidth: 1,
-          borderColor: isAdd ? 'rgba(69,243,255,0.5)' : 'rgba(255,42,109,0.4)',
+          borderColor: isAdd ? 'rgba(165,180,252,0.5)' : 'rgba(255,42,109,0.4)',
         }}
       >
         {isAdd ? <UserPlus size={15} color={ACCENT} /> : <UserMinus size={15} color={DANGER} />}

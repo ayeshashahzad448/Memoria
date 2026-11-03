@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import {
   Camera,
   Eye,
@@ -29,12 +30,12 @@ import { colorFor, userById } from '@/lib/memoria';
 import type { Constellation, MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 const DANGER = '#FF2A6D';
 
 export default function CosmosTab() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { width } = useFrame();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
@@ -348,8 +349,17 @@ export default function CosmosTab() {
           <View className="flex-1 pr-2">
             {showIntro && !viewingStar && (
               <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(900)}>
-                <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
-                  Navigate Your{'\n'}Universe
+                <Text className="text-muted text-[10px] font-medium tracking-[2.5px] uppercase">
+                  Your cosmos
+                </Text>
+                <Text className="text-starlight font-heading mt-1.5 text-[26px] leading-[30px]">
+                  Navigate your{'\n'}
+                  <Text
+                    className="text-accent text-[26px] leading-[30px]"
+                    style={{ fontFamily: 'InstrumentSerif_400Regular_Italic' }}
+                  >
+                    universe
+                  </Text>
                 </Text>
               </Animated.View>
             )}
@@ -571,14 +581,7 @@ export default function CosmosTab() {
         </View>
       )}
 
-      {tutorialVisible && (
-        <CosmosTutorial
-          onDone={dismissTutorial}
-          onCreate={() =>
-            router.push({ pathname: '/star/create', params: { cosmosId: PERSONAL_COSMOS } })
-          }
-        />
-      )}
+      {tutorialVisible && <CosmosTutorial onDone={dismissTutorial} />}
     </View>
   );
 }

@@ -4,7 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
+import { goBack } from '@/lib/navigation';
 import {
   Box,
   Camera,
@@ -29,7 +30,7 @@ import { colorFor, userById } from '@/lib/memoria';
 import type { Constellation, MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 const DANGER = '#FF2A6D';
 
 export default function SharedCosmosView() {
@@ -216,7 +217,7 @@ export default function SharedCosmosView() {
     return (
       <View className="bg-void flex-1 items-center justify-center px-8">
         <Text className="text-muted text-center">This shared cosmos no longer exists.</Text>
-        <Pressable className="mt-4" onPress={() => router.back()}>
+        <Pressable className="mt-4" onPress={() => goBack(router)}>
           <Text className="text-accent font-medium">Go back</Text>
         </Pressable>
       </View>
@@ -251,7 +252,7 @@ export default function SharedCosmosView() {
       <View className="pt-safe-offset-12 absolute inset-x-0 top-0 px-4">
         <View className="flex-row items-start gap-3">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => goBack(router)}
             hitSlop={10}
             className="bg-background border-glass-border h-11 w-11 items-center justify-center rounded-full border"
           >
@@ -451,7 +452,7 @@ export default function SharedCosmosView() {
             className="bg-accent h-14 w-14 items-center justify-center rounded-full"
             style={{ shadowColor: ACCENT, shadowOpacity: 0.6, shadowRadius: 14 }}
           >
-            <Plus size={26} color="#0b0c10" strokeWidth={2.4} />
+            <Plus size={26} color="#0C0E14" strokeWidth={2.4} />
           </View>
         </Pressable>
       )}

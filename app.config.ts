@@ -53,6 +53,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           photosPermission: 'Memoria uses your photos so you can attach images to a memory star.',
         },
       ],
+      // Adds the iCloud Documents entitlement (container iCloud.<bundle id>). Needs a development
+      // or EAS build and the iCloud capability enabled for the App ID in the Apple Developer portal.
+      'react-native-cloud-storage',
       ...nativePlugins,
     ],
     experiments: {

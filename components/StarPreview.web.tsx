@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import Animated, {
+  createAnimatedComponent,
   Easing,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -10,7 +13,15 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colorFor, radiusForText } from '@/lib/memoria';
+import { mixHex, sparklePathData, twinkleAt } from '@/lib/sparkle';
 import type { StarPreviewProps } from './StarPreview';
+
+const AnimatedPath = createAnimatedComponent(Path);
+
+function sparkleLen(radius: number, clock: number): number {
+  'worklet';
+  return Math.min(54, 14 + radius * 1.9) * (1 + twinkleAt(clock) * 0.05);
+}
 
 /** Web fallback live star preview using animated Views (no Skia). */
 export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
@@ -46,19 +57,8 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
     };
   });
 
-  const bloomStyle = useAnimatedStyle(() => {
-    const br = Math.max(r.value * 0.62, 5) + 3;
-    return {
-      width: br * 2,
-      height: br * 2,
-      borderRadius: br,
-      marginLeft: -br,
-      marginTop: -br,
-    };
-  });
-
   const coreStyle = useAnimatedStyle(() => {
-    const cr = Math.max(r.value * 0.62, 5);
+    const cr = Math.max(r.value * 0.28, 3.5);
     return {
       width: cr * 2,
       height: cr * 2,
@@ -68,17 +68,42 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
     };
   });
 
+  // Four-point sparkle that grows with the story, tinted by the chosen emotion.
+  const tint = mixHex('#FFFFFF', color, 0.7);
+  const glowProps = useAnimatedProps(() => ({
+    d: sparklePathData(80, 60, sparkleLen(r.value, pulse.value)),
+    fill: tint,
+    opacity: 0.5,
+  }));
+  const mainProps = useAnimatedProps(() => ({
+    d: sparklePathData(80, 60, sparkleLen(r.value, pulse.value)),
+    fill: tint,
+  }));
+  const diagonalProps = useAnimatedProps(() => ({
+    d: sparklePathData(80, 60, sparkleLen(r.value, pulse.value) * 0.5, Math.PI / 4),
+    fill: '#FFFFFF',
+    opacity: 0.7,
+  }));
+
   return (
     <View style={{ width: 160, height: 120, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View
-        style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: color }, haloStyle]}
-      />
-      <Animated.View
         style={[
-          { position: 'absolute', left: 80, top: 60, backgroundColor: '#CFE3FF' },
-          bloomStyle,
+          { position: 'absolute', left: 80, top: 60, backgroundColor: color, filter: 'blur(14px)' },
+          haloStyle,
         ]}
       />
+      <Svg
+        width={160}
+        height={120}
+        style={{ position: 'absolute', left: 0, top: 0, filter: 'blur(6px)' }}
+      >
+        <AnimatedPath animatedProps={glowProps} />
+      </Svg>
+      <Svg width={160} height={120} style={{ position: 'absolute', left: 0, top: 0 }}>
+        <AnimatedPath animatedProps={diagonalProps} />
+        <AnimatedPath animatedProps={mainProps} />
+      </Svg>
       <Animated.View
         style={[{ position: 'absolute', left: 80, top: 60, backgroundColor: '#FFFFFF' }, coreStyle]}
       />

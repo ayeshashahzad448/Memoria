@@ -125,7 +125,7 @@ function WheelColumn({
               <Text
                 style={{
                   fontSize: 19,
-                  color: active ? '#F8FAFC' : '#64748B',
+                  color: active ? '#F4F1EA' : '#64748B',
                   fontWeight: active ? '600' : '400',
                 }}
               >
@@ -197,8 +197,8 @@ export function WheelDatePicker({
             top: PAD * ITEM_HEIGHT,
             height: ITEM_HEIGHT,
             borderRadius: 10,
-            backgroundColor: 'rgba(69,243,255,0.08)',
-            borderColor: 'rgba(69,243,255,0.25)',
+            backgroundColor: 'rgba(165,180,252,0.08)',
+            borderColor: 'rgba(165,180,252,0.25)',
             borderTopWidth: 1,
             borderBottomWidth: 1,
             zIndex: 1,

@@ -1,8 +1,9 @@
 // oxlint-disable react/style-prop-object -- Skia uses string style props (stroke/fill)
-import { Canvas, Circle, Blur, Group, Path, Skia } from '@shopify/react-native-skia';
+import { Canvas, Circle, Blur, Group, Path } from '@shopify/react-native-skia';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
 import { colorFor } from '@/lib/memoria';
+import { mixHex, sparklePathData } from '@/lib/sparkle';
 import type { StarColorKey } from '@/lib/types';
 
 export interface StarIgnitionProps {
@@ -16,21 +17,6 @@ export interface StarIgnitionProps {
 
 const PROTOSTAR = '#FF5A3C'; // cool, diffuse red-orange protostar
 const DUST_COUNT = 22;
-
-/** Blend two hex colors on the UI thread (worklet-safe). */
-function mixHex(a: string, b: string, t: number): string {
-  'worklet';
-  const ar = parseInt(a.slice(1, 3), 16);
-  const ag = parseInt(a.slice(3, 5), 16);
-  const ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16);
-  const bg = parseInt(b.slice(3, 5), 16);
-  const bb = parseInt(b.slice(5, 7), 16);
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r}, ${g}, ${bl})`;
-}
 
 // Deterministic accretion-disk dust seeds (angle, start radius, speed, size).
 const DUST = Array.from({ length: DUST_COUNT }, (_, i) => {
@@ -95,17 +81,22 @@ export function StarIgnition({ progress, twinkleClock, colorKey, size = 280 }: S
     return Math.max(0, 1 - s * 1.4) * Math.min(1, flash.value + s * 2) * 0.5;
   });
 
-  // Diffraction spikes path (4-point cross), scaled by flash.
-  const spikePath = useDerivedValue(() => {
-    const len = 26 + flash.value * 78;
-    const p = Skia.Path.Make();
-    p.moveTo(c - len, c);
-    p.lineTo(c + len, c);
-    p.moveTo(c, c - len);
-    p.lineTo(c, c + len);
-    return p;
-  });
-  const spikeOpacity = useDerivedValue(() => flash.value * 0.6 + stable.value * 0.12);
+  // The star itself: a four-point sparkle that swells at ignition, then settles into
+  // the memory's color. A smaller sparkle turned 45 degrees sits behind it.
+  const sparkleLen = useDerivedValue(
+    () => (24 + stable.value * 30 + flash.value * 70) * (1 + twinkle.value * 0.06 * stable.value),
+  );
+  const sparkleOpacity = useDerivedValue(() =>
+    Math.min(1, contract.value * 0.18 + flash.value + stable.value * 0.92),
+  );
+  const sparkleColor = useDerivedValue(() =>
+    mixHex('#FFFFFF', trueColor, Math.min(1, stable.value * 0.85)),
+  );
+  const sparkleMain = useDerivedValue(() => sparklePathData(c, c, sparkleLen.value));
+  const sparkleDiagonal = useDerivedValue(() =>
+    sparklePathData(c, c, sparkleLen.value * 0.5, Math.PI / 4),
+  );
+  const sparkleGlow = useDerivedValue(() => sparkleOpacity.value * 0.55);
 
   return (
     <Canvas style={{ width: size, height: size }}>
@@ -142,11 +133,15 @@ export function StarIgnition({ progress, twinkleClock, colorKey, size = 280 }: S
         </Circle>
       </Group>
 
-      {/* Diffraction spikes */}
-      <Group opacity={spikeOpacity}>
-        <Path path={spikePath} color="#FFFFFF" style="stroke" strokeWidth={1.4}>
-          <Blur blur={2} />
+      {/* Four-point sparkle: soft glow underneath, crisp shape on top */}
+      <Group opacity={sparkleGlow}>
+        <Path path={sparkleMain} color={sparkleColor}>
+          <Blur blur={7} />
         </Path>
+      </Group>
+      <Group opacity={sparkleOpacity}>
+        <Path path={sparkleDiagonal} color="#FFFFFF" opacity={0.7} />
+        <Path path={sparkleMain} color={sparkleColor} />
       </Group>
 
       {/* Bright core */}

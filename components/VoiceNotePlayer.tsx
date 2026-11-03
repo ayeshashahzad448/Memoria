@@ -8,8 +8,19 @@ import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
 
-/** Plays a recorded voice note. Web shows a static row (recording is device-only). */
-export function VoiceNotePlayer({ note, index }: { note: VoiceNote; index: number }) {
+/**
+ * Plays a recorded voice note. Pass `onRemove` (e.g. while composing a memory) to show a
+ * Remove action next to the duration.
+ */
+export function VoiceNotePlayer({
+  note,
+  index,
+  onRemove,
+}: {
+  note: VoiceNote;
+  index: number;
+  onRemove?: () => void;
+}) {
   const player = useAudioPlayer({ uri: note.uri });
   const status = useAudioPlayerStatus(player);
 
@@ -30,13 +41,30 @@ export function VoiceNotePlayer({ note, index }: { note: VoiceNote; index: numbe
   return (
     <Pressable
       onPress={toggle}
+      accessibilityRole="button"
+      accessibilityLabel={`${status.playing ? 'Pause' : 'Play'} voice note ${index + 1}`}
       className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3.5"
     >
       <View className="flex-row items-center gap-2.5">
         {status.playing ? <Pause size={16} color={ACCENT} /> : <Play size={16} color={ACCENT} />}
         <Text className="text-starlight">Note {index + 1}</Text>
       </View>
-      <Text className="text-muted text-xs">{Math.round(note.durationSec)}s</Text>
+      <View className="flex-row items-center gap-4">
+        <Text className="text-muted text-xs">{Math.round(note.durationSec)}s</Text>
+        {onRemove ? (
+          <Pressable
+            onPress={() => {
+              player.pause();
+              onRemove();
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove voice note ${index + 1}`}
+          >
+            <Text className="text-muted text-sm">Remove</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </Pressable>
   );
 }

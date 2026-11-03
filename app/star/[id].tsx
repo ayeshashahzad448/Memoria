@@ -10,6 +10,7 @@ import {
   MapPin,
   Mic,
   Pencil,
+  Share2,
   Sparkles,
   Sun,
   Trash2,
@@ -20,11 +21,13 @@ import {
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
+import { useShareMemory } from '@/lib/share';
 import { useMemoria } from '@/lib/store';
+import { goBack } from '@/lib/navigation';
 import { colorFor, starStatsForStar, userById } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 export default function StarDetail() {
   const router = useRouter();
@@ -32,6 +35,7 @@ export default function StarDetail() {
   const id = params.id;
   const justCreated = params.justCreated === '1';
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
+  const { share, note } = useShareMemory(star);
   const focusStar = useMemoria((s) => s.focusStar);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -45,7 +49,7 @@ export default function StarDetail() {
       router.replace('/(tabs)');
       return;
     }
-    router.back();
+    goBack(router);
   };
 
   const stats = useMemo(() => (star ? starStatsForStar(star) : null), [star]);
@@ -54,7 +58,7 @@ export default function StarDetail() {
     return (
       <View className="bg-void flex-1 items-center justify-center px-6">
         <Text className="text-muted">This memory could not be found.</Text>
-        <Button variant="ghost" onPress={() => router.back()} className="mt-4">
+        <Button variant="ghost" onPress={() => goBack(router)} className="mt-4">
           Back
         </Button>
       </View>
@@ -90,6 +94,16 @@ export default function StarDetail() {
           </View>
           <View className="flex-row items-center gap-4">
             <Pressable
+              onPress={() => void share()}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Share this memory"
+              className="flex-row items-center gap-1.5"
+            >
+              <Share2 size={15} color={ACCENT} />
+              <Text className="text-accent">Share</Text>
+            </Pressable>
+            <Pressable
               onPress={() => router.push({ pathname: '/star/edit', params: { id: star.id } })}
               hitSlop={12}
               className="flex-row items-center gap-1.5"
@@ -102,6 +116,7 @@ export default function StarDetail() {
             </Pressable>
           </View>
         </View>
+        {note ? <Text className="text-accent -mt-4 mb-4 text-right text-xs">{note}</Text> : null}
 
         {wrap(
           0,

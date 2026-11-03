@@ -9,7 +9,7 @@ import { useMemoria } from '@/lib/store';
 import { DIRECTORY_USERS, CURRENT_USER, userById, colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 export default function SharedTab() {
   const router = useRouter();
@@ -46,10 +46,10 @@ export default function SharedTab() {
         contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-starlight font-display text-3xl font-bold">Shared</Text>
+        <Text className="text-starlight font-heading text-3xl">Shared</Text>
         <Text className="text-muted mt-1 mb-6 text-sm leading-5">
           Collaborative cosmos spaces. Each one is a blank sky you and the people you invite fill
-          with memories together — separate from your private cosmos.
+          with memories together, separate from your private cosmos.
         </Text>
 
         {sharedCosmoses.length === 0 && !creating && (
@@ -133,7 +133,7 @@ export default function SharedTab() {
               </View>
             </View>
             <Button isDisabled={name.trim().length === 0} onPress={create}>
-              <Sparkles size={15} color="#0b0c10" />
+              <Sparkles size={15} color="#0C0E14" />
               <Button.Label>Create shared cosmos</Button.Label>
             </Button>
           </GlassCard>

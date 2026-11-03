@@ -25,7 +25,7 @@ import { TOUR_STEPS, type TourContext } from '@/lib/demoTour';
 import { colorFor } from '@/lib/memoria';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 /** Thrown to unwind a step's pending waits when the tour is cancelled/jumped. */
 const CANCELLED = Symbol('tour-cancelled');

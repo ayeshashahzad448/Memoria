@@ -1,31 +1,54 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import { formatDistanceToNow } from 'date-fns';
 import { Button, Separator, Switch, Text } from 'heroui-native';
 import {
   ChevronLeft,
+  Cloud,
   Contrast,
   Eye,
+  FileText,
   Globe,
+  LifeBuoy,
   Lock,
+  RefreshCw,
+  ShieldCheck,
   Trash2,
   Type,
   UserCheck,
   Vibrate,
-  Volume2,
   Waves,
   type LucideIcon,
 } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
+import { goBack } from '@/lib/navigation';
 import { colorFor } from '@/lib/memoria';
+import {
+  SIMULATED_CONNECT_MS,
+  checkSyncAvailability,
+  isCloudSimulated,
+  providerLabel,
+  syncNow,
+  syncProviderForPlatform,
+  type SyncAvailability,
+} from '@/lib/cloudSync';
 import type { MemoryPrivacy, TextSize } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 const DANGER = '#FF2A6D';
+
+/** Set these in the build environment before publishing; rows stay hidden until they exist. */
+const LEGAL_LINKS = [
+  { icon: ShieldCheck, title: 'Privacy policy', url: process.env.EXPO_PUBLIC_PRIVACY_URL },
+  { icon: FileText, title: 'Terms of service', url: process.env.EXPO_PUBLIC_TERMS_URL },
+  { icon: LifeBuoy, title: 'Support', url: process.env.EXPO_PUBLIC_SUPPORT_URL },
+].filter((l): l is { icon: LucideIcon; title: string; url: string } => !!l.url);
 
 const TEXT_SIZES: { value: TextSize; label: string }[] = [
   { value: 'small', label: 'Small' },
@@ -54,7 +77,7 @@ function Row({ icon: Icon, title, subtitle, children, first }: RowProps) {
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         <View
           className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+          style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
         >
           <Icon size={17} color={ACCENT} />
         </View>
@@ -87,16 +110,108 @@ function Segmented<T extends string>({ options, value, onChange }: SegmentProps<
             key={o.value}
             onPress={() => onChange(o.value)}
             hitSlop={4}
+            accessibilityRole="radio"
+            accessibilityLabel={o.label}
+            accessibilityState={{ selected: active }}
             className="flex-1 items-center rounded-full px-3 py-2"
             style={{ backgroundColor: active ? ACCENT : 'transparent' }}
           >
-            <Text className="text-sm font-semibold" style={{ color: active ? '#0b0c10' : MUTED }}>
+            <Text className="text-sm font-semibold" style={{ color: active ? '#0C0E14' : MUTED }}>
               {o.label}
             </Text>
           </Pressable>
         );
       })}
     </View>
+  );
+}
+
+function CloudSyncSection() {
+  const sync = useMemoria((s) => s.sync);
+  const setSync = useMemoria((s) => s.setSync);
+  const [availability, setAvailability] = useState<SyncAvailability | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    void checkSyncAvailability().then(setAvailability);
+  }, []);
+
+  const provider = availability?.provider ?? syncProviderForPlatform();
+  const name = providerLabel(provider);
+
+  const toggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setSync({ enabled: false });
+      return;
+    }
+    const next = await checkSyncAvailability();
+    setAvailability(next);
+    if (!next.available) {
+      setSync({ lastError: next.reason });
+      return;
+    }
+    if (isCloudSimulated()) {
+      setConnecting(true);
+      await new Promise((resolve) => setTimeout(resolve, SIMULATED_CONNECT_MS));
+      setConnecting(false);
+    }
+    setSync({ enabled: true, lastError: undefined });
+  };
+
+  const syncOnce = async () => {
+    setBusy(true);
+    try {
+      await syncNow();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const status = connecting
+    ? `Connecting to ${name}…`
+    : sync.lastError
+      ? sync.lastError
+      : sync.enabled
+        ? sync.lastSyncedAt
+          ? `Last synced ${formatDistanceToNow(new Date(sync.lastSyncedAt), { addSuffix: true })}`
+          : 'Waiting for first sync'
+        : (availability?.reason ?? `Keep memories and media in sync across your devices`);
+
+  return (
+    <GlassCard contentClassName="p-1">
+      <Row first icon={Cloud} title={`Sync with ${name}`} subtitle={status}>
+        <Switch
+          isSelected={sync.enabled || connecting}
+          isDisabled={connecting}
+          onSelectedChange={(on) => void toggle(on)}
+          accessibilityLabel={`Sync with ${name}`}
+        />
+      </Row>
+      {sync.enabled ? (
+        <>
+          <Separator />
+          <Pressable
+            onPress={() => void syncOnce()}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Sync now"
+            accessibilityState={{ disabled: busy, busy }}
+            className="flex-row items-center gap-3 px-4 py-3.5"
+          >
+            <View
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+            >
+              <RefreshCw size={17} color={ACCENT} />
+            </View>
+            <Text className="font-medium" style={{ color: ACCENT, opacity: busy ? 0.6 : 1 }}>
+              {busy ? 'Syncing…' : 'Sync now'}
+            </Text>
+          </Pressable>
+        </>
+      ) : null}
+    </GlassCard>
   );
 }
 
@@ -124,14 +239,16 @@ export default function SettingsScreen() {
     <View className="bg-void flex-1">
       <View className="pt-safe-offset-3 flex-row items-center gap-3 px-5 pb-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
           className="h-9 w-9 items-center justify-center rounded-full"
           style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
         >
-          <ChevronLeft size={20} color="#F8FAFC" />
+          <ChevronLeft size={20} color="#F4F1EA" />
         </Pressable>
-        <Text className="text-starlight font-display text-2xl font-bold">Settings</Text>
+        <Text className="text-starlight font-heading text-3xl">Settings</Text>
       </View>
 
       <ScrollView contentContainerClassName="px-5 pb-24" keyboardShouldPersistTaps="handled">
@@ -142,7 +259,7 @@ export default function SettingsScreen() {
             <View className="flex-row items-center gap-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+                style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
               >
                 <Type size={17} color={ACCENT} />
               </View>
@@ -173,81 +290,126 @@ export default function SettingsScreen() {
           </Row>
         </GlassCard>
 
-        {/* Sound & Haptics */}
-        <SectionTitle>Sound & Haptics</SectionTitle>
+        {/* Haptics */}
+        <SectionTitle>Haptics</SectionTitle>
         <GlassCard contentClassName="p-1">
-          <Row first icon={Volume2} title="Sound effects" subtitle="UI and interaction sounds">
-            <Switch
-              isSelected={settings.sound}
-              onSelectedChange={(sound) => updateSettings({ sound })}
-            />
-          </Row>
-          <Row icon={Vibrate} title="Haptic feedback" subtitle="Vibrations on gestures and taps">
+          <Row
+            first
+            icon={Vibrate}
+            title="Haptic feedback"
+            subtitle="Vibrations on gestures and taps"
+          >
             <Switch
               isSelected={settings.haptics}
               onSelectedChange={(haptics) => updateSettings({ haptics })}
+              accessibilityLabel="Haptic feedback"
             />
           </Row>
         </GlassCard>
 
-        {/* Memory privacy */}
-        <SectionTitle>Memory Privacy</SectionTitle>
-        <GlassCard contentClassName="gap-1 p-4">
-          <View className="flex-row items-center gap-3">
-            <View
-              className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+        {/* Memory privacy: not connected to anything yet, so shown but switched off */}
+        <SectionTitle>Memory Privacy (coming soon)</SectionTitle>
+        <View pointerEvents="none" style={{ opacity: 0.45 }} accessibilityElementsHidden>
+          <GlassCard contentClassName="gap-1 p-4">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+              >
+                <Eye size={17} color={ACCENT} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-starlight font-medium">Default visibility</Text>
+                <Text className="text-muted text-xs leading-4">Who can see new memories</Text>
+              </View>
+            </View>
+            <View className="mt-3 flex-row gap-2">
+              {PRIVACY_OPTIONS.map((o) => {
+                const active = o.value === settings.privacy;
+                const Icon = o.icon;
+                return (
+                  <Pressable
+                    key={o.value}
+                    onPress={() => updateSettings({ privacy: o.value })}
+                    hitSlop={4}
+                    accessibilityRole="radio"
+                    accessibilityLabel={o.label}
+                    accessibilityState={{ selected: active }}
+                    className="flex-1 items-center gap-1.5 rounded-xl border py-3"
+                    style={{
+                      borderColor: active ? ACCENT : 'rgba(255,255,255,0.08)',
+                      backgroundColor: active ? 'rgba(165,180,252,0.08)' : 'transparent',
+                    }}
+                  >
+                    <Icon size={18} color={active ? ACCENT : MUTED} />
+                    <Text
+                      className="text-xs font-medium"
+                      style={{ color: active ? ACCENT : MUTED }}
+                    >
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </GlassCard>
+
+          <GlassCard className="mt-3" contentClassName="p-1">
+            <Row
+              first
+              icon={UserCheck}
+              title="Allow tagging"
+              subtitle="Friends can tag you in their memories"
             >
-              <Eye size={17} color={ACCENT} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-starlight font-medium">Default visibility</Text>
-              <Text className="text-muted text-xs leading-4">Who can see new memories</Text>
-            </View>
-          </View>
-          <View className="mt-3 flex-row gap-2">
-            {PRIVACY_OPTIONS.map((o) => {
-              const active = o.value === settings.privacy;
-              const Icon = o.icon;
-              return (
-                <Pressable
-                  key={o.value}
-                  onPress={() => updateSettings({ privacy: o.value })}
-                  hitSlop={4}
-                  className="flex-1 items-center gap-1.5 rounded-xl border py-3"
-                  style={{
-                    borderColor: active ? ACCENT : 'rgba(255,255,255,0.08)',
-                    backgroundColor: active ? 'rgba(69,243,255,0.08)' : 'transparent',
-                  }}
-                >
-                  <Icon size={18} color={active ? ACCENT : MUTED} />
-                  <Text className="text-xs font-medium" style={{ color: active ? ACCENT : MUTED }}>
-                    {o.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </GlassCard>
+              <Switch
+                isSelected={settings.allowTagging}
+                onSelectedChange={(allowTagging) => updateSettings({ allowTagging })}
+              />
+            </Row>
+          </GlassCard>
+        </View>
 
-        <GlassCard className="mt-3" contentClassName="p-1">
-          <Row
-            first
-            icon={UserCheck}
-            title="Allow tagging"
-            subtitle="Friends can tag you in their memories"
-          >
-            <Switch
-              isSelected={settings.allowTagging}
-              onSelectedChange={(allowTagging) => updateSettings({ allowTagging })}
-            />
-          </Row>
-        </GlassCard>
+        {/* Cloud sync */}
+        <SectionTitle>Cloud</SectionTitle>
+        <CloudSyncSection />
+
+        {/* About & legal */}
+        {LEGAL_LINKS.length > 0 ? (
+          <>
+            <SectionTitle>About</SectionTitle>
+            <GlassCard contentClassName="p-1">
+              {LEGAL_LINKS.map((link, i) => (
+                <Pressable
+                  key={link.title}
+                  onPress={() => void Linking.openURL(link.url)}
+                  accessibilityRole="link"
+                  accessibilityLabel={link.title}
+                >
+                  {i > 0 && <Separator />}
+                  <View className="flex-row items-center gap-3 px-4 py-3.5">
+                    <View
+                      className="h-9 w-9 items-center justify-center rounded-full"
+                      style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+                    >
+                      <link.icon size={17} color={ACCENT} />
+                    </View>
+                    <Text className="text-starlight flex-1 font-medium">{link.title}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </GlassCard>
+          </>
+        ) : null}
 
         {/* Data */}
         <SectionTitle>Data</SectionTitle>
         <GlassCard contentClassName="p-1">
-          <Pressable onPress={() => setConfirmReset(true)}>
+          <Pressable
+            onPress={() => setConfirmReset(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Reset app"
+            accessibilityHint="Erases all memories on this device after you confirm"
+          >
             <View className="flex-row items-center gap-3 px-4 py-3.5">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
@@ -267,8 +429,9 @@ export default function SettingsScreen() {
           </Pressable>
         </GlassCard>
 
-        <Text className="text-muted mt-6 text-center text-[11px] leading-4">
+        <Text className="text-muted mt-6 text-center text-xs leading-4">
           Preferences are saved on this device.
+          {Constants.expoConfig?.version ? `\nMemoria ${Constants.expoConfig.version}` : ''}
         </Text>
       </ScrollView>
 
@@ -288,7 +451,8 @@ export default function SettingsScreen() {
               <Text className="text-starlight font-display text-xl font-bold">Reset app?</Text>
               <Text className="text-muted text-center text-sm leading-5">
                 This permanently erases every memory, constellation, shared cosmos and preference on
-                this device. You will start over from a blank cosmos.
+                this device and turns cloud sync off. Any copy already in the cloud is kept. You
+                will start over from a blank cosmos.
               </Text>
             </View>
             <View className="gap-2">

@@ -21,10 +21,12 @@ import { StorageBar, storageLabel } from '@/components/StorageBar';
 import { useMemoria } from '@/lib/store';
 import { CURRENT_USER, STAR_COLORS, colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, totalMediaBytes } from '@/lib/storage';
+import { persistMedia } from '@/lib/media';
+import { providerLabel, syncProviderForPlatform } from '@/lib/cloudSync';
 import type { StarColorKey } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -37,6 +39,8 @@ export default function ProfileTab() {
   const updateProfile = useMemoria((s) => s.updateProfile);
   const loadDemoProfile = useMemoria((s) => s.loadDemoProfile);
   const setDemoTourActive = useMemoria((s) => s.setDemoTourActive);
+  const syncEnabled = useMemoria((s) => s.sync.enabled);
+  const syncName = providerLabel(syncProviderForPlatform());
 
   const isPremium = tier === 'premium';
   const used = useMemo(() => totalMediaBytes(stars), [stars]);
@@ -68,7 +72,9 @@ export default function ProfileTab() {
       aspect: [1, 1],
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      setAvatarUri(await persistMedia(result.assets[0].uri, 'avatars'));
+    }
   };
 
   const saveEdit = () => {
@@ -106,7 +112,7 @@ export default function ProfileTab() {
         contentContainerClassName="px-5 pt-safe-offset-4 pb-32"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-starlight font-display text-3xl font-bold">Profile</Text>
+        <Text className="text-starlight font-heading text-3xl">Profile</Text>
 
         {/* Identity */}
         {editing ? (
@@ -126,9 +132,9 @@ export default function ProfileTab() {
                   )}
                   <View
                     className="absolute right-0 bottom-0 h-7 w-7 items-center justify-center rounded-full border-2"
-                    style={{ backgroundColor: ACCENT, borderColor: '#0B0C10' }}
+                    style={{ backgroundColor: ACCENT, borderColor: '#0C0E14' }}
                   >
-                    <Camera size={14} color="#0b0c10" strokeWidth={2.4} />
+                    <Camera size={14} color="#0C0E14" strokeWidth={2.4} />
                   </View>
                 </View>
               </Pressable>
@@ -162,7 +168,7 @@ export default function ProfileTab() {
                         }}
                       >
                         {avatarColorKey === c.key && (
-                          <Check size={14} color="#0b0c10" strokeWidth={3} />
+                          <Check size={14} color="#0C0E14" strokeWidth={3} />
                         )}
                       </View>
                     </Pressable>
@@ -263,9 +269,28 @@ export default function ProfileTab() {
             </Text>
           )}
 
+          {/* Cloud sync is opt-in; this is the way in from here. */}
+          <Pressable
+            onPress={() => router.push('/settings')}
+            accessibilityRole="button"
+            accessibilityLabel={`${syncName} sync, currently ${syncEnabled ? 'on' : 'off'}. Open settings`}
+            className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3"
+          >
+            <View className="flex-row items-center gap-2.5">
+              <Cloud size={16} color={syncEnabled ? ACCENT : MUTED} />
+              <Text className="text-starlight text-sm font-medium">{`${syncName} sync`}</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Text className="text-sm" style={{ color: syncEnabled ? ACCENT : MUTED }}>
+                {syncEnabled ? 'On' : 'Set up'}
+              </Text>
+              <ChevronRight size={16} color={MUTED} />
+            </View>
+          </Pressable>
+
           {!isPremium && (
             <Button size="sm" onPress={() => router.push('/paywall')}>
-              <Sparkles size={15} color="#0b0c10" />
+              <Sparkles size={15} color="#0C0E14" />
               <Button.Label>Upgrade to Premium</Button.Label>
             </Button>
           )}
@@ -279,7 +304,7 @@ export default function ProfileTab() {
           <GlassCard contentClassName="flex-row items-center gap-3 p-4">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
             >
               <Users size={18} color={ACCENT} />
             </View>
@@ -301,7 +326,7 @@ export default function ProfileTab() {
           <GlassCard contentClassName="flex-row items-center gap-3 p-4">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(69,243,255,0.1)' }}
+              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
             >
               <Settings size={18} color={ACCENT} />
             </View>

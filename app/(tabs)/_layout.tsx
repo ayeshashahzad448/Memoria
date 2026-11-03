@@ -9,11 +9,13 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { colorFor } from '@/lib/memoria';
 import { PERSONAL_COSMOS, useMemoria } from '@/lib/store';
+import { useFrame } from '@/lib/useFrame';
 import { TabBarTour } from '@/components/TabBarTour';
 import type { TabSpotlight } from '@/components/TabBarTour';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+/** Unselected tabs: dimmer than the muted text colour so the selected tab stands out; ~5:1 contrast. */
+const INACTIVE = '#7B84A8';
 
 interface TabDef {
   name: string;
@@ -36,7 +38,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#0b0c10' } }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#0C0E14' } }}
     >
       {TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{ title: t.label }} />
@@ -59,43 +61,52 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const [spotlights, setSpotlights] = useState<TabSpotlight[]>([]);
   const spotlightsRef = useRef<TabSpotlight[]>([]);
 
-  const reportSpotlight = useCallback((slot: number, s: TabSpotlight) => {
-    const prev = spotlightsRef.current[slot];
-    if (prev && Math.abs(prev.centerX - s.centerX) < 1 && Math.abs(prev.centerY - s.centerY) < 1) {
-      return;
-    }
-    const nextArr = spotlightsRef.current.slice();
-    nextArr[slot] = s;
-    spotlightsRef.current = nextArr;
-    setSpotlights(nextArr);
-  }, []);
+  // measureInWindow reports window coordinates; the tour draws inside the (possibly
+  // centered) app frame, so shift by the frame's left offset.
+  const { offsetX } = useFrame();
+  const reportSpotlight = useCallback(
+    (slot: number, measured: TabSpotlight) => {
+      const s = { ...measured, centerX: measured.centerX - offsetX };
+      const prev = spotlightsRef.current[slot];
+      if (
+        prev &&
+        Math.abs(prev.centerX - s.centerX) < 1 &&
+        Math.abs(prev.centerY - s.centerY) < 1
+      ) {
+        return;
+      }
+      const nextArr = spotlightsRef.current.slice();
+      nextArr[slot] = s;
+      spotlightsRef.current = nextArr;
+      setSpotlights(nextArr);
+    },
+    [offsetX],
+  );
 
   const activeRouteName = state.routes[state.index]?.name;
   const onCosmos = activeRouteName === 'index';
 
-  // Once the user has created their first star, walk them through the tab bar
-  // a single time. We wait until they have closed the freshly created memory's
-  // floating detail panel (memoryPanelOpen === false) so the tour starts only
-  // after they press exit, never interrupting the memory they just made.
+  // Walk new users through the tab bar a single time, right after the cosmos
+  // walkthrough and before their first memory. We wait for any open memory panel
+  // to close so the tour never interrupts someone viewing a star.
   useEffect(() => {
-    if (
-      demoTourActive ||
-      hasSeenTabTour ||
-      !hasSeenTutorial ||
-      !onCosmos ||
-      starCount === 0 ||
-      memoryPanelOpen
-    ) {
+    if (demoTourActive || hasSeenTabTour || !hasSeenTutorial || !onCosmos || memoryPanelOpen) {
       if (demoTourActive) setTourVisible(false);
       return undefined;
     }
     const t = setTimeout(() => setTourVisible(true), 600);
     return () => clearTimeout(t);
-  }, [demoTourActive, hasSeenTabTour, hasSeenTutorial, onCosmos, starCount, memoryPanelOpen]);
+  }, [demoTourActive, hasSeenTabTour, hasSeenTutorial, onCosmos, memoryPanelOpen]);
+
+  // A brand-new cosmos is empty, so the tour hands over to creating the first memory.
+  const leadsToFirstMemory = starCount === 0;
 
   const dismissTour = () => {
     setTourVisible(false);
     completeTabTour();
+    if (leadsToFirstMemory) {
+      router.push({ pathname: '/star/create', params: { cosmosId: PERSONAL_COSMOS } });
+    }
   };
 
   // Render in the requested visual order regardless of route registration order.
@@ -106,7 +117,13 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <>
-      {tourVisible && <TabBarTour onDone={dismissTour} spotlights={spotlights} />}
+      {tourVisible && (
+        <TabBarTour
+          onDone={dismissTour}
+          spotlights={spotlights}
+          doneLabel={leadsToFirstMemory ? 'Create my first memory' : 'Got it'}
+        />
+      )}
       <View
         className="border-glass-border absolute inset-x-0 bottom-0 border-t"
         style={{
@@ -196,13 +213,40 @@ function TabButton({
   }, [onMeasure]);
 
   return (
-    <Pressable onPress={onPress} className="flex-1 items-center justify-end gap-1 pb-1" hitSlop={4}>
-      <View ref={iconRef} onLayout={measure}>
-        <Icon size={21} color={focused ? ACCENT : MUTED} strokeWidth={focused ? 2.2 : 1.7} />
+    <Pressable
+      onPress={onPress}
+      className="flex-1 items-center justify-end gap-1 pb-1"
+      hitSlop={4}
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: focused }}
+    >
+      {/* Selected: a glowing bar above, a tinted pill behind the icon, bright white label. */}
+      <View
+        className="absolute -top-2.5 h-[3px] w-9 rounded-full"
+        style={{
+          backgroundColor: focused ? ACCENT : 'transparent',
+          shadowColor: ACCENT,
+          shadowOpacity: focused ? 0.9 : 0,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 0 },
+        }}
+      />
+      <View
+        ref={iconRef}
+        onLayout={measure}
+        className="h-8 w-14 items-center justify-center rounded-full"
+        style={{ backgroundColor: focused ? `${ACCENT}33` : 'transparent' }}
+      >
+        <Icon
+          size={focused ? 23 : 21}
+          color={focused ? ACCENT : INACTIVE}
+          strokeWidth={focused ? 2.4 : 1.6}
+        />
       </View>
       <Text
-        className="text-[10px] font-medium"
-        style={{ color: focused ? ACCENT : MUTED }}
+        className={focused ? 'text-[11px] font-bold' : 'text-[10px] font-medium'}
+        style={{ color: focused ? '#FFFFFF' : INACTIVE }}
         numberOfLines={1}
       >
         {label}
@@ -242,34 +286,38 @@ function CenterTab({
       hitSlop={6}
       className="flex-1 items-center justify-end gap-1"
       style={{ marginTop: -26 }}
+      accessibilityRole="tab"
+      accessibilityLabel={focused ? `${label}, add a memory` : label}
+      accessibilityState={{ selected: focused }}
     >
       <View
         ref={ringRef}
         onLayout={measure}
         className="h-[62px] w-[62px] items-center justify-center rounded-full border"
         style={{
-          backgroundColor: '#0B0C10',
-          borderColor: focused ? `${ACCENT}80` : 'rgba(255,255,255,0.12)',
+          backgroundColor: '#0C0E14',
+          borderWidth: focused ? 2 : 1,
+          borderColor: focused ? ACCENT : 'rgba(255,255,255,0.12)',
           shadowColor: ACCENT,
-          shadowOpacity: focused ? 0.7 : 0.45,
-          shadowRadius: focused ? 18 : 11,
+          shadowOpacity: focused ? 0.8 : 0,
+          shadowRadius: focused ? 18 : 0,
           shadowOffset: { width: 0, height: 0 },
         }}
       >
         <View
           className="h-[52px] w-[52px] items-center justify-center rounded-full"
-          style={{ backgroundColor: focused ? `${ACCENT}26` : 'rgba(255,255,255,0.05)' }}
+          style={{ backgroundColor: focused ? `${ACCENT}40` : 'rgba(255,255,255,0.04)' }}
         >
           <DisplayIcon
             size={26}
-            color={focused ? ACCENT : '#C8D0F5'}
-            strokeWidth={focused ? 2.6 : 1.9}
+            color={focused ? '#FFFFFF' : INACTIVE}
+            strokeWidth={focused ? 2.6 : 1.7}
           />
         </View>
       </View>
       <Text
-        className="text-[10px] font-semibold"
-        style={{ color: focused ? ACCENT : '#C8D0F5' }}
+        className={focused ? 'text-[11px] font-bold' : 'text-[10px] font-medium'}
+        style={{ color: focused ? '#FFFFFF' : INACTIVE }}
         numberOfLines={1}
       >
         {label}

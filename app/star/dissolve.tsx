@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { StarDissolve } from '@/components/StarDissolve';

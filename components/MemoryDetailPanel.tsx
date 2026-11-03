@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { useRouter } from 'expo-router';
 import { Text } from 'heroui-native';
 import Animated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
@@ -10,6 +11,7 @@ import {
   MapPin,
   Mic,
   Pencil,
+  Share2,
   Sparkles,
   Sun,
   Users,
@@ -19,11 +21,12 @@ import {
 
 import { GlassCard } from '@/components/GlassCard';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
+import { useShareMemory } from '@/lib/share';
 import { colorFor, starStatsForStar, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
 
 const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 /**
  * Width the floating memory panel takes on a given screen. Kept in sync with
@@ -41,7 +44,8 @@ export function memoryPanelWidth(screenWidth: number): number {
  */
 export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose: () => void }) {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { share, note } = useShareMemory(star);
+  const { width } = useFrame();
   // Take the right portion of the screen, but always leave room on the left so
   // the zoomed-in star stays visible. Cap so it never eats more than ~62% of
   // the screen on phones, and clamp to a comfortable width on tablets/web.
@@ -76,8 +80,18 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
           </View>
           <View className="flex-row items-center gap-3">
             <Pressable
+              onPress={() => void share()}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Share this memory"
+            >
+              <Share2 size={16} color={ACCENT} />
+            </Pressable>
+            <Pressable
               onPress={() => router.push({ pathname: '/star/edit', params: { id: star.id } })}
               hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Edit this memory"
             >
               <Pencil size={16} color={ACCENT} />
             </Pressable>
@@ -88,6 +102,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
             </Pressable>
           </View>
         </View>
+        {note ? <Text className="text-accent px-4 pt-2 text-xs">{note}</Text> : null}
 
         <ScrollView contentContainerClassName="px-4 py-4" showsVerticalScrollIndicator={false}>
           <Text className="text-starlight font-display text-2xl leading-7 font-bold">

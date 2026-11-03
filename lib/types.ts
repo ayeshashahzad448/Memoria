@@ -122,6 +122,22 @@ export interface UserProfile {
   avatarUri?: string;
 }
 
+/** Where the user's memories are mirrored. iCloud on Apple devices, Google Drive elsewhere. */
+export type SyncProvider = 'icloud' | 'googledrive';
+
+export interface SyncState {
+  /** User has switched cloud sync on. */
+  enabled: boolean;
+  /** ISO time of the last completed sync, for display. */
+  lastSyncedAt?: string;
+  /** Local data version (dataUpdatedAt) that the cloud copy already contains. */
+  syncedLocalAt?: string;
+  /** Cloud snapshot version (its updatedAt) that this device has already merged in. */
+  syncedRemoteAt?: string;
+  /** Human-readable message from the most recent failed sync. */
+  lastError?: string;
+}
+
 export interface Throwback {
   id: string;
   /** Headline line, e.g. "On this day in 2020". */

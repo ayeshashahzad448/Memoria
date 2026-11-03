@@ -17,13 +17,14 @@ import { GlassCard } from '@/components/GlassCard';
 import { StorageBar } from '@/components/StorageBar';
 import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 import { useMemoria } from '@/lib/store';
+import { goBack } from '@/lib/navigation';
 import { colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes, totalMediaBytes } from '@/lib/storage';
 import { type BillingPeriod, PLAN_PRICING, type PlanId, purchasePlan } from '@/lib/iap';
 
 const ACCENT = colorFor('cyan').hex;
 const VIOLET = '#C29BFF';
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 interface PlanDef {
   id: PlanId;
@@ -100,7 +101,7 @@ export default function Paywall() {
     setPending(null);
     if (result.success) {
       setTier('premium');
-      router.back();
+      goBack(router);
     } else if (result.notAvailable) {
       setNotice('Payments are not enabled yet. Turn them on to complete your upgrade.');
     } else {
@@ -127,7 +128,7 @@ export default function Paywall() {
               </Text>
             </View>
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => goBack(router)}
               hitSlop={12}
               className="border-glass-border h-9 w-9 items-center justify-center rounded-full border"
               style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
@@ -227,19 +228,19 @@ function BillingToggle({
                 style={{ backgroundColor: ACCENT }}
               />
             )}
-            <Text className="text-sm font-semibold" style={{ color: active ? '#0b0c10' : MUTED }}>
+            <Text className="text-sm font-semibold" style={{ color: active ? '#0C0E14' : MUTED }}>
               {opt.label}
             </Text>
             {opt.id === 'yearly' && (
               <View
                 className="rounded-full px-1.5 py-0.5"
                 style={{
-                  backgroundColor: active ? 'rgba(11,12,16,0.18)' : 'rgba(69,243,255,0.16)',
+                  backgroundColor: active ? 'rgba(11,12,16,0.18)' : 'rgba(165,180,252,0.16)',
                 }}
               >
                 <Text
                   className="text-[10px] font-bold"
-                  style={{ color: active ? '#0b0c10' : ACCENT }}
+                  style={{ color: active ? '#0C0E14' : ACCENT }}
                 >
                   SAVE 15%
                 </Text>
@@ -285,7 +286,7 @@ function PlanCard({
         {plan.recommended && (
           <View
             className="self-start rounded-full px-2.5 py-1"
-            style={{ backgroundColor: 'rgba(69,243,255,0.16)' }}
+            style={{ backgroundColor: 'rgba(165,180,252,0.16)' }}
           >
             <Text className="text-accent text-[10px] font-bold tracking-widest uppercase">
               Recommended
@@ -313,7 +314,7 @@ function PlanCard({
                 className="mt-0.5 h-4 w-4 items-center justify-center rounded-full"
                 style={{ backgroundColor: plan.accent }}
               >
-                <Check size={11} color="#0b0c10" strokeWidth={3} />
+                <Check size={11} color="#0C0E14" strokeWidth={3} />
               </View>
               <Text className="text-starlight/90 flex-1 text-sm leading-5">{f}</Text>
             </View>
@@ -338,7 +339,7 @@ function PlanCard({
               opacity: pending ? 0.7 : 1,
             }}
           >
-            <Text className="text-base font-bold" style={{ color: '#0b0c10' }}>
+            <Text className="text-base font-bold" style={{ color: '#0C0E14' }}>
               {pending ? 'Processing…' : plan.cta}
             </Text>
           </Pressable>

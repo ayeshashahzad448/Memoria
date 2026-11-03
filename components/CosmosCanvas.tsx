@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { TextureLoader } from 'expo-three';
 import { clamp, useSharedValue } from 'react-native-reanimated';
 import * as THREE from 'three';
@@ -452,7 +452,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             gl={{ antialias: true }}
             camera={{ fov: 60, near: 0.1, far: 200, position: [0, 0, 20] }}
             onCreated={(state) => {
-              state.gl.setClearColor('#0b0c10', 1);
+              state.gl.setClearColor('#0C0E14', 1);
             }}
           >
             <OrbitRig
@@ -1216,7 +1216,7 @@ function MilkyWay() {
 // tail, then a randomized quiet gap (20-40s) passes before the next one.
 
 /** App accent palette for ambient comets (cyan / violet / rose). */
-const COMET_COLORS = ['#45F3FF', '#9D5CFF', '#FF2A6D'];
+const COMET_COLORS = ['#A5B4FC', '#9D5CFF', '#FF2A6D'];
 const COMET_TAIL = 7;
 
 /** Random number in [min, max). */

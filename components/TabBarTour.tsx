@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { Button, Text } from 'heroui-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { History, Plus, Search, User, UsersRound } from 'lucide-react-native';
@@ -34,7 +35,7 @@ const STOPS: TourStop[] = [
     slot: 0,
     icon: History,
     title: 'Recall',
-    body: 'Resurfaces memories from this day in past years and random highlights — a gentle look back.',
+    body: 'Resurfaces memories from this day in past years and random highlights, a gentle look back.',
   },
   {
     slot: 1,
@@ -53,7 +54,7 @@ const STOPS: TourStop[] = [
     slot: 3,
     icon: Search,
     title: 'Search',
-    body: 'Find any memory by words, place, date, people tagged, or constellation — then fly to it.',
+    body: 'Find any memory by words, place, date, people tagged, or constellation, then fly to it.',
   },
   {
     slot: 4,
@@ -66,8 +67,8 @@ const STOPS: TourStop[] = [
 const TAB_COUNT = 5;
 
 /**
- * One-time guided walkthrough of the bottom tab bar, shown after the user
- * creates their first star. Dims the screen, points a spotlight at each tab in
+ * One-time guided walkthrough of the bottom tab bar, shown right after the cosmos
+ * walkthrough and before the user creates their first star. Dims the screen, points a spotlight at each tab in
  * turn, and explains it in plain language.
  *
  * `spotlights` are the measured screen-space centers of each tab icon, so the
@@ -77,11 +78,14 @@ const TAB_COUNT = 5;
 export function TabBarTour({
   onDone,
   spotlights,
+  doneLabel = 'Got it',
 }: {
   onDone: () => void;
   spotlights?: TabSpotlight[];
+  /** Label of the final button, e.g. when finishing the tour leads into creating a memory. */
+  doneLabel?: string;
 }) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useFrame();
   const [index, setIndex] = useState(0);
   const stop = STOPS[index];
   const isLast = index === STOPS.length - 1;
@@ -163,7 +167,7 @@ export function TabBarTour({
                   </Button>
                 )}
                 <Button size="sm" onPress={next}>
-                  <Button.Label>{isLast ? 'Got it' : 'Next'}</Button.Label>
+                  <Button.Label>{isLast ? doneLabel : 'Next'}</Button.Label>
                 </Button>
               </View>
             </View>

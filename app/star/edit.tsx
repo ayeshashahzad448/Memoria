@@ -3,7 +3,8 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'rea
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Input, Label, Text, TextField } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
+import { goBack } from '@/lib/navigation';
 import { format } from 'date-fns';
 import { CalendarDays } from 'lucide-react-native';
 
@@ -21,6 +22,7 @@ import { useMemoria } from '@/lib/store';
 import { radiusForText } from '@/lib/memoria';
 import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
+import { persistAll } from '@/lib/media';
 
 const MAX_PHOTOS = 2;
 
@@ -53,7 +55,7 @@ export default function EditStar() {
     return (
       <View className="bg-void flex-1 items-center justify-center px-6">
         <Text className="text-muted">This memory could not be found.</Text>
-        <Button variant="ghost" onPress={() => router.back()} className="mt-4">
+        <Button variant="ghost" onPress={() => goBack(router)} className="mt-4">
           Back
         </Button>
       </View>
@@ -76,7 +78,7 @@ export default function EditStar() {
       taggedUserIds: taggedIds,
       location,
     });
-    router.back();
+    goBack(router);
   };
 
   const pickPhotos = async () => {
@@ -92,7 +94,11 @@ export default function EditStar() {
       quality: 0.8,
     });
     if (!result.canceled) {
-      setPhotos((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
+      const saved = await persistAll(
+        result.assets.map((a) => a.uri),
+        'photos',
+      );
+      setPhotos((prev) => [...prev, ...saved].slice(0, MAX_PHOTOS));
     }
   };
 
@@ -108,7 +114,7 @@ export default function EditStar() {
         >
           <View className="mb-5 flex-row items-center justify-between">
             <Text className="text-starlight text-2xl font-bold">Edit memory</Text>
-            <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Pressable onPress={() => goBack(router)} hitSlop={12}>
               <Text className="text-muted text-base">Close</Text>
             </Pressable>
           </View>
@@ -147,7 +153,7 @@ export default function EditStar() {
 
             <View className="gap-2">
               <View className="flex-row items-center gap-2">
-                <CalendarDays size={15} color="#94A3B8" />
+                <CalendarDays size={15} color="#8B93B8" />
                 <Label>When did this happen?</Label>
               </View>
               <Pressable

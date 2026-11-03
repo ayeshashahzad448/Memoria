@@ -31,7 +31,7 @@ export interface StarfieldBackgroundProps {
  */
 export function StarfieldBackground({
   variant = 'drift',
-  background = variant === 'dust' ? '#0b0c10' : '#07080b',
+  background = variant === 'dust' ? '#0C0E14' : '#080A10',
 }: StarfieldBackgroundProps) {
   const { width, height } = useWindowDimensions();
   const clock = useSharedValue(0);

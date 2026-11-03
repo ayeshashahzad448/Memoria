@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
 import Animated, {
@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Flame, Sparkles, Sun, Weight } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
@@ -24,15 +24,6 @@ import { colorFor, starStatsForStar } from '@/lib/memoria';
 
 // Slower cinematic beats: drift-in, collapse, ignition flash, settle.
 const IGNITE_MS = 5400;
-
-// Module-scope so it is not recreated on every render (unicorn/consistent-function-scoping).
-function fireHaptic(kind: 'collapse' | 'flash' | 'settle') {
-  if (Platform.OS === 'web') return;
-  if (kind === 'collapse') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  else if (kind === 'flash')
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  else void Haptics.selectionAsync();
-}
 
 export default function IgniteStar() {
   const router = useRouter();
@@ -50,9 +41,10 @@ export default function IgniteStar() {
   const firedCollapse = useRef(false);
   const firedFlash = useRef(false);
   const firedSettle = useRef(false);
+  const cancelBuildup = useRef<(() => void) | null>(null);
 
   const stats = useMemo(() => (star ? starStatsForStar(star) : null), [star]);
-  const accent = star ? colorFor(star.colorKey).hex : '#45F3FF';
+  const accent = star ? colorFor(star.colorKey).hex : '#A5B4FC';
 
   useEffect(() => {
     if (!star) return;
@@ -92,8 +84,16 @@ export default function IgniteStar() {
       if (firedSettle.current) return;
       firedSettle.current = true;
     }
-    fireHaptic(kind);
+    // Rising pulses while the star collapses, a strong burst at ignition, a soft tap as it settles.
+    if (kind === 'collapse') cancelBuildup.current = Haptics.startIgnitionBuildup();
+    else if (kind === 'flash') {
+      cancelBuildup.current?.();
+      void Haptics.ignitionBurst();
+    } else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
+
+  // Stop any queued pulses if the screen closes early.
+  useEffect(() => () => cancelBuildup.current?.(), []);
 
   // Push-in + settle camera: scale up during collapse, snap on flash, ease back.
   const sceneStyle = useAnimatedStyle(() => {
@@ -182,7 +182,7 @@ export default function IgniteStar() {
             show={showClass}
             icon={<Sparkles size={16} color={accent} />}
             label="Spectral class"
-            value={showClass ? stats.spectralClass : '—'}
+            value={showClass ? stats.spectralClass : '-'}
           />
         </GlassCard>
         <Text className="text-muted mt-3 px-1 text-center text-[11px] leading-4">

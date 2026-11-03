@@ -17,7 +17,9 @@ export default function LoginScreen() {
 
   const enter = () => {
     signIn();
-    router.replace('/(tabs)');
+    // First-time people accept the terms, then see onboarding, before reaching the cosmos.
+    const { hasAcceptedTerms, hasOnboarded } = useMemoria.getState();
+    router.replace(!hasAcceptedTerms ? '/terms' : hasOnboarded ? '/(tabs)' : '/onboarding');
   };
 
   return (
@@ -39,7 +41,7 @@ export default function LoginScreen() {
                 fontSize: 38,
                 lineHeight: 52,
                 letterSpacing: 2,
-                color: '#F8FAFC',
+                color: '#F4F1EA',
                 includeFontPadding: false,
                 paddingTop: 6,
                 textAlign: 'center',
@@ -94,7 +96,7 @@ export default function LoginScreen() {
                 <GoogleGlyph />
               </OAuthButton>
               <OAuthButton label="Continue with Apple" onPress={enter}>
-                <Apple size={18} color="#F8FAFC" fill="#F8FAFC" />
+                <Apple size={18} color="#F4F1EA" fill="#F4F1EA" />
               </OAuthButton>
             </View>
           </GlassCard>

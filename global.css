@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
 
 @import 'tailwindcss';
 @import 'uniwind';
@@ -175,9 +175,9 @@
     --radius: 0.75rem;
     --field-radius: calc(var(--radius) * 1.25);
 
-    /* Base — Deep Cosmos void (#0B0C10) over a desaturated indigo Nebula (#1F2833) */
-    --background: #0b0c10;
-    --foreground: #f8fafc;
+    /* Base — ink-blue void (#0C0E14) over a desaturated indigo Nebula (#1F2833) */
+    --background: #0c0e14;
+    --foreground: #f4f1ea;
 
     --surface: rgba(255, 255, 255, 0.04);
     --surface-foreground: var(--foreground);
@@ -185,27 +185,27 @@
     --overlay: #12151c;
     --overlay-foreground: var(--foreground);
 
-    --muted: #94a3b8;
+    --muted: #8b93b8;
     --scrollbar: #334155;
 
     --default: rgba(255, 255, 255, 0.06);
     --default-foreground: var(--foreground);
 
-    /* Brand — Stellar Cyan */
-    --accent: #45f3ff;
-    --accent-foreground: #0b0c10;
+    /* Brand — soft periwinkle, with warm ivory text on an ink-blue void */
+    --accent: #a5b4fc;
+    --accent-foreground: #0c0e14;
 
     --field-background: rgba(255, 255, 255, 0.04);
     --field-foreground: var(--foreground);
     --field-placeholder: var(--muted);
     --field-border: rgba(255, 255, 255, 0.12);
 
-    --success: #45f3ff;
-    --success-foreground: #0b0c10;
+    --success: #6ee7b7;
+    --success-foreground: #0c0e14;
     --warning: #ffc75f;
-    --warning-foreground: #0b0c10;
+    --warning-foreground: #0c0e14;
     --danger: #ff2a6d;
-    --danger-foreground: #f8fafc;
+    --danger-foreground: #f4f1ea;
 
     --segment: rgba(255, 255, 255, 0.06);
     --segment-foreground: var(--foreground);
@@ -227,6 +227,7 @@
     --font-body: 'Inter', system-ui, sans-serif;
     --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
     --font-serif: 'Lora', Georgia, serif;
+    --font-heading: 'Instrument Serif', Georgia, serif;
   }
 }
 
@@ -235,14 +236,15 @@
   --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-serif: 'Lora', Georgia, serif;
+  --font-heading: 'Instrument Serif', Georgia, serif;
 
-  --color-void: #0b0c10;
-  --color-void-deep: #07080b;
+  --color-void: #0c0e14;
+  --color-void-deep: #080a10;
   --color-nebula-base: #1f2833;
-  --color-starlight: #f8fafc;
-  --color-secondary: #94a3b8;
+  --color-starlight: #f4f1ea;
+  --color-secondary: #8b93b8;
   --color-nebula: #7a04eb;
-  --color-stellar-cyan: #45f3ff;
+  --color-stellar-cyan: #a5b4fc;
   --color-electric-rose: #ff2a6d;
   --color-warm-amber: #ffc75f;
   --color-deep-violet: #7a04eb;

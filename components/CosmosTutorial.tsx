@@ -20,7 +20,7 @@ const STEPS: Step[] = [
   {
     icon: Plus,
     title: 'Anchor a memory',
-    body: 'Tap the Cosmos button below to add an Echo — a memory that becomes a star in your cosmos.',
+    body: 'Tap the Cosmos button below to add an Echo, a memory that becomes a star in your cosmos.',
   },
   {
     icon: Type,
@@ -37,21 +37,18 @@ const STEPS: Step[] = [
 /**
  * First-run guided coachmark shown over the Cosmos screen. Darkens the
  * background and walks the user through the three core interactions, closing
- * the gulf of evaluation before they create their first star.
+ * the gulf of evaluation before they create their first star. The tab-bar tour
+ * follows it, and that tour hands over to creating the first memory.
  */
-export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCreate: () => void }) {
+export function CosmosTutorial({ onDone }: { onDone: () => void }) {
   const [index, setIndex] = useState(0);
   const step = STEPS[index];
   const isLast = index === STEPS.length - 1;
   const Icon = step.icon;
 
   const next = () => {
-    if (isLast) {
-      onDone();
-      // Defer navigation a frame so the overlay can dismiss and the store
-      // update settles before the create screen is pushed.
-      requestAnimationFrame(onCreate);
-    } else setIndex((i) => i + 1);
+    if (isLast) onDone();
+    else setIndex((i) => i + 1);
   };
 
   return (
@@ -95,7 +92,7 @@ export function CosmosTutorial({ onDone, onCreate }: { onDone: () => void; onCre
                 </Button>
               )}
               <Button size="sm" onPress={next}>
-                <Button.Label>{isLast ? 'Add a memory' : 'Next'}</Button.Label>
+                <Button.Label>{isLast ? 'Tour the tabs' : 'Next'}</Button.Label>
               </Button>
             </View>
           </View>

@@ -9,7 +9,7 @@ import Animated, {
 
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes } from '@/lib/storage';
 
-const ACCENT = '#45F3FF';
+const ACCENT = '#A5B4FC';
 const WARNING = '#FFC75F';
 const FULL = '#FF2A6D';
 

@@ -11,7 +11,7 @@ import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
 
-const MUTED = '#94A3B8';
+const MUTED = '#8B93B8';
 
 export default function SearchTab() {
   const router = useRouter();
@@ -80,7 +80,7 @@ export default function SearchTab() {
       >
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
-            <Text className="text-starlight font-display text-3xl font-bold">Search</Text>
+            <Text className="text-starlight font-heading text-3xl">Search</Text>
             <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
           </View>
           <Pressable
