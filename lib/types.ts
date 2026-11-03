@@ -96,7 +96,12 @@ export type MemoryPrivacy = 'private' | 'friends' | 'public';
 /** Visual density / text size scaling. */
 export type TextSize = 'small' | 'medium' | 'large';
 
+/** Which colour theme to use; "system" follows the device's light or dark setting. */
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export interface AppSettings {
+  /** Light, dark, or follow the device. */
+  theme: ThemeMode;
   /** Haptic feedback on gestures and selections. */
   haptics: boolean;
   /** Twinkle / pulse sounds and UI sound effects. */

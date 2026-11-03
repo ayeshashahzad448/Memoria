@@ -24,9 +24,11 @@ import type { StarColorKey, StarLocation, VoiceNote } from '@/lib/types';
 import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 import { persistAll } from '@/lib/media';
 
+import { usePalette } from '@/lib/theme';
 const MAX_PHOTOS = 2;
 
 export default function EditStar() {
+  const colors = usePalette();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
@@ -153,7 +155,7 @@ export default function EditStar() {
 
             <View className="gap-2">
               <View className="flex-row items-center gap-2">
-                <CalendarDays size={15} color="#8B93B8" />
+                <CalendarDays size={15} color={colors.muted} />
                 <Label>When did this happen?</Label>
               </View>
               <Pressable

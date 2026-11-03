@@ -29,6 +29,15 @@ export const PRODUCT_IDS: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, 
   },
 };
 
+/**
+ * Demo mode: walk through a pretend checkout (payment sheet, confirmation, receipt) and
+ * unlock the plan without taking any money. On in development builds (dev server, Expo Go,
+ * web preview) and with EXPO_PUBLIC_SIMULATE_PAYMENTS=true. Release builds never simulate.
+ */
+export function isCheckoutSimulated(): boolean {
+  return __DEV__ || process.env.EXPO_PUBLIC_SIMULATE_PAYMENTS === 'true';
+}
+
 /** Placeholder display prices until live store pricing is fetched. */
 export const PLAN_PRICING: Record<Exclude<PlanId, 'free'>, Record<BillingPeriod, string>> = {
   personal: { monthly: '£2.99', yearly: '£29.99' },

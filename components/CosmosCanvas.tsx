@@ -6,6 +6,7 @@ import * as Haptics from '@/lib/haptics';
 import { TextureLoader } from 'expo-three';
 import { clamp, useSharedValue } from 'react-native-reanimated';
 import * as THREE from 'three';
+import { makeSparkleTexture } from './sparkleTexture';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
 import {
@@ -22,6 +23,20 @@ import {
   pickCandidate,
   REVEAL_DURATION_S,
 } from '@/lib/mediaCycle';
+/**
+ * Light mode paints a pastel daytime sky. Additive glow vanishes on a light background, so
+ * sprites switch to normal blending and white highlights become deep plum.
+ * Set by <CosmosCanvas> before its children build their materials; remount it to change theme.
+ */
+let LIGHT_SKY = false;
+const blend = () => (LIGHT_SKY ? THREE.NormalBlending : THREE.AdditiveBlending);
+const ink = (night: string, day: string) => (LIGHT_SKY ? day : night);
+/** On a light sky, star colours are deepened and their halos strengthened so they still read. */
+const starTone = (hex: string) => {
+  const c = new THREE.Color(hex);
+  return LIGHT_SKY ? c.multiplyScalar(0.92) : c;
+};
+const glowGain = () => (LIGHT_SKY ? 0.9 : 1);
 
 /**
  * Schedules the rare "memory comes alive" reveals: picks one media-bearing star
@@ -68,6 +83,10 @@ function useMediaCycle(stars: MemoryStar[]): ActiveMedia | null {
 }
 
 interface CosmosCanvasProps {
+  /** Paint a pastel daytime sky instead of the night sky (used in light mode). */
+  light?: boolean;
+  /** Zoom one step in (dir 1) or out (dir -1). Pass a new object with a new id to trigger. */
+  zoomCommand?: { id: number; dir: 1 | -1 } | null;
   stars: MemoryStar[];
   constellations: Constellation[];
   /** Star ids whose constellation lines should be visible. */
@@ -209,9 +228,25 @@ function makeCoreTexture(): THREE.Texture {
   );
 }
 
+/** A crisp round disc: a star's core on a light sky (a soft glow reads as a smudge there) and the round background stars. */
+function makeDiscTexture(): THREE.Texture {
+  return makeRadialTexture(
+    64,
+    [
+      { at: 0, alpha: 1 },
+      { at: 0.62, alpha: 1 },
+      { at: 0.8, alpha: 0 },
+      { at: 1, alpha: 0 },
+    ],
+    [255, 255, 255],
+  );
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
+  LIGHT_SKY = !!props.light;
   const {
     stars,
+    zoomCommand,
     constellations,
     revealedStarIds,
     selectedStarId,
@@ -235,7 +270,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
           star,
           pos: star3DPosition(star.id, star.x, star.y),
           size: starWorldSize(radius),
-          color: new THREE.Color(colorFor(star.colorKey).hex),
+          color: starTone(colorFor(star.colorKey).hex),
         };
       }),
     [stars],
@@ -378,6 +413,19 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
   // Drag rotates the orbit (3D) or translates the view (2D). One finger only so
   // it doesn't fight pinch. On release we hand the residual velocity to the
   // frame loop so the camera coasts to a stop instead of snapping dead.
+  // Zoom buttons: each command nudges the camera distance one step.
+  useEffect(() => {
+    if (!zoomCommand) return;
+    focusActive.value = 0;
+    const step = 0.72;
+    radius.value = clamp(
+      radius.value * (zoomCommand.dir > 0 ? step : 1 / step),
+      MIN_RADIUS,
+      MAX_RADIUS,
+    );
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomCommand?.id]);
+
   const pan = Gesture.Pan()
     .maxPointers(1)
     .onStart(() => {
@@ -452,7 +500,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             gl={{ antialias: true }}
             camera={{ fov: 60, near: 0.1, far: 200, position: [0, 0, 20] }}
             onCreated={(state) => {
-              state.gl.setClearColor('#0C0E14', 1);
+              state.gl.setClearColor(ink('#0C0E14', '#D8ECFF'), 1);
             }}
           >
             <OrbitRig
@@ -698,6 +746,17 @@ function coreTex(): THREE.Texture {
   if (!CORE_TEX) CORE_TEX = makeCoreTexture();
   return CORE_TEX;
 }
+let SPARKLE_TEX: THREE.Texture | null = null;
+function sparkleTex(): THREE.Texture {
+  if (!SPARKLE_TEX) SPARKLE_TEX = makeSparkleTexture();
+  return SPARKLE_TEX;
+}
+
+let DISC_TEX: THREE.Texture | null = null;
+function discTex(): THREE.Texture {
+  if (!DISC_TEX) DISC_TEX = makeDiscTexture();
+  return DISC_TEX;
+}
 
 function StarSprite({
   placed,
@@ -725,18 +784,18 @@ function StarSprite({
         color: color.clone(),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [color],
   );
   const coreMat = useMemo(
     () =>
       new THREE.SpriteMaterial({
-        map: coreTex(),
-        color: new THREE.Color('#ffffff'),
+        map: LIGHT_SKY ? sparkleTex() : coreTex(),
+        color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [],
   );
@@ -744,7 +803,7 @@ function StarSprite({
     () =>
       new THREE.SpriteMaterial({
         map: glowTex(),
-        color: new THREE.Color(forging ? '#FFE066' : '#FFFFFF'),
+        color: new THREE.Color(forging ? ink('#FFE066', '#E0A800') : ink('#FFFFFF', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
         opacity: 0,
@@ -758,7 +817,8 @@ function StarSprite({
     const b = Math.sin((t * rate * 1.7 + phase * 1.7) * Math.PI * 2);
     const mixed = (a * 0.7 + b * 0.3 + 1) / 2;
     const twinkle = Math.pow(mixed, 1.4) * liveliness;
-    if (glowMat) glowMat.opacity = (selected ? 0.55 : 0.4) + 0.18 * twinkle;
+    if (glowMat)
+      glowMat.opacity = Math.min(1, ((selected ? 0.55 : 0.4) + 0.18 * twinkle) * glowGain());
     if (coreMat) coreMat.opacity = 0.85 + 0.15 * twinkle;
     if (ringMat) ringMat.opacity = selected || forging ? 0.7 : 0;
     // Subtle ring pulse when active.
@@ -768,8 +828,8 @@ function StarSprite({
     }
   });
 
-  const glowScale = (size + 0.35) * 2.1;
-  const coreScale = size * 0.9;
+  const glowScale = (size + 0.35) * 2.1 * (LIGHT_SKY ? 0.9 : 1);
+  const coreScale = size * (LIGHT_SKY ? 2.4 : 0.9);
 
   return (
     <group position={pos}>
@@ -846,7 +906,7 @@ function PhotoReveal({ uri, size }: { uri: string; size: number }) {
         transparent
         opacity={0}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
+        blending={blend()}
       />
     </sprite>
   );
@@ -860,11 +920,11 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
   const mat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: color.clone().lerp(new THREE.Color('#ffffff'), 0.4),
+        color: color.clone().lerp(new THREE.Color(ink('#ffffff', '#3B2A5C')), 0.4),
         transparent: true,
         opacity: 0,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [color],
   );
@@ -1013,10 +1073,10 @@ function ConstellationLine({
     () =>
       new THREE.SpriteMaterial({
         map: glowTex(),
-        color: new THREE.Color('#D7B8FF'),
+        color: new THREE.Color(ink('#D7B8FF', '#B79CF0')),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
         opacity: 0,
       }),
     [],
@@ -1134,7 +1194,8 @@ function DustField() {
       pos[i * 3 + 1] = r * Math.cos(phi);
       pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
       const tint = 0.7 + seed(`dc${i}`) * 0.3;
-      c.setRGB(tint, tint * 0.95, 1);
+      if (LIGHT_SKY) c.setRGB(0.42 * tint, 0.38 * tint, 0.85);
+      else c.setRGB(tint, tint * 0.95, 1);
       col[i * 3] = c.r;
       col[i * 3 + 1] = c.g;
       col[i * 3 + 2] = c.b;
@@ -1149,11 +1210,12 @@ function DustField() {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.35}
+        map={discTex()}
+        size={LIGHT_SKY ? 0.6 : 0.35}
         sizeAttenuation
         vertexColors
         transparent
-        opacity={0.5}
+        opacity={LIGHT_SKY ? 1 : 0.5}
         depthWrite={false}
       />
     </points>
@@ -1186,10 +1248,10 @@ function MilkyWay() {
         (b) =>
           new THREE.SpriteMaterial({
             map: tex,
-            color: new THREE.Color('#3A2E6B'),
+            color: new THREE.Color(ink('#3A2E6B', '#F4CDE0')),
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending,
+            blending: blend(),
             opacity: b.opacity,
           }),
       ),
@@ -1265,12 +1327,12 @@ function ShootingStars() {
   const headMat = useMemo(
     () =>
       new THREE.SpriteMaterial({
-        map: coreTex(),
-        color: new THREE.Color('#ffffff'),
+        map: LIGHT_SKY ? sparkleTex() : coreTex(),
+        color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
         opacity: 0,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [],
   );
@@ -1281,11 +1343,11 @@ function ShootingStars() {
         () =>
           new THREE.SpriteMaterial({
             map: glowTex(),
-            color: new THREE.Color('#ffffff'),
+            color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
             transparent: true,
             depthWrite: false,
             opacity: 0,
-            blending: THREE.AdditiveBlending,
+            blending: blend(),
           }),
       ),
     [],
@@ -1309,7 +1371,7 @@ function ShootingStars() {
         elapsed.current = 0;
         const c = run.current.color;
         // eslint-disable-next-line react-compiler/react-compiler -- mutating three material in frame loop
-        headMat.color.copy(c).lerp(new THREE.Color('#ffffff'), 0.6);
+        headMat.color.copy(c).lerp(new THREE.Color(ink('#ffffff', '#3B2A5C')), 0.6);
         for (const m of tailMats) m.color.copy(c);
       }
       return;

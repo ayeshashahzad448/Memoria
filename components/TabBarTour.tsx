@@ -7,10 +7,7 @@ import { History, Plus, Search, User, UsersRound } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
-import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-
+import { usePalette } from '@/lib/theme';
 /** Measured screen-space center of each tab icon, reported by the tab bar. */
 export interface TabSpotlight {
   /** Horizontal center of the tab, in screen pixels. */
@@ -85,6 +82,7 @@ export function TabBarTour({
   /** Label of the final button, e.g. when finishing the tour leads into creating a memory. */
   doneLabel?: string;
 }) {
+  const colors = usePalette();
   const { width, height } = useFrame();
   const [index, setIndex] = useState(0);
   const stop = STOPS[index];
@@ -123,15 +121,15 @@ export function TabBarTour({
           top: spotlightCenterY - spotSize / 2,
           width: spotSize,
           height: spotSize,
-          borderColor: ACCENT,
-          backgroundColor: `${ACCENT}1A`,
-          shadowColor: ACCENT,
+          borderColor: colors.accent,
+          backgroundColor: `${colors.accent}1A`,
+          shadowColor: colors.accent,
           shadowOpacity: 0.9,
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 0 },
         }}
       >
-        <Icon size={stop.raised ? 28 : 22} color={ACCENT} strokeWidth={2.2} />
+        <Icon size={stop.raised ? 28 : 22} color={colors.accent} strokeWidth={2.2} />
       </Animated.View>
 
       {/* Explanation card centered above the bar. */}
@@ -140,9 +138,9 @@ export function TabBarTour({
           <GlassCard contentClassName="gap-3 p-6">
             <View
               className="h-11 w-11 items-center justify-center rounded-full"
-              style={{ backgroundColor: `${ACCENT}1F` }}
+              style={{ backgroundColor: `${colors.accent}1F` }}
             >
-              <Icon size={22} color={ACCENT} />
+              <Icon size={22} color={colors.accent} />
             </View>
             <Text className="text-starlight font-display text-xl font-bold">{stop.title}</Text>
             <Text className="text-muted text-sm leading-6">{stop.body}</Text>
@@ -155,7 +153,7 @@ export function TabBarTour({
                     className="h-1.5 rounded-full"
                     style={{
                       width: i === index ? 18 : 6,
-                      backgroundColor: i === index ? ACCENT : 'rgba(255,255,255,0.22)',
+                      backgroundColor: i === index ? colors.accent : colors.fg(0.22),
                     }}
                   />
                 ))}

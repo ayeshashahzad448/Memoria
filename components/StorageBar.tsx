@@ -8,10 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes } from '@/lib/storage';
-
-const ACCENT = '#A5B4FC';
-const WARNING = '#FFC75F';
-const FULL = '#FF2A6D';
+import { usePalette } from '@/lib/theme';
 
 interface StorageBarProps {
   /** Bytes currently used. */
@@ -22,10 +19,11 @@ interface StorageBarProps {
 
 /** Minimalist glowing capacity bar that fits the cosmos aesthetic. */
 export function StorageBar({ used, unlimited = false }: StorageBarProps) {
+  const colors = usePalette();
   const ratio = unlimited ? 0 : Math.min(used / FREE_LIMIT_BYTES, 1);
   const atLimit = !unlimited && used >= FREE_LIMIT_BYTES;
   const warning = !unlimited && ratio >= WARN_RATIO;
-  const color = atLimit ? FULL : warning ? WARNING : ACCENT;
+  const color = atLimit ? colors.danger : warning ? colors.warning : colors.accent;
 
   const progress = useSharedValue(0);
   useEffect(() => {
@@ -46,8 +44,8 @@ export function StorageBar({ used, unlimited = false }: StorageBarProps) {
           {
             height: '100%',
             borderRadius: 999,
-            backgroundColor: unlimited ? ACCENT : color,
-            shadowColor: unlimited ? ACCENT : color,
+            backgroundColor: unlimited ? colors.accent : color,
+            shadowColor: unlimited ? colors.accent : color,
             shadowOpacity: 0.9,
             shadowRadius: 8,
             shadowOffset: { width: 0, height: 0 },

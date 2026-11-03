@@ -7,15 +7,11 @@ import { Orbit, Plus, Search, History, User, UsersRound } from 'lucide-react-nat
 import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-import { colorFor } from '@/lib/memoria';
 import { PERSONAL_COSMOS, useMemoria } from '@/lib/store';
 import { useFrame } from '@/lib/useFrame';
 import { TabBarTour } from '@/components/TabBarTour';
 import type { TabSpotlight } from '@/components/TabBarTour';
-
-const ACCENT = colorFor('cyan').hex;
-/** Unselected tabs: dimmer than the muted text colour so the selected tab stands out; ~5:1 contrast. */
-const INACTIVE = '#7B84A8';
+import { usePalette } from '@/lib/theme';
 
 interface TabDef {
   name: string;
@@ -35,10 +31,11 @@ const TABS: TabDef[] = [
 ];
 
 export default function TabsLayout() {
+  const colors = usePalette();
   return (
     <Tabs
       tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#0C0E14' } }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}
     >
       {TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{ title: t.label }} />
@@ -48,6 +45,7 @@ export default function TabsLayout() {
 }
 
 function GlassTabBar({ state, navigation }: BottomTabBarProps) {
+  const colors = usePalette();
   const router = useRouter();
   const hasSeenTutorial = useMemoria((s) => s.hasSeenTutorial);
   const hasSeenTabTour = useMemoria((s) => s.hasSeenTabTour);
@@ -127,7 +125,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
       <View
         className="border-glass-border absolute inset-x-0 bottom-0 border-t"
         style={{
-          shadowColor: ACCENT,
+          shadowColor: colors.accent,
           shadowOpacity: 0.1,
           shadowRadius: 20,
           shadowOffset: { width: 0, height: -4 },
@@ -138,7 +136,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         <View style={StyleSheet.absoluteFill} className="overflow-hidden">
           <BlurView
             intensity={Platform.OS === 'android' ? 28 : 44}
-            tint="dark"
+            tint={colors.isDark ? 'dark' : 'light'}
             className="absolute inset-0"
           />
           <View className="bg-void/70 absolute inset-0" />
@@ -205,6 +203,7 @@ function TabButton({
   onPress: () => void;
   onMeasure: (s: TabSpotlight) => void;
 }) {
+  const colors = usePalette();
   const iconRef = useRef<View>(null);
   const measure = useCallback(() => {
     iconRef.current?.measureInWindow((x, y, w, h) => {
@@ -225,8 +224,8 @@ function TabButton({
       <View
         className="absolute -top-2.5 h-[3px] w-9 rounded-full"
         style={{
-          backgroundColor: focused ? ACCENT : 'transparent',
-          shadowColor: ACCENT,
+          backgroundColor: focused ? colors.accent : 'transparent',
+          shadowColor: colors.accent,
           shadowOpacity: focused ? 0.9 : 0,
           shadowRadius: 8,
           shadowOffset: { width: 0, height: 0 },
@@ -236,17 +235,17 @@ function TabButton({
         ref={iconRef}
         onLayout={measure}
         className="h-8 w-14 items-center justify-center rounded-full"
-        style={{ backgroundColor: focused ? `${ACCENT}33` : 'transparent' }}
+        style={{ backgroundColor: focused ? `${colors.accent}33` : 'transparent' }}
       >
         <Icon
           size={focused ? 23 : 21}
-          color={focused ? ACCENT : INACTIVE}
+          color={focused ? colors.accent : colors.inactive}
           strokeWidth={focused ? 2.4 : 1.6}
         />
       </View>
       <Text
         className={focused ? 'text-[11px] font-bold' : 'text-[10px] font-medium'}
-        style={{ color: focused ? '#FFFFFF' : INACTIVE }}
+        style={{ color: focused ? colors.text : colors.inactive }}
         numberOfLines={1}
       >
         {label}
@@ -270,6 +269,7 @@ function CenterTab({
   onCreate: () => void;
   onMeasure: (s: TabSpotlight) => void;
 }) {
+  const colors = usePalette();
   // When Cosmos is the active tab, the center button becomes a create (+)
   // affordance so adding a memory is always one tap away from the cosmos.
   const DisplayIcon = focused ? Plus : Icon;
@@ -295,29 +295,30 @@ function CenterTab({
         onLayout={measure}
         className="h-[62px] w-[62px] items-center justify-center rounded-full border"
         style={{
-          backgroundColor: '#0C0E14',
+          backgroundColor: colors.bg,
           borderWidth: focused ? 2 : 1,
-          borderColor: focused ? ACCENT : 'rgba(255,255,255,0.12)',
-          shadowColor: ACCENT,
-          shadowOpacity: focused ? 0.8 : 0,
-          shadowRadius: focused ? 18 : 0,
-          shadowOffset: { width: 0, height: 0 },
+          borderColor: focused ? colors.accent : colors.fg(0.12),
+          shadowColor: colors.accent,
+          // A glow reads well on the night sky; on a light sky it turns muddy, so use a soft drop shadow.
+          shadowOpacity: focused ? (colors.isDark ? 0.8 : 0.22) : 0,
+          shadowRadius: focused ? (colors.isDark ? 18 : 10) : 0,
+          shadowOffset: { width: 0, height: colors.isDark ? 0 : 5 },
         }}
       >
         <View
           className="h-[52px] w-[52px] items-center justify-center rounded-full"
-          style={{ backgroundColor: focused ? `${ACCENT}40` : 'rgba(255,255,255,0.04)' }}
+          style={{ backgroundColor: focused ? `${colors.accent}40` : colors.fg(0.04) }}
         >
           <DisplayIcon
             size={26}
-            color={focused ? '#FFFFFF' : INACTIVE}
+            color={focused ? colors.text : colors.inactive}
             strokeWidth={focused ? 2.6 : 1.7}
           />
         </View>
       </View>
       <Text
         className={focused ? 'text-[11px] font-bold' : 'text-[10px] font-medium'}
-        style={{ color: focused ? '#FFFFFF' : INACTIVE }}
+        style={{ color: focused ? colors.text : colors.inactive }}
         numberOfLines={1}
       >
         {label}

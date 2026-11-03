@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
@@ -15,7 +16,7 @@ type Phase = 'black' | 'empty' | 'action';
  * empty void — "it seems a bit empty in here" fades in subtly, lingers, then
  * slowly fades into an invitation to create the first memory.
  */
-export default function Onboarding() {
+function OnboardingScreen() {
   const router = useRouter();
   const completeOnboarding = useMemoria((s) => s.completeOnboarding);
   const [phase, setPhase] = useState<Phase>('black');
@@ -76,5 +77,14 @@ export default function Onboarding() {
         </Animated.View>
       )}
     </View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function Onboarding() {
+  return (
+    <ScopedTheme theme="dark">
+      <OnboardingScreen />
+    </ScopedTheme>
   );
 }

@@ -39,6 +39,7 @@ import {
 import { isCloudSimulated, startAutoSync } from '@/lib/cloudSync';
 import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
 import { startAppearanceSync } from '@/lib/appearance';
+import { usePalette } from '@/lib/theme';
 import { useMemoria } from '@/lib/store';
 import { FRAME_MAX_WIDTH, useFrame } from '@/lib/useFrame';
 import { initPostHog } from '@/lib/posthog';
@@ -198,19 +199,26 @@ export default function RootLayout() {
  * overlays) is positioned against this column. Native and narrow windows are untouched.
  */
 function AppFrame({ children }: { children: ReactNode }) {
+  const colors = usePalette();
   const { framed } = useFrame();
   if (!framed) return <>{children}</>;
   return (
-    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#050609' }}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        backgroundColor: colors.isDark ? '#050609' : '#FFE3CC',
+      }}
+    >
       <View
         style={{
           flex: 1,
           width: FRAME_MAX_WIDTH,
           overflow: 'hidden',
-          backgroundColor: '#0C0E14',
+          backgroundColor: colors.bg,
           borderLeftWidth: StyleSheet.hairlineWidth,
           borderRightWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(255,255,255,0.1)',
+          borderColor: colors.fg(0.1),
         }}
       >
         {children}
@@ -255,12 +263,13 @@ function useFlowGuard() {
 
 function RootNavigator() {
   const [overlay] = useThemeColor(['overlay']);
+  const colors = usePalette();
   useFlowGuard();
   return (
     <>
       {/* oxlint-disable-next-line react/style-prop-object -- expo-status-bar style prop takes a string */}
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0C0E14' } }}>
+      <StatusBar style={colors.isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
         <Stack.Screen name="login" />
@@ -270,6 +279,7 @@ function RootNavigator() {
         <Stack.Screen name="cosmos/[id]" />
         <Stack.Screen name="constellations" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
         <Stack.Screen name="friends" />
         <Stack.Screen
           name="star/create"

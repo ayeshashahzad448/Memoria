@@ -167,7 +167,7 @@
  * The app is dark-only; tokens below force a nocturnal palette regardless of system theme.
  */
 @layer theme {
-  :root,
+  :root.dark,
   .dark,
   [data-theme='dark'] {
     color-scheme: dark;
@@ -231,6 +231,84 @@
   }
 }
 
+/* Memoria light theme: warm cream and peach with plum text and a grape-purple accent. */
+@layer theme {
+  :root,
+  [data-theme='light'] {
+    color-scheme: light;
+
+    --radius: 0.75rem;
+    --field-radius: calc(var(--radius) * 1.25);
+
+    --background: #fff6ec;
+    --foreground: #2a1b3d;
+
+    --surface: rgba(255, 255, 255, 0.6);
+    --surface-foreground: var(--foreground);
+
+    --overlay: #ffffff;
+    --overlay-foreground: var(--foreground);
+
+    --muted: #6e5a7e;
+    --scrollbar: #d9c7b5;
+
+    --default: rgba(42, 27, 61, 0.06);
+    --default-foreground: var(--foreground);
+
+    --accent: #7c3aed;
+    --accent-foreground: #ffffff;
+
+    --field-background: rgba(255, 255, 255, 0.7);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted);
+    --field-border: rgba(42, 27, 61, 0.22);
+
+    --success: #0f8a5f;
+    --success-foreground: #ffffff;
+    --warning: #b45309;
+    --warning-foreground: #ffffff;
+    --danger: #c2255c;
+    --danger-foreground: #ffffff;
+
+    --segment: rgba(42, 27, 61, 0.07);
+    --segment-foreground: var(--foreground);
+
+    --border: rgba(42, 27, 61, 0.14);
+    --separator: rgba(42, 27, 61, 0.1);
+    --focus: var(--accent);
+    --link: var(--accent);
+
+    --backdrop: rgba(42, 27, 61, 0.45);
+
+    --surface-shadow: 0 0 0 0 transparent inset;
+    --overlay-shadow: 0 0 0 0 transparent inset;
+    --field-shadow: 0 0 0 0 transparent inset;
+    --skeleton-animation: shimmer;
+
+    --color-void: #fff6ec;
+    --color-void-deep: #ffeadb;
+    --color-nebula-base: #ffe0c2;
+    --color-starlight: #2a1b3d;
+    --color-secondary: #6e5a7e;
+    --color-stellar-cyan: #7c3aed;
+    --color-glass: rgba(255, 255, 255, 0.7);
+    --color-glass-border: rgba(42, 27, 61, 0.14);
+  }
+
+  /* The custom colours must be restated for dark, or the light values would be inherited. */
+  :root.dark,
+  .dark,
+  [data-theme='dark'] {
+    --color-void: #0c0e14;
+    --color-void-deep: #080a10;
+    --color-nebula-base: #1f2833;
+    --color-starlight: #f4f1ea;
+    --color-secondary: #8b93b8;
+    --color-stellar-cyan: #a5b4fc;
+    --color-glass: rgba(255, 255, 255, 0.03);
+    --color-glass-border: rgba(255, 255, 255, 0.1);
+  }
+}
 /* Custom utility colors for the cosmos UI — Midnight Aurora */
 @theme {
   --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;

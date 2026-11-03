@@ -58,6 +58,7 @@ export interface DemoCompose {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'dark',
   haptics: true,
   sound: true,
   reduceMotion: false,
@@ -150,6 +151,8 @@ export interface MemoriaState {
   applyCloudData: (data: CloudData, updatedAt: string, sync: Partial<SyncState>) => void;
 
   signIn: () => void;
+  /** Log in to an existing account: no terms, onboarding or tours, those are for new sign-ups. */
+  signInReturning: () => void;
   signOut: () => void;
   resetFlow: () => void;
   /** Wipe all persisted data and return to a fresh-install state. */
@@ -276,6 +279,14 @@ export const useMemoria = create<MemoriaState>()(
         })),
 
       signIn: () => set({ isAuthed: true }),
+      signInReturning: () =>
+        set({
+          isAuthed: true,
+          hasAcceptedTerms: true,
+          hasOnboarded: true,
+          hasSeenTutorial: true,
+          hasSeenTabTour: true,
+        }),
       signOut: () => set({ isAuthed: false, hasOnboarded: false, activeCosmosId: PERSONAL_COSMOS }),
       resetFlow: () =>
         set({
@@ -657,6 +668,8 @@ export const useMemoria = create<MemoriaState>()(
         const merged = { ...current, ...saved };
         return {
           ...merged,
+          // Settings saved before a new option existed keep the default for it.
+          settings: { ...DEFAULT_SETTINGS, ...saved.settings },
           stars: merged.stars.map((s) => ({
             ...s,
             photos: s.photos.map(rebaseMediaUri),

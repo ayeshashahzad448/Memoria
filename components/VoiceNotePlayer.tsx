@@ -4,10 +4,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { Pause, Play } from 'lucide-react-native';
 
 import type { VoiceNote } from '@/lib/types';
-import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-
+import { usePalette } from '@/lib/theme';
 /**
  * Plays a recorded voice note. Pass `onRemove` (e.g. while composing a memory) to show a
  * Remove action next to the duration.
@@ -21,6 +18,7 @@ export function VoiceNotePlayer({
   index: number;
   onRemove?: () => void;
 }) {
+  const colors = usePalette();
   const player = useAudioPlayer({ uri: note.uri });
   const status = useAudioPlayerStatus(player);
 
@@ -46,7 +44,11 @@ export function VoiceNotePlayer({
       className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3.5"
     >
       <View className="flex-row items-center gap-2.5">
-        {status.playing ? <Pause size={16} color={ACCENT} /> : <Play size={16} color={ACCENT} />}
+        {status.playing ? (
+          <Pause size={16} color={colors.accent} />
+        ) : (
+          <Play size={16} color={colors.accent} />
+        )}
         <Text className="text-starlight">Note {index + 1}</Text>
       </View>
       <View className="flex-row items-center gap-4">

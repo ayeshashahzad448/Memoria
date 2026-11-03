@@ -9,11 +9,10 @@ import { GlassCard } from '@/components/GlassCard';
 import { ConstellationPreview } from '@/components/ConstellationPreview';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8B93B8';
+import { usePalette } from '@/lib/theme';
 
 export default function ConstellationsScreen() {
+  const colors = usePalette();
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
@@ -126,7 +125,7 @@ export default function ConstellationsScreen() {
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
           >
             <View className="border-glass-border h-10 w-10 items-center justify-center rounded-full border">
-              <ArrowLeft size={20} color={MUTED} />
+              <ArrowLeft size={20} color={colors.muted} />
             </View>
           </Pressable>
           <Text className="text-starlight font-heading text-3xl">
@@ -156,7 +155,7 @@ export default function ConstellationsScreen() {
             <Pressable onPress={startNewConstellation} className="mb-6">
               <GlassCard contentClassName="flex-row items-center gap-3 p-4">
                 <View className="bg-accent/15 h-10 w-10 items-center justify-center rounded-full">
-                  <Plus size={18} color={ACCENT} strokeWidth={2.2} />
+                  <Plus size={18} color={colors.accent} strokeWidth={2.2} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-starlight font-semibold">New constellation</Text>
@@ -164,14 +163,14 @@ export default function ConstellationsScreen() {
                     Pick more memories in the cosmos to link with this one.
                   </Text>
                 </View>
-                <ChevronRight size={18} color={MUTED} />
+                <ChevronRight size={18} color={colors.muted} />
               </GlassCard>
             </Pressable>
 
             <Text className="text-starlight mb-2.5 font-semibold">Add to an existing one</Text>
             {addCandidates.length === 0 ? (
               <GlassCard contentClassName="items-center gap-2 p-6">
-                <Link2 size={22} color={MUTED} />
+                <Link2 size={22} color={colors.muted} />
                 <Text className="text-muted text-center text-sm leading-5">
                   No other constellations yet. Start a new one above to connect this memory.
                 </Text>
@@ -186,12 +185,12 @@ export default function ConstellationsScreen() {
                     <Pressable key={c.id} onPress={() => addStarToExisting(c.id)}>
                       <GlassCard contentClassName="gap-3 p-4">
                         <View className="flex-row items-center gap-2">
-                          <Link2 size={15} color={ACCENT} />
+                          <Link2 size={15} color={colors.accent} />
                           <Text className="text-starlight flex-1 font-semibold" numberOfLines={1}>
                             {c.name}
                           </Text>
                           <View className="flex-row items-center gap-1">
-                            <Plus size={14} color={ACCENT} />
+                            <Plus size={14} color={colors.accent} />
                             <Text className="text-accent text-xs font-medium">Add here</Text>
                           </View>
                         </View>
@@ -218,7 +217,7 @@ export default function ConstellationsScreen() {
             {suggestions.length > 0 && (
               <View className="mb-6 gap-2.5">
                 <View className="flex-row items-center gap-2">
-                  <Sparkles size={16} color={ACCENT} />
+                  <Sparkles size={16} color={colors.accent} />
                   <Text className="text-starlight flex-1 font-semibold">Suggested for you</Text>
                 </View>
                 <Text className="text-muted text-xs leading-4">
@@ -232,7 +231,7 @@ export default function ConstellationsScreen() {
                   return (
                     <GlassCard key={s.id} contentClassName="gap-3 p-4">
                       <View className="flex-row items-center gap-2">
-                        <Sparkles size={14} color={ACCENT} />
+                        <Sparkles size={14} color={colors.accent} />
                         <Text className="text-starlight font-display flex-1 font-semibold">
                           {s.name}
                         </Text>
@@ -270,7 +269,7 @@ export default function ConstellationsScreen() {
             <Text className="text-starlight mb-2.5 font-semibold">Your constellations</Text>
             {constellations.length === 0 ? (
               <GlassCard contentClassName="items-center gap-2 p-6">
-                <Link2 size={22} color={MUTED} />
+                <Link2 size={22} color={colors.muted} />
                 <Text className="text-muted text-center text-sm leading-5">
                   No constellations yet. From your cosmos, tap Connect and pick two or more
                   memories.
@@ -287,7 +286,7 @@ export default function ConstellationsScreen() {
                       <GlassCard contentClassName="gap-3 p-4">
                         <View className="flex-row items-center justify-between">
                           <View className="flex-1 flex-row items-center gap-2">
-                            <Link2 size={15} color={ACCENT} />
+                            <Link2 size={15} color={colors.accent} />
                             <Text className="text-starlight flex-1 font-semibold" numberOfLines={1}>
                               {c.name}
                             </Text>
@@ -299,7 +298,7 @@ export default function ConstellationsScreen() {
                             }}
                             hitSlop={10}
                           >
-                            <Trash2 size={16} color={MUTED} />
+                            <Trash2 size={16} color={colors.muted} />
                           </Pressable>
                         </View>
 
@@ -317,7 +316,7 @@ export default function ConstellationsScreen() {
                           </Text>
                           <View className="flex-row items-center gap-1">
                             <Text className="text-accent text-xs font-medium">View in cosmos</Text>
-                            <ChevronRight size={14} color={ACCENT} />
+                            <ChevronRight size={14} color={colors.accent} />
                           </View>
                         </View>
                       </GlassCard>

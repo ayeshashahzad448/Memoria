@@ -6,12 +6,11 @@ import { ChevronRight, Plus, Sparkles, UsersRound, X } from 'lucide-react-native
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
-import { DIRECTORY_USERS, CURRENT_USER, userById, colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8B93B8';
+import { DIRECTORY_USERS, CURRENT_USER, userById } from '@/lib/memoria';
+import { usePalette } from '@/lib/theme';
 
 export default function SharedTab() {
+  const colors = usePalette();
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const sharedCosmoses = useMemoria((s) => s.sharedCosmoses);
@@ -55,7 +54,7 @@ export default function SharedTab() {
         {sharedCosmoses.length === 0 && !creating && (
           <GlassCard className="mb-3" contentClassName="items-center gap-3 p-6">
             <View className="bg-accent/10 h-12 w-12 items-center justify-center rounded-full">
-              <UsersRound size={22} color={ACCENT} />
+              <UsersRound size={22} color={colors.accent} />
             </View>
             <Text className="text-starlight font-display text-lg font-semibold">
               No shared spaces yet
@@ -75,7 +74,7 @@ export default function SharedTab() {
               <Pressable key={c.id} onPress={() => openSpace(c.id)}>
                 <GlassCard contentClassName="flex-row items-center gap-3 p-4">
                   <View className="bg-accent/10 h-11 w-11 items-center justify-center rounded-full">
-                    <UsersRound size={18} color={ACCENT} />
+                    <UsersRound size={18} color={colors.accent} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-starlight font-semibold" numberOfLines={1}>
@@ -85,7 +84,7 @@ export default function SharedTab() {
                       {count} {count === 1 ? 'memory' : 'memories'} · {memberNames.join(', ')}
                     </Text>
                   </View>
-                  <ChevronRight size={18} color={MUTED} />
+                  <ChevronRight size={18} color={colors.muted} />
                 </GlassCard>
               </Pressable>
             );
@@ -106,7 +105,7 @@ export default function SharedTab() {
                 hitSlop={10}
                 className="border-glass-border h-8 w-8 items-center justify-center rounded-full border"
               >
-                <X size={16} color={MUTED} />
+                <X size={16} color={colors.muted} />
               </Pressable>
             </View>
             <Text className="text-muted text-xs leading-4">
@@ -133,14 +132,14 @@ export default function SharedTab() {
               </View>
             </View>
             <Button isDisabled={name.trim().length === 0} onPress={create}>
-              <Sparkles size={15} color="#0C0E14" />
+              <Sparkles size={15} color={colors.onAccent} />
               <Button.Label>Create shared cosmos</Button.Label>
             </Button>
           </GlassCard>
         ) : (
           <Pressable className="mt-4" onPress={() => setCreating(true)}>
             <GlassCard contentClassName="flex-row items-center justify-center gap-2 p-4">
-              <Plus size={18} color={ACCENT} />
+              <Plus size={18} color={colors.accent} />
               <Text className="text-accent font-medium">Create a shared cosmos</Text>
             </GlassCard>
           </Pressable>

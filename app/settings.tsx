@@ -14,6 +14,7 @@ import {
   Globe,
   LifeBuoy,
   Lock,
+  SunMoon,
   RefreshCw,
   ShieldCheck,
   Trash2,
@@ -27,7 +28,7 @@ import {
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
 import { goBack } from '@/lib/navigation';
-import { colorFor } from '@/lib/memoria';
+
 import {
   SIMULATED_CONNECT_MS,
   checkSyncAvailability,
@@ -37,18 +38,21 @@ import {
   syncProviderForPlatform,
   type SyncAvailability,
 } from '@/lib/cloudSync';
-import type { MemoryPrivacy, TextSize } from '@/lib/types';
+import type { MemoryPrivacy, TextSize, ThemeMode } from '@/lib/types';
 
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8B93B8';
-const DANGER = '#FF2A6D';
-
+import { usePalette } from '@/lib/theme';
 /** Set these in the build environment before publishing; rows stay hidden until they exist. */
 const LEGAL_LINKS = [
   { icon: ShieldCheck, title: 'Privacy policy', url: process.env.EXPO_PUBLIC_PRIVACY_URL },
   { icon: FileText, title: 'Terms of service', url: process.env.EXPO_PUBLIC_TERMS_URL },
   { icon: LifeBuoy, title: 'Support', url: process.env.EXPO_PUBLIC_SUPPORT_URL },
 ].filter((l): l is { icon: LucideIcon; title: string; url: string } => !!l.url);
+
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 const TEXT_SIZES: { value: TextSize; label: string }[] = [
   { value: 'small', label: 'Small' },
@@ -71,15 +75,16 @@ interface RowProps {
 }
 
 function Row({ icon: Icon, title, subtitle, children, first }: RowProps) {
+  const colors = usePalette();
   return (
     <View>
       {!first && <Separator />}
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         <View
           className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+          style={{ backgroundColor: colors.accentA(0.1) }}
         >
-          <Icon size={17} color={ACCENT} />
+          <Icon size={17} color={colors.accent} />
         </View>
         <View className="flex-1">
           <Text className="text-starlight font-medium">{title}</Text>
@@ -98,11 +103,9 @@ interface SegmentProps<T extends string> {
 }
 
 function Segmented<T extends string>({ options, value, onChange }: SegmentProps<T>) {
+  const colors = usePalette();
   return (
-    <View
-      className="flex-row rounded-full p-0.5"
-      style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
-    >
+    <View className="flex-row rounded-full p-0.5" style={{ backgroundColor: colors.fg(0.06) }}>
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -114,9 +117,12 @@ function Segmented<T extends string>({ options, value, onChange }: SegmentProps<
             accessibilityLabel={o.label}
             accessibilityState={{ selected: active }}
             className="flex-1 items-center rounded-full px-3 py-2"
-            style={{ backgroundColor: active ? ACCENT : 'transparent' }}
+            style={{ backgroundColor: active ? colors.accent : 'transparent' }}
           >
-            <Text className="text-sm font-semibold" style={{ color: active ? '#0C0E14' : MUTED }}>
+            <Text
+              className="text-sm font-semibold"
+              style={{ color: active ? colors.onAccent : colors.muted }}
+            >
               {o.label}
             </Text>
           </Pressable>
@@ -127,6 +133,7 @@ function Segmented<T extends string>({ options, value, onChange }: SegmentProps<
 }
 
 function CloudSyncSection() {
+  const colors = usePalette();
   const sync = useMemoria((s) => s.sync);
   const setSync = useMemoria((s) => s.setSync);
   const [availability, setAvailability] = useState<SyncAvailability | null>(null);
@@ -201,11 +208,11 @@ function CloudSyncSection() {
           >
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+              style={{ backgroundColor: colors.accentA(0.1) }}
             >
-              <RefreshCw size={17} color={ACCENT} />
+              <RefreshCw size={17} color={colors.accent} />
             </View>
-            <Text className="font-medium" style={{ color: ACCENT, opacity: busy ? 0.6 : 1 }}>
+            <Text className="font-medium" style={{ color: colors.accent, opacity: busy ? 0.6 : 1 }}>
               {busy ? 'Syncing…' : 'Sync now'}
             </Text>
           </Pressable>
@@ -224,6 +231,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 }
 
 export default function SettingsScreen() {
+  const colors = usePalette();
   const router = useRouter();
   const settings = useMemoria((s) => s.settings);
   const updateSettings = useMemoria((s) => s.updateSettings);
@@ -244,9 +252,9 @@ export default function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+          style={{ backgroundColor: colors.fg(0.06) }}
         >
-          <ChevronLeft size={20} color="#F4F1EA" />
+          <ChevronLeft size={20} color={colors.text} />
         </Pressable>
         <Text className="text-starlight font-heading text-3xl">Settings</Text>
       </View>
@@ -259,9 +267,33 @@ export default function SettingsScreen() {
             <View className="flex-row items-center gap-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+                style={{ backgroundColor: colors.accentA(0.1) }}
               >
-                <Type size={17} color={ACCENT} />
+                <SunMoon size={17} color={colors.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-starlight font-medium">Appearance</Text>
+                <Text className="text-muted text-xs leading-4">
+                  Light, dark, or match your device. The night-sky screens stay dark.
+                </Text>
+              </View>
+            </View>
+            <View className="mt-3">
+              <Segmented
+                options={THEME_OPTIONS}
+                value={settings.theme}
+                onChange={(theme) => updateSettings({ theme })}
+              />
+            </View>
+          </View>
+          <Separator />
+          <View className="px-4 py-3.5">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: colors.accentA(0.1) }}
+              >
+                <Type size={17} color={colors.accent} />
               </View>
               <View className="flex-1">
                 <Text className="text-starlight font-medium">Text size</Text>
@@ -314,9 +346,9 @@ export default function SettingsScreen() {
             <View className="flex-row items-center gap-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+                style={{ backgroundColor: colors.accentA(0.1) }}
               >
-                <Eye size={17} color={ACCENT} />
+                <Eye size={17} color={colors.accent} />
               </View>
               <View className="flex-1">
                 <Text className="text-starlight font-medium">Default visibility</Text>
@@ -337,14 +369,14 @@ export default function SettingsScreen() {
                     accessibilityState={{ selected: active }}
                     className="flex-1 items-center gap-1.5 rounded-xl border py-3"
                     style={{
-                      borderColor: active ? ACCENT : 'rgba(255,255,255,0.08)',
-                      backgroundColor: active ? 'rgba(165,180,252,0.08)' : 'transparent',
+                      borderColor: active ? colors.accent : colors.fg(0.08),
+                      backgroundColor: active ? colors.accentA(0.08) : 'transparent',
                     }}
                   >
-                    <Icon size={18} color={active ? ACCENT : MUTED} />
+                    <Icon size={18} color={active ? colors.accent : colors.muted} />
                     <Text
                       className="text-xs font-medium"
-                      style={{ color: active ? ACCENT : MUTED }}
+                      style={{ color: active ? colors.accent : colors.muted }}
                     >
                       {o.label}
                     </Text>
@@ -389,9 +421,9 @@ export default function SettingsScreen() {
                   <View className="flex-row items-center gap-3 px-4 py-3.5">
                     <View
                       className="h-9 w-9 items-center justify-center rounded-full"
-                      style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+                      style={{ backgroundColor: colors.accentA(0.1) }}
                     >
-                      <link.icon size={17} color={ACCENT} />
+                      <link.icon size={17} color={colors.accent} />
                     </View>
                     <Text className="text-starlight flex-1 font-medium">{link.title}</Text>
                   </View>
@@ -415,10 +447,10 @@ export default function SettingsScreen() {
                 className="h-9 w-9 items-center justify-center rounded-full"
                 style={{ backgroundColor: 'rgba(255,42,109,0.12)' }}
               >
-                <Trash2 size={17} color={DANGER} />
+                <Trash2 size={17} color={colors.danger} />
               </View>
               <View className="flex-1">
-                <Text className="font-medium" style={{ color: DANGER }}>
+                <Text className="font-medium" style={{ color: colors.danger }}>
                   Reset app
                 </Text>
                 <Text className="text-muted text-xs leading-4">
@@ -446,7 +478,7 @@ export default function SettingsScreen() {
                 className="h-12 w-12 items-center justify-center rounded-full"
                 style={{ backgroundColor: 'rgba(255,42,109,0.12)' }}
               >
-                <Trash2 size={22} color={DANGER} />
+                <Trash2 size={22} color={colors.danger} />
               </View>
               <Text className="text-starlight font-display text-xl font-bold">Reset app?</Text>
               <Text className="text-muted text-center text-sm leading-5">

@@ -48,12 +48,10 @@ import { FREE_LIMIT_BYTES, totalMediaBytes } from '@/lib/storage';
 import { persistAll, persistMedia } from '@/lib/media';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
 
+import { usePalette } from '@/lib/theme';
+import { ScopedTheme } from 'uniwind';
 const MAX_PHOTOS = 2;
 const MAX_VOICE = 2;
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8B93B8';
-/** Placeholder text on the dark writing surface; ~5:1 contrast. */
-const PLACEHOLDER = '#7C8AA0';
 /** The browser's default focus outline looks out of place on the borderless writing fields. */
 const NO_OUTLINE = (
   Platform.OS === 'web' ? { outlineStyle: 'none', resize: 'none' } : {}
@@ -64,6 +62,7 @@ type DetailPanel = 'date' | 'place' | 'photos' | 'voice' | 'people';
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export default function CreateStar() {
+  const colors = usePalette();
   const router = useRouter();
   const params = useLocalSearchParams();
   const addStar = useMemoria((s) => s.addStar);
@@ -180,33 +179,43 @@ export default function CreateStar() {
               accessibilityRole="button"
               accessibilityLabel="Close"
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+              style={{ backgroundColor: colors.fg(0.08) }}
             >
-              <X size={18} color={MUTED} strokeWidth={2.2} />
+              <X size={18} color={colors.muted} strokeWidth={2.2} />
             </Pressable>
           </View>
 
-          {/* Live star: tinted by the chosen emotion */}
-          <View
-            className="border-glass-border mb-5 items-center overflow-hidden rounded-3xl border py-6"
-            style={{ backgroundColor: `${tint}0F` }}
-          >
-            <StarPreview story={story} title={title} colorKey={colorKey} />
-            <Text className="text-muted mt-1 text-xs">
-              {!hasContent
-                ? 'Start writing to bring your star to life'
-                : radiusForText(story.length > 0 ? story : title) > 18
-                  ? 'This is becoming a core memory'
-                  : 'Your star is taking shape'}
-            </Text>
-            {hasContent && (
-              <View className="mt-4 flex-row gap-2">
-                <PreviewStat label="Temp" value={`${liveStats.temperatureK.toLocaleString()} K`} />
-                <PreviewStat label="Mass" value={`${liveStats.massSolar.toFixed(1)} M\u2609`} />
-                <PreviewStat label="Class" value={liveStats.spectralClass} />
-              </View>
-            )}
-          </View>
+          {/* Live star: a small window onto the night sky, dark in both themes */}
+          <ScopedTheme theme="dark">
+            <View
+              className="mb-5 items-center overflow-hidden rounded-3xl py-6"
+              style={{ backgroundColor: '#0C0E14' }}
+            >
+              <View
+                pointerEvents="none"
+                className="absolute inset-0"
+                style={{ backgroundColor: `${tint}14` }}
+              />
+              <StarPreview story={story} title={title} colorKey={colorKey} />
+              <Text className="text-muted mt-1 text-xs">
+                {!hasContent
+                  ? 'Start writing to bring your star to life'
+                  : radiusForText(story.length > 0 ? story : title) > 18
+                    ? 'This is becoming a core memory'
+                    : 'Your star is taking shape'}
+              </Text>
+              {hasContent && (
+                <View className="mt-4 flex-row gap-2">
+                  <PreviewStat
+                    label="Temp"
+                    value={`${liveStats.temperatureK.toLocaleString()} K`}
+                  />
+                  <PreviewStat label="Mass" value={`${liveStats.massSolar.toFixed(1)} M\u2609`} />
+                  <PreviewStat label="Class" value={liveStats.spectralClass} />
+                </View>
+              )}
+            </View>
+          </ScopedTheme>
 
           {atLimit && (
             <Pressable onPress={openPaywall}>
@@ -223,13 +232,13 @@ export default function CreateStar() {
           {/* Writing surface */}
           <View
             className="border-glass-border mb-5 rounded-3xl border p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+            style={{ backgroundColor: colors.fg(0.03) }}
           >
             <TextInput
               value={title}
               onChangeText={setTitle}
               placeholder="Give it a name"
-              placeholderTextColor={PLACEHOLDER}
+              placeholderTextColor={colors.placeholder}
               accessibilityLabel="Title"
               className="text-starlight font-display text-xl font-semibold"
               style={NO_OUTLINE}
@@ -239,7 +248,7 @@ export default function CreateStar() {
               value={story}
               onChangeText={setStory}
               placeholder="Tell it the way you want to remember it…"
-              placeholderTextColor={PLACEHOLDER}
+              placeholderTextColor={colors.placeholder}
               accessibilityLabel="Your story"
               multiline
               className="text-starlight min-h-40 font-serif text-base leading-7"
@@ -304,10 +313,7 @@ export default function CreateStar() {
           {/* Every editor stays mounted (so a recording or search isn't lost); only one shows. */}
           <View
             className="border-glass-border mt-3 rounded-3xl border p-4"
-            style={[
-              { backgroundColor: 'rgba(255,255,255,0.03)' },
-              openPanel ? null : { display: 'none' },
-            ]}
+            style={[{ backgroundColor: colors.fg(0.03) }, openPanel ? null : { display: 'none' }]}
           >
             <View style={openPanel === 'date' ? undefined : { display: 'none' }}>
               <WheelDatePicker value={date} onChange={setDate} minYear={1940} />
@@ -351,10 +357,11 @@ export default function CreateStar() {
 /* ------------------------------ Color grid -------------------------------- */
 
 function PreviewStat({ label, value }: { label: string; value: string }) {
+  const colors = usePalette();
   return (
     <View
       className="items-center rounded-2xl px-4 py-2"
-      style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+      style={{ backgroundColor: colors.fg(0.05) }}
     >
       <Text className="text-starlight font-display text-sm font-semibold">{value}</Text>
       <Text className="text-muted mt-0.5 text-[10px] tracking-wider uppercase">{label}</Text>
@@ -379,6 +386,7 @@ function DetailTile({
   active: boolean;
   onPress: () => void;
 }) {
+  const colors = usePalette();
   return (
     <Pressable
       onPress={onPress}
@@ -387,15 +395,15 @@ function DetailTile({
       accessibilityState={{ expanded: active }}
       className="w-[48%] flex-row items-center gap-3 rounded-2xl border px-3.5 py-3"
       style={{
-        borderColor: active ? ACCENT : 'rgba(255,255,255,0.1)',
-        backgroundColor: active ? 'rgba(165,180,252,0.08)' : 'rgba(255,255,255,0.03)',
+        borderColor: active ? colors.accent : colors.fg(0.1),
+        backgroundColor: active ? colors.accentA(0.08) : colors.fg(0.03),
       }}
     >
       <View
         className="h-9 w-9 items-center justify-center rounded-full"
-        style={{ backgroundColor: filled ? 'rgba(165,180,252,0.16)' : 'rgba(255,255,255,0.06)' }}
+        style={{ backgroundColor: filled ? colors.accentA(0.16) : colors.fg(0.06) }}
       >
-        <Icon size={17} color={filled || active ? ACCENT : MUTED} />
+        <Icon size={17} color={filled || active ? colors.accent : colors.muted} />
       </View>
       <View className="flex-1">
         <Text className="text-muted text-[11px]">{label}</Text>
@@ -414,6 +422,7 @@ export function ColorGrid({
   value: StarColorKey;
   onChange: (k: StarColorKey) => void;
 }) {
+  const colors = usePalette();
   return (
     <View>
       <Text className="text-muted mb-3 text-xs font-semibold tracking-widest uppercase">
@@ -431,8 +440,8 @@ export function ColorGrid({
               accessibilityState={{ selected }}
               className="flex-row items-center gap-2 rounded-full border px-3.5 py-2"
               style={{
-                borderColor: selected ? c.hex : 'rgba(255,255,255,0.1)',
-                backgroundColor: selected ? `${c.hex}26` : 'rgba(255,255,255,0.03)',
+                borderColor: selected ? c.hex : colors.fg(0.1),
+                backgroundColor: selected ? `${c.hex}26` : colors.fg(0.03),
               }}
             >
               <View
@@ -445,7 +454,10 @@ export function ColorGrid({
                   shadowOffset: { width: 0, height: 0 },
                 }}
               />
-              <Text className="text-sm font-medium" style={{ color: selected ? '#F4F1EA' : MUTED }}>
+              <Text
+                className="text-sm font-medium"
+                style={{ color: selected ? colors.text : colors.muted }}
+              >
                 {c.emotion}
               </Text>
             </Pressable>
@@ -469,10 +481,11 @@ export function PhotoPicker({
   onAdd: () => void;
   onRemove: (uri: string) => void;
 }) {
+  const colors = usePalette();
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <Camera size={15} color={MUTED} />
+        <Camera size={15} color={colors.muted} />
         <Label>{`Photos (${photos.length}/${MAX_PHOTOS})`}</Label>
       </View>
       <View className="flex-row flex-wrap gap-3">
@@ -492,7 +505,7 @@ export function PhotoPicker({
             onPress={onAdd}
             className="border-glass-border h-[84px] w-[84px] items-center justify-center rounded-2xl border border-dashed"
           >
-            <Plus size={24} color={atLimit ? '#FF6B6B' : MUTED} />
+            <Plus size={24} color={atLimit ? colors.danger : colors.muted} />
           </Pressable>
         )}
       </View>
@@ -513,6 +526,7 @@ export function VoiceRecorder({
   onUpgrade: () => void;
   onChange: (n: VoiceNote[]) => void;
 }) {
+  const colors = usePalette();
   const { isRecording, isSupported, permission, start, stop } = useVoiceRecorder();
 
   const toggle = async () => {
@@ -536,7 +550,7 @@ export function VoiceRecorder({
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <Mic size={15} color={MUTED} />
+        <Mic size={15} color={colors.muted} />
         <Label>{`Voice notes (${notes.length}/${MAX_VOICE})`}</Label>
       </View>
       {!isSupported && (
@@ -556,9 +570,13 @@ export function VoiceRecorder({
           <Pressable
             onPress={toggle}
             className="border-glass-border flex-row items-center justify-center gap-2 rounded-2xl border py-3.5"
-            style={isRecording ? { borderColor: '#FF6B6B' } : undefined}
+            style={isRecording ? { borderColor: colors.danger } : undefined}
           >
-            {isRecording ? <Square size={16} color="#FF6B6B" /> : <Mic size={16} color={ACCENT} />}
+            {isRecording ? (
+              <Square size={16} color={colors.danger} />
+            ) : (
+              <Mic size={16} color={colors.accent} />
+            )}
             <Text className="text-starlight">
               {isRecording ? 'Stop recording' : 'Record a voice note'}
             </Text>
@@ -639,6 +657,7 @@ export function LocationPicker({
   location?: StarLocation;
   onChange: (l: StarLocation | undefined) => void;
 }) {
+  const colors = usePalette();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlacePrediction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -681,13 +700,13 @@ export function LocationPicker({
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <MapPin size={15} color={MUTED} />
+        <MapPin size={15} color={colors.muted} />
         <Label>Location</Label>
       </View>
       {location ? (
         <View className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3">
           <View className="flex-1 flex-row items-center gap-2">
-            <MapPin size={14} color={ACCENT} />
+            <MapPin size={14} color={colors.accent} />
             <Text className="text-starlight flex-1">{location.name}</Text>
           </View>
           <Pressable onPress={() => onChange(undefined)} hitSlop={8}>
@@ -709,7 +728,7 @@ export function LocationPicker({
                 />
               </TextField>
             </View>
-            {loading && <ActivityIndicator color={ACCENT} />}
+            {loading && <ActivityIndicator color={colors.accent} />}
           </View>
           {query.trim().length > 0 && (
             <Pressable onPress={useManual} hitSlop={6}>

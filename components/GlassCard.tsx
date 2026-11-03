@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { cn } from '@/lib/utils';
 
+import { usePalette } from '@/lib/theme';
 interface GlassCardProps extends ViewProps {
   children: ReactNode;
   /** Extra classes for the inner content wrapper. */
@@ -24,13 +25,14 @@ export function GlassCard({
   style,
   ...rest
 }: GlassCardProps) {
+  const colors = usePalette();
   return (
     <View
       className={cn('border-glass-border overflow-hidden rounded-2xl border', className)}
       style={[
         {
           borderWidth: StyleSheet.hairlineWidth,
-          shadowColor: '#A5B4FC',
+          shadowColor: colors.accent,
           shadowOpacity: 0.1,
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 0 },
@@ -41,7 +43,7 @@ export function GlassCard({
     >
       <BlurView
         intensity={Platform.OS === 'android' ? Math.min(intensity, 26) : Math.min(intensity, 38)}
-        tint="dark"
+        tint={colors.isDark ? 'dark' : 'light'}
         className="absolute inset-0"
       />
       <View className="bg-glass absolute inset-0" />

@@ -25,10 +25,9 @@ import { persistMedia } from '@/lib/media';
 import { providerLabel, syncProviderForPlatform } from '@/lib/cloudSync';
 import type { StarColorKey } from '@/lib/types';
 
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#8B93B8';
-
+import { usePalette } from '@/lib/theme';
 export default function ProfileTab() {
+  const colors = usePalette();
   const router = useRouter();
   const stars = useMemoria((s) => s.stars);
   const tier = useMemoria((s) => s.tier);
@@ -132,9 +131,9 @@ export default function ProfileTab() {
                   )}
                   <View
                     className="absolute right-0 bottom-0 h-7 w-7 items-center justify-center rounded-full border-2"
-                    style={{ backgroundColor: ACCENT, borderColor: '#0C0E14' }}
+                    style={{ backgroundColor: colors.accent, borderColor: colors.bg }}
                   >
-                    <Camera size={14} color="#0C0E14" strokeWidth={2.4} />
+                    <Camera size={14} color={colors.onAccent} strokeWidth={2.4} />
                   </View>
                 </View>
               </Pressable>
@@ -144,7 +143,7 @@ export default function ProfileTab() {
                   hitSlop={6}
                   className="flex-row items-center gap-1.5"
                 >
-                  <X size={13} color={MUTED} />
+                  <X size={13} color={colors.muted} />
                   <Text className="text-muted text-xs font-medium">Remove photo</Text>
                 </Pressable>
               ) : (
@@ -164,11 +163,11 @@ export default function ProfileTab() {
                         style={{
                           backgroundColor: c.hex,
                           borderWidth: avatarColorKey === c.key ? 2 : 0,
-                          borderColor: '#FFFFFF',
+                          borderColor: colors.text,
                         }}
                       >
                         {avatarColorKey === c.key && (
-                          <Check size={14} color="#0C0E14" strokeWidth={3} />
+                          <Check size={14} color={colors.onAccent} strokeWidth={3} />
                         )}
                       </View>
                     </Pressable>
@@ -224,11 +223,11 @@ export default function ProfileTab() {
               </View>
               <View
                 className="rounded-full border px-3 py-1"
-                style={{ borderColor: isPremium ? ACCENT : 'rgba(140,147,184,0.4)' }}
+                style={{ borderColor: isPremium ? colors.accent : 'rgba(140,147,184,0.4)' }}
               >
                 <Text
                   className="text-xs font-semibold"
-                  style={{ color: isPremium ? ACCENT : MUTED }}
+                  style={{ color: isPremium ? colors.accent : colors.muted }}
                 >
                   {isPremium ? 'Premium' : 'Free'}
                 </Text>
@@ -238,7 +237,7 @@ export default function ProfileTab() {
               <Text className="text-muted text-sm leading-5">{profile.bio}</Text>
             )}
             <Pressable onPress={startEdit} hitSlop={6} className="flex-row items-center gap-2">
-              <Pencil size={14} color={ACCENT} />
+              <Pencil size={14} color={colors.accent} />
               <Text className="text-accent text-sm font-medium">Edit profile</Text>
             </Pressable>
           </GlassCard>
@@ -250,7 +249,7 @@ export default function ProfileTab() {
         </Text>
         <GlassCard contentClassName="gap-3.5 p-5">
           <View className="flex-row items-center gap-2">
-            <Cloud size={18} color={ACCENT} />
+            <Cloud size={18} color={colors.accent} />
             <Text className="text-starlight font-semibold">Storage capacity</Text>
           </View>
 
@@ -277,20 +276,23 @@ export default function ProfileTab() {
             className="border-glass-border flex-row items-center justify-between rounded-2xl border px-4 py-3"
           >
             <View className="flex-row items-center gap-2.5">
-              <Cloud size={16} color={syncEnabled ? ACCENT : MUTED} />
+              <Cloud size={16} color={syncEnabled ? colors.accent : colors.muted} />
               <Text className="text-starlight text-sm font-medium">{`${syncName} sync`}</Text>
             </View>
             <View className="flex-row items-center gap-1">
-              <Text className="text-sm" style={{ color: syncEnabled ? ACCENT : MUTED }}>
+              <Text
+                className="text-sm"
+                style={{ color: syncEnabled ? colors.accent : colors.muted }}
+              >
                 {syncEnabled ? 'On' : 'Set up'}
               </Text>
-              <ChevronRight size={16} color={MUTED} />
+              <ChevronRight size={16} color={colors.muted} />
             </View>
           </Pressable>
 
           {!isPremium && (
             <Button size="sm" onPress={() => router.push('/paywall')}>
-              <Sparkles size={15} color="#0C0E14" />
+              <Sparkles size={15} color={colors.onAccent} />
               <Button.Label>Upgrade to Premium</Button.Label>
             </Button>
           )}
@@ -304,9 +306,9 @@ export default function ProfileTab() {
           <GlassCard contentClassName="flex-row items-center gap-3 p-4">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+              style={{ backgroundColor: colors.accentA(0.1) }}
             >
-              <Users size={18} color={ACCENT} />
+              <Users size={18} color={colors.accent} />
             </View>
             <View className="flex-1">
               <Text className="text-starlight font-medium">Friends</Text>
@@ -315,7 +317,7 @@ export default function ProfileTab() {
                 remove
               </Text>
             </View>
-            <ChevronRight size={18} color={MUTED} />
+            <ChevronRight size={18} color={colors.muted} />
           </GlassCard>
         </Pressable>
 
@@ -326,15 +328,15 @@ export default function ProfileTab() {
           <GlassCard contentClassName="flex-row items-center gap-3 p-4">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(165,180,252,0.1)' }}
+              style={{ backgroundColor: colors.accentA(0.1) }}
             >
-              <Settings size={18} color={ACCENT} />
+              <Settings size={18} color={colors.accent} />
             </View>
             <View className="flex-1">
               <Text className="text-starlight font-medium">Settings</Text>
               <Text className="text-muted text-xs">Accessibility, sound, display, privacy</Text>
             </View>
-            <ChevronRight size={18} color={MUTED} />
+            <ChevronRight size={18} color={colors.muted} />
           </GlassCard>
         </Pressable>
 
@@ -347,7 +349,7 @@ export default function ProfileTab() {
 
         <Pressable onPress={onSignOut}>
           <GlassCard contentClassName="flex-row items-center justify-center gap-2 p-4">
-            <LogOut size={16} color={MUTED} />
+            <LogOut size={16} color={colors.muted} />
             <Text className="text-muted font-medium">Sign out</Text>
           </GlassCard>
         </Pressable>

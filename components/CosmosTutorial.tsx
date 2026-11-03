@@ -6,10 +6,7 @@ import { Hand, Plus, Type } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
-import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-
+import { usePalette } from '@/lib/theme';
 interface Step {
   icon: LucideIcon;
   title: string;
@@ -41,6 +38,7 @@ const STEPS: Step[] = [
  * follows it, and that tour hands over to creating the first memory.
  */
 export function CosmosTutorial({ onDone }: { onDone: () => void }) {
+  const colors = usePalette();
   const [index, setIndex] = useState(0);
   const step = STEPS[index];
   const isLast = index === STEPS.length - 1;
@@ -65,9 +63,9 @@ export function CosmosTutorial({ onDone }: { onDone: () => void }) {
         <GlassCard contentClassName="gap-3.5 p-6">
           <View
             className="h-12 w-12 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${ACCENT}1F` }}
+            style={{ backgroundColor: `${colors.accent}1F` }}
           >
-            <Icon size={24} color={ACCENT} />
+            <Icon size={24} color={colors.accent} />
           </View>
           <Text className="text-starlight font-display text-xl font-bold">{step.title}</Text>
           <Text className="text-muted text-sm leading-6">{step.body}</Text>
@@ -80,7 +78,7 @@ export function CosmosTutorial({ onDone }: { onDone: () => void }) {
                   className="h-1.5 rounded-full"
                   style={{
                     width: i === index ? 18 : 6,
-                    backgroundColor: i === index ? ACCENT : 'rgba(255,255,255,0.22)',
+                    backgroundColor: i === index ? colors.accent : colors.fg(0.22),
                   }}
                 />
               ))}

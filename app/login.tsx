@@ -1,25 +1,27 @@
 import { useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Apple } from 'lucide-react-native';
 import { Button, Input, Text, TextField } from 'heroui-native';
 
+import { AuthSwitch } from '@/components/AuthSwitch';
 import { GlassCard } from '@/components/GlassCard';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { wordmarkFamily } from '@/lib/fonts';
 import { useMemoria } from '@/lib/store';
 
-export default function LoginScreen() {
+function LoginScreenScreen() {
   const router = useRouter();
-  const signIn = useMemoria((s) => s.signIn);
+  const signInReturning = useMemoria((s) => s.signInReturning);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const enter = () => {
-    signIn();
-    // First-time people accept the terms, then see onboarding, before reaching the cosmos.
-    const { hasAcceptedTerms, hasOnboarded } = useMemoria.getState();
-    router.replace(!hasAcceptedTerms ? '/terms' : hasOnboarded ? '/(tabs)' : '/onboarding');
+    // Logging in means the account already exists, so skip the terms, onboarding and tours that
+    // new sign-ups go through.
+    signInReturning();
+    router.replace('/(tabs)');
   };
 
   return (
@@ -52,6 +54,7 @@ export default function LoginScreen() {
             <Text className="text-starlight font-display mt-2 text-xl">Welcome back</Text>
           </View>
 
+          <AuthSwitch active="login" />
           <GlassCard contentClassName="gap-5 p-6">
             <View className="gap-4">
               <TextField>
@@ -153,5 +156,14 @@ function GoogleGlyph() {
         }}
       />
     </View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function LoginScreen() {
+  return (
+    <ScopedTheme theme="dark">
+      <LoginScreenScreen />
+    </ScopedTheme>
   );
 }

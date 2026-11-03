@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { View } from 'react-native';
 import { useFrame } from '@/lib/useFrame';
 import { Redirect } from 'expo-router';
@@ -41,7 +42,7 @@ const COMET_LENGTH = 150;
  * app's StarIgnition aesthetic so the splash previews the core moment of the app, a
  * memory being born as a star. Then cross-fades out and routes onward.
  */
-export default function Index() {
+function IndexScreen() {
   const isAuthed = useMemoria((s) => s.isAuthed);
   const hasOnboarded = useMemoria((s) => s.hasOnboarded);
   const resetFlow = useMemoria((s) => s.resetFlow);
@@ -211,5 +212,14 @@ function Comet({ progress, size }: { progress: SharedValue<number>; size: number
         }}
       />
     </Animated.View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function Index() {
+  return (
+    <ScopedTheme theme="dark">
+      <IndexScreen />
+    </ScopedTheme>
   );
 }

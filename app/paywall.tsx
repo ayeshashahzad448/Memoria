@@ -18,19 +18,22 @@ import { StorageBar } from '@/components/StorageBar';
 import { DemoTourOverlay } from '@/components/DemoTourOverlay';
 import { useMemoria } from '@/lib/store';
 import { goBack } from '@/lib/navigation';
-import { colorFor } from '@/lib/memoria';
 import { FREE_LIMIT_BYTES, WARN_RATIO, formatBytes, totalMediaBytes } from '@/lib/storage';
-import { type BillingPeriod, PLAN_PRICING, type PlanId, purchasePlan } from '@/lib/iap';
-
-const ACCENT = colorFor('cyan').hex;
-const VIOLET = '#C29BFF';
-const MUTED = '#8B93B8';
+import {
+  type BillingPeriod,
+  PLAN_PRICING,
+  type PlanId,
+  isCheckoutSimulated,
+  purchasePlan,
+} from '@/lib/iap';
+import { usePalette } from '@/lib/theme';
 
 interface PlanDef {
   id: PlanId;
   header: string;
   features: string[];
-  accent: string;
+  /** Which colour tints the card; resolved against the theme when drawn. */
+  accent: 'muted' | 'accent' | 'violet';
   cta: string;
   recommended?: boolean;
   monthly?: string;
@@ -41,7 +44,7 @@ const PLANS: PlanDef[] = [
   {
     id: 'free',
     header: 'Free Cosmos',
-    accent: MUTED,
+    accent: 'muted',
     cta: 'Current Plan',
     features: [
       '5GB secure media storage',
@@ -52,7 +55,7 @@ const PLANS: PlanDef[] = [
   {
     id: 'personal',
     header: 'Premium',
-    accent: ACCENT,
+    accent: 'accent',
     cta: 'Unlock My Cosmos',
     recommended: true,
     monthly: PLAN_PRICING.personal.monthly,
@@ -67,7 +70,7 @@ const PLANS: PlanDef[] = [
   {
     id: 'family',
     header: 'Family Plan',
-    accent: VIOLET,
+    accent: 'violet',
     cta: 'Begin Family Legacy',
     monthly: PLAN_PRICING.family.monthly,
     yearly: PLAN_PRICING.family.yearly,
@@ -81,6 +84,7 @@ const PLANS: PlanDef[] = [
 ];
 
 export default function Paywall() {
+  const colors = usePalette();
   const router = useRouter();
   const setTier = useMemoria((s) => s.setTier);
   const allStars = useMemoria((s) => s.stars);
@@ -95,6 +99,10 @@ export default function Paywall() {
 
   const onChoose = async (plan: PlanDef) => {
     if (plan.id === 'free') return;
+    if (isCheckoutSimulated()) {
+      router.push({ pathname: '/checkout', params: { plan: plan.id, period } });
+      return;
+    }
     setPending(plan.id);
     setNotice(null);
     const result = await purchasePlan(plan.id, period);
@@ -110,7 +118,12 @@ export default function Paywall() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: 'rgba(4, 6, 18, 0.9)' }}>
+    <View
+      className="flex-1"
+      style={{
+        backgroundColor: colors.isDark ? 'rgba(4, 6, 18, 0.9)' : 'rgba(255, 246, 236, 0.97)',
+      }}
+    >
       <ExpandingUniverse />
 
       <ScrollView
@@ -122,7 +135,7 @@ export default function Paywall() {
         <Animated.View entering={FadeIn.duration(400)} className="gap-2 px-1">
           <View className="flex-row items-start justify-between">
             <View className="flex-row items-center gap-2">
-              <Sparkles size={18} color={ACCENT} />
+              <Sparkles size={18} color={colors.accent} />
               <Text className="text-accent text-xs font-semibold tracking-widest uppercase">
                 Memoria Premium
               </Text>
@@ -131,9 +144,9 @@ export default function Paywall() {
               onPress={() => goBack(router)}
               hitSlop={12}
               className="border-glass-border h-9 w-9 items-center justify-center rounded-full border"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
+              style={{ backgroundColor: colors.fg(0.04) }}
             >
-              <X size={18} color={MUTED} />
+              <X size={18} color={colors.muted} />
             </Pressable>
           </View>
           <Text className="text-starlight font-display text-3xl leading-9 font-bold">
@@ -182,7 +195,7 @@ export default function Paywall() {
 
         {/* Trust footer */}
         <View className="mt-1 flex-row items-start gap-2 px-2">
-          <Lock size={14} color={MUTED} className="mt-0.5" />
+          <Lock size={14} color={colors.muted} className="mt-0.5" />
           <Text className="text-muted flex-1 text-[11px] leading-5">
             Secure checkout via Apple App Store / Google Play. Cancel anytime in your device
             settings. Your data is end-to-end encrypted and completely private to you.
@@ -204,6 +217,7 @@ function BillingToggle({
   period: BillingPeriod;
   onChange: (p: BillingPeriod) => void;
 }) {
+  const colors = usePalette();
   const options: { id: BillingPeriod; label: string }[] = [
     { id: 'monthly', label: 'Monthly' },
     { id: 'yearly', label: 'Yearly' },
@@ -211,7 +225,7 @@ function BillingToggle({
   return (
     <View
       className="border-glass-border flex-row self-center rounded-full border p-1"
-      style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
+      style={{ backgroundColor: colors.fg(0.04) }}
     >
       {options.map((opt) => {
         const active = period === opt.id;
@@ -225,22 +239,29 @@ function BillingToggle({
               <Animated.View
                 layout={LinearTransition.duration(220)}
                 className="absolute inset-0 rounded-full"
-                style={{ backgroundColor: ACCENT }}
+                style={{ backgroundColor: colors.accent }}
               />
             )}
-            <Text className="text-sm font-semibold" style={{ color: active ? '#0C0E14' : MUTED }}>
+            <Text
+              className="text-sm font-semibold"
+              style={{ color: active ? colors.onAccent : colors.muted }}
+            >
               {opt.label}
             </Text>
             {opt.id === 'yearly' && (
               <View
                 className="rounded-full px-1.5 py-0.5"
                 style={{
-                  backgroundColor: active ? 'rgba(11,12,16,0.18)' : 'rgba(165,180,252,0.16)',
+                  backgroundColor: active
+                    ? colors.isDark
+                      ? 'rgba(11,12,16,0.18)'
+                      : 'rgba(255,255,255,0.28)'
+                    : colors.accentA(0.16),
                 }}
               >
                 <Text
                   className="text-[10px] font-bold"
-                  style={{ color: active ? '#0C0E14' : ACCENT }}
+                  style={{ color: active ? colors.onAccent : colors.accent }}
                 >
                   SAVE 15%
                 </Text>
@@ -264,7 +285,19 @@ function PlanCard({
   pending: boolean;
   onChoose: () => void;
 }) {
+  const colors = usePalette();
+  const accentColor =
+    plan.accent === 'muted'
+      ? colors.muted
+      : plan.accent === 'violet'
+        ? colors.isDark
+          ? '#C29BFF'
+          : '#7C3AED'
+        : colors.accent;
   const isFree = plan.id === 'free';
+  /** The recommended plan gets the solid button; the others get a softer tinted one. */
+  const solid = !!plan.recommended;
+  const softText = colors.isDark ? accentColor : '#5B21B6';
   const price = isFree ? '£0' : period === 'monthly' ? plan.monthly : plan.yearly;
   const cadence = isFree ? 'forever' : period === 'monthly' ? 'month' : 'year';
 
@@ -275,8 +308,8 @@ function PlanCard({
         style={
           plan.recommended
             ? {
-                borderColor: plan.accent,
-                shadowColor: plan.accent,
+                borderColor: accentColor,
+                shadowColor: accentColor,
                 shadowOpacity: 0.35,
                 shadowRadius: 22,
               }
@@ -286,7 +319,7 @@ function PlanCard({
         {plan.recommended && (
           <View
             className="self-start rounded-full px-2.5 py-1"
-            style={{ backgroundColor: 'rgba(165,180,252,0.16)' }}
+            style={{ backgroundColor: colors.accentA(0.16) }}
           >
             <Text className="text-accent text-[10px] font-bold tracking-widest uppercase">
               Recommended
@@ -297,7 +330,7 @@ function PlanCard({
         <View className="gap-1">
           <Text className="text-starlight font-display text-xl font-bold">{plan.header}</Text>
           <View className="flex-row items-baseline gap-1">
-            <Text className="text-starlight text-3xl font-bold" style={{ color: plan.accent }}>
+            <Text className="text-starlight text-3xl font-bold" style={{ color: accentColor }}>
               {price}
             </Text>
             <Text className="text-muted text-sm">{`/ ${cadence}`}</Text>
@@ -312,9 +345,9 @@ function PlanCard({
             <View key={f} className="flex-row items-start gap-2.5">
               <View
                 className="mt-0.5 h-4 w-4 items-center justify-center rounded-full"
-                style={{ backgroundColor: plan.accent }}
+                style={{ backgroundColor: accentColor }}
               >
-                <Check size={11} color="#0C0E14" strokeWidth={3} />
+                <Check size={11} color={colors.onAccent} strokeWidth={3} />
               </View>
               <Text className="text-starlight/90 flex-1 text-sm leading-5">{f}</Text>
             </View>
@@ -330,16 +363,28 @@ function PlanCard({
             onPress={onChoose}
             disabled={pending}
             className="items-center justify-center rounded-2xl py-3.5"
-            style={{
-              backgroundColor: plan.accent,
-              shadowColor: plan.accent,
-              shadowOpacity: 0.6,
-              shadowRadius: 16,
-              shadowOffset: { width: 0, height: 0 },
-              opacity: pending ? 0.7 : 1,
-            }}
+            style={
+              solid
+                ? {
+                    backgroundColor: accentColor,
+                    shadowColor: accentColor,
+                    shadowOpacity: 0.6,
+                    shadowRadius: 16,
+                    shadowOffset: { width: 0, height: 0 },
+                    opacity: pending ? 0.7 : 1,
+                  }
+                : {
+                    backgroundColor: `22`,
+                    borderWidth: 1.5,
+                    borderColor: accentColor,
+                    opacity: pending ? 0.7 : 1,
+                  }
+            }
           >
-            <Text className="text-base font-bold" style={{ color: '#0C0E14' }}>
+            <Text
+              className="text-base font-bold"
+              style={{ color: solid ? colors.onAccent : softText }}
+            >
               {pending ? 'Processing…' : plan.cta}
             </Text>
           </Pressable>
@@ -351,11 +396,12 @@ function PlanCard({
 
 /** Subtle expanding-universe backdrop: rings that bloom outward and fade. */
 function ExpandingUniverse() {
+  const colors = usePalette();
   return (
     <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
-      <Ring delay={0} color={ACCENT} />
-      <Ring delay={1300} color={VIOLET} />
-      <Ring delay={2600} color={ACCENT} />
+      <Ring delay={0} color={colors.accent} />
+      <Ring delay={1300} color={colors.isDark ? '#C29BFF' : '#7C3AED'} />
+      <Ring delay={2600} color={colors.accent} />
     </View>
   );
 }

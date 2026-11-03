@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
@@ -25,7 +26,7 @@ import { colorFor, starStatsForStar } from '@/lib/memoria';
 // Slower cinematic beats: drift-in, collapse, ignition flash, settle.
 const IGNITE_MS = 5400;
 
-export default function IgniteStar() {
+function IgniteStarScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -235,5 +236,14 @@ function StatRow({
       </View>
       <Text className="text-starlight font-display text-base font-semibold">{value}</Text>
     </Animated.View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function IgniteStar() {
+  return (
+    <ScopedTheme theme="dark">
+      <IgniteStarScreen />
+    </ScopedTheme>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text } from 'heroui-native';
@@ -33,7 +34,7 @@ const POINTS = [
  * Shown once, right after someone first signs up or logs in, before onboarding.
  * They must tick the box to continue; declining signs them back out.
  */
-export default function TermsScreen() {
+function TermsScreenScreen() {
   const router = useRouter();
   const acceptTerms = useMemoria((s) => s.acceptTerms);
   const signOut = useMemoria((s) => s.signOut);
@@ -116,5 +117,14 @@ export default function TermsScreen() {
         </Button>
       </View>
     </View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function TermsScreen() {
+  return (
+    <ScopedTheme theme="dark">
+      <TermsScreenScreen />
+    </ScopedTheme>
   );
 }
