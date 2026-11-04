@@ -915,8 +915,11 @@ function PhotoReveal({ uri, size }: { uri: string; size: number }) {
 function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
   const groupRef = useRef<THREE.Group>(null);
   const startRef = useRef<number | null>(null);
-  const bars = 7;
-  const barRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const bars = 11;
+  // Each bar is a slim rounded pill: a body plus a half-disc cap at each end.
+  const bodyRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const topRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const bottomRefs = useRef<(THREE.Mesh | null)[]>([]);
   const mat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
@@ -929,7 +932,8 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
     [color],
   );
   const span = size * 2.4;
-  const barW = span / (bars * 1.8);
+  const pitch = span / bars;
+  const barW = pitch * 0.5;
 
   useFrame((state) => {
     if (startRef.current === null) startRef.current = state.clock.elapsedTime;
@@ -937,13 +941,26 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
     const env = revealEnvelope(elapsed, REVEAL_DURATION_S);
     mat.opacity = env * 0.9;
     const t = state.clock.elapsedTime;
+    const maxH = size * 1.3;
     for (let i = 0; i < bars; i += 1) {
-      const m = barRefs.current[i];
-      if (!m) continue;
-      // Slow, gentle waveform — each bar oscillates at its own phase.
-      const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + i * 0.9);
-      const h = (0.25 + wave * 0.75) * size * 1.6;
-      m.scale.y = Math.max(0.05, h);
+      // Two slow, overlapping waves, with the middle bars tallest like a voice envelope.
+      const wave = 0.5 + 0.5 * Math.sin(t * 3 + i * 0.75) * Math.cos(t * 1.3 + i * 0.35);
+      const centre = 1 - (Math.abs(i - (bars - 1) / 2) / ((bars - 1) / 2)) * 0.5;
+      const h = barW + (maxH - barW) * wave * centre;
+      const bodyLen = Math.max(0.0001, h - barW);
+      const half = bodyLen / 2;
+      const body = bodyRefs.current[i];
+      const top = topRefs.current[i];
+      const bottom = bottomRefs.current[i];
+      if (body) body.scale.set(barW, bodyLen, 1);
+      if (top) {
+        top.scale.set(barW, barW, 1);
+        top.position.y = half;
+      }
+      if (bottom) {
+        bottom.scale.set(barW, barW, 1);
+        bottom.position.y = -half;
+      }
     }
     if (groupRef.current) groupRef.current.visible = env > 0.01;
   });
@@ -951,25 +968,40 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
   return (
     <group ref={groupRef}>
       {Array.from({ length: bars }).map((_, i) => {
-        const x = (i - (bars - 1) / 2) * barW * 1.8;
+        const x = (i - (bars - 1) / 2) * pitch;
         return (
-          <mesh
-            // eslint-disable-next-line react/no-array-index-key
-            key={i}
-            position={[x, 0, 0]}
-            material={mat}
-            ref={(el) => {
-              barRefs.current[i] = el;
-            }}
-          >
-            <planeGeometry args={[barW, 1]} />
-          </mesh>
+          // eslint-disable-next-line react/no-array-index-key
+          <group key={i} position={[x, 0, 0]}>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                bodyRefs.current[i] = el;
+              }}
+            >
+              <planeGeometry args={[1, 1]} />
+            </mesh>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                topRefs.current[i] = el;
+              }}
+            >
+              <circleGeometry args={[0.5, 16, 0, Math.PI]} />
+            </mesh>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                bottomRefs.current[i] = el;
+              }}
+            >
+              <circleGeometry args={[0.5, 16, Math.PI, Math.PI]} />
+            </mesh>
+          </group>
         );
       })}
     </group>
   );
 }
-
 function ConstellationLines({
   placed,
   constellations,

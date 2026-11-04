@@ -116,7 +116,10 @@ async function blobUriToDataUri(uri: string): Promise<string> {
   const blob = await (await fetch(uri)).blob();
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
+    reader.onload = () =>
+      typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new Error('Could not read the recording'));
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
