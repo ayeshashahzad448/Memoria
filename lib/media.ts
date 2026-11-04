@@ -85,7 +85,17 @@ export function mediaFileExists(uri: string): boolean {
  * or a copy failure) so saving a memory never fails because of media handling.
  */
 export async function persistMedia(uri: string, kind: MediaKind): Promise<string> {
-  if (!isNative) return uri;
+  if (!isNative) {
+    // A browser recording is a temporary blob: link that dies on reload. Keep the audio itself.
+    if (kind === 'audio' && uri.startsWith('blob:')) {
+      try {
+        return await blobUriToDataUri(uri);
+      } catch {
+        return uri;
+      }
+    }
+    return uri;
+  }
   if (!/^(file|content):/i.test(uri)) return uri;
   if (toRelativeMediaPath(uri)) return rebaseMediaUri(uri);
   try {
@@ -99,6 +109,17 @@ export async function persistMedia(uri: string, kind: MediaKind): Promise<string
   } catch {
     return uri;
   }
+}
+
+/** Read a blob: URL into a self-contained data: URI that survives reloads (web only). */
+async function blobUriToDataUri(uri: string): Promise<string> {
+  const blob = await (await fetch(uri)).blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 export function persistAll(uris: string[], kind: MediaKind): Promise<string[]> {
