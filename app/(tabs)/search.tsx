@@ -10,10 +10,10 @@ import { WheelDatePicker } from '@/components/WheelDatePicker';
 import { useMemoria } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
-
-const MUTED = '#94A3B8';
+import { usePalette } from '@/lib/theme';
 
 export default function SearchTab() {
+  const colors = usePalette();
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
@@ -80,7 +80,7 @@ export default function SearchTab() {
       >
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
-            <Text className="text-starlight font-display text-3xl font-bold">Search</Text>
+            <Text className="text-starlight font-heading text-3xl">Search</Text>
             <Text className="text-muted mt-1 mb-6 text-sm">Find any memory in your cosmos.</Text>
           </View>
           <Pressable
@@ -88,7 +88,7 @@ export default function SearchTab() {
             hitSlop={12}
             className="bg-surface border-border h-9 w-9 items-center justify-center rounded-full border"
           >
-            <X size={18} color={MUTED} />
+            <X size={18} color={colors.muted} />
           </Pressable>
         </View>
 
@@ -122,7 +122,7 @@ export default function SearchTab() {
                   onPress={() => setSelectedDate(new Date())}
                   className="flex-row items-center justify-center gap-2 py-2"
                 >
-                  <CalendarDays size={18} color={MUTED} />
+                  <CalendarDays size={18} color={colors.muted} />
                   <Text className="text-muted text-sm">Pick a date to filter by</Text>
                 </Pressable>
               ) : (
@@ -183,7 +183,7 @@ export default function SearchTab() {
 
         {filtered.length === 0 ? (
           <GlassCard contentClassName="items-center gap-2 p-6">
-            <SearchIcon size={20} color={MUTED} />
+            <SearchIcon size={20} color={colors.muted} />
             <Text className="text-muted text-center text-sm">No memories match these filters.</Text>
           </GlassCard>
         ) : (
@@ -201,7 +201,7 @@ export default function SearchTab() {
                       <Text className="text-muted text-xs">{format(new Date(s.date), 'PP')}</Text>
                       {s.location ? (
                         <>
-                          <MapPin size={11} color={MUTED} />
+                          <MapPin size={11} color={colors.muted} />
                           <Text className="text-muted text-xs" numberOfLines={1}>
                             {s.location.name}
                           </Text>

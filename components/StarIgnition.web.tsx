@@ -1,25 +1,19 @@
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  createAnimatedComponent,
+  useAnimatedProps,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { colorFor } from '@/lib/memoria';
+import { mixHex, sparklePathData, twinkleAt } from '@/lib/sparkle';
 import type { StarIgnitionProps } from './StarIgnition';
 
 const PROTOSTAR = '#FF5A3C';
 const DUST_COUNT = 22;
 
-function mixHex(a: string, b: string, t: number): string {
-  'worklet';
-  const ar = parseInt(a.slice(1, 3), 16);
-  const ag = parseInt(a.slice(3, 5), 16);
-  const ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16);
-  const bg = parseInt(b.slice(3, 5), 16);
-  const bb = parseInt(b.slice(5, 7), 16);
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r}, ${g}, ${bl})`;
-}
+const AnimatedPath = createAnimatedComponent(Path);
 
 const DUST = Array.from({ length: DUST_COUNT }, (_, i) => {
   const a = (i / DUST_COUNT) * Math.PI * 2 + (i % 5) * 0.37;
@@ -110,33 +104,31 @@ export function StarIgnition({ progress, twinkleClock, colorKey, size = 280 }: S
     };
   });
 
-  const spikeH = useAnimatedStyle(() => {
-    const p = progress.value;
-    const d = Math.abs(p - 0.5);
-    const flash = Math.max(0, 1 - d / 0.13);
+  // Same four-point sparkle as the native Skia version, drawn with SVG paths.
+  const sparkleState = (p: number, clock: number) => {
+    'worklet';
+    const contract = Math.min(p / 0.5, 1);
     const stable = Math.max(0, (p - 0.5) / 0.5);
-    const len = 26 + flash * 78;
-    return {
-      width: len * 2,
-      height: 1.4,
-      marginLeft: -len,
-      marginTop: -0.7,
-      opacity: flash * 0.6 + stable * 0.12,
-    };
-  });
+    const flash = Math.max(0, 1 - Math.abs(p - 0.5) / 0.13);
+    const len = (24 + stable * 30 + flash * 70) * (1 + twinkleAt(clock) * 0.06 * stable);
+    const opacity = Math.min(1, contract * 0.18 + flash + stable * 0.92);
+    return { len, opacity, color: mixHex('#FFFFFF', trueColor, Math.min(1, stable * 0.85)) };
+  };
 
-  const spikeV = useAnimatedStyle(() => {
-    const p = progress.value;
-    const d = Math.abs(p - 0.5);
-    const flash = Math.max(0, 1 - d / 0.13);
-    const stable = Math.max(0, (p - 0.5) / 0.5);
-    const len = 26 + flash * 78;
+  const glowProps = useAnimatedProps(() => {
+    const s = sparkleState(progress.value, twinkleClock.value);
+    return { d: sparklePathData(c, c, s.len), fill: s.color, opacity: s.opacity * 0.55 };
+  });
+  const mainProps = useAnimatedProps(() => {
+    const s = sparkleState(progress.value, twinkleClock.value);
+    return { d: sparklePathData(c, c, s.len), fill: s.color, opacity: s.opacity };
+  });
+  const diagonalProps = useAnimatedProps(() => {
+    const s = sparkleState(progress.value, twinkleClock.value);
     return {
-      width: 1.4,
-      height: len * 2,
-      marginLeft: -0.7,
-      marginTop: -len,
-      opacity: flash * 0.6 + stable * 0.12,
+      d: sparklePathData(c, c, s.len * 0.5, Math.PI / 4),
+      fill: '#FFFFFF',
+      opacity: s.opacity * 0.7,
     };
   });
 
@@ -152,14 +144,23 @@ export function StarIgnition({ progress, twinkleClock, colorKey, size = 280 }: S
         />
       ))}
       <Animated.View style={[{ position: 'absolute', left: c, top: c }, ringStyle]} />
-      <Animated.View style={[{ position: 'absolute', left: c, top: c }, haloStyle]} />
-      <Animated.View style={[{ position: 'absolute', left: c, top: c }, bloomStyle]} />
       <Animated.View
-        style={[{ position: 'absolute', left: c, top: c, backgroundColor: '#FFFFFF' }, spikeH]}
+        style={[{ position: 'absolute', left: c, top: c, filter: 'blur(22px)' }, haloStyle]}
       />
       <Animated.View
-        style={[{ position: 'absolute', left: c, top: c, backgroundColor: '#FFFFFF' }, spikeV]}
+        style={[{ position: 'absolute', left: c, top: c, filter: 'blur(5px)' }, bloomStyle]}
       />
+      <Svg
+        width={size}
+        height={size}
+        style={{ position: 'absolute', left: 0, top: 0, filter: 'blur(7px)' }}
+      >
+        <AnimatedPath animatedProps={glowProps} />
+      </Svg>
+      <Svg width={size} height={size} style={{ position: 'absolute', left: 0, top: 0 }}>
+        <AnimatedPath animatedProps={diagonalProps} />
+        <AnimatedPath animatedProps={mainProps} />
+      </Svg>
       <Animated.View
         style={[{ position: 'absolute', left: c, top: c, backgroundColor: '#FFFFFF' }, coreStyle]}
       />

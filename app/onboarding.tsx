@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ScopedTheme } from 'uniwind';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
-import { Text } from 'heroui-native';
+import { Button, Text } from 'heroui-native';
 import Animated, { Easing, FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { StarfieldBackground } from '@/components/StarfieldBackground';
@@ -15,7 +16,7 @@ type Phase = 'black' | 'empty' | 'action';
  * empty void — "it seems a bit empty in here" fades in subtly, lingers, then
  * slowly fades into an invitation to create the first memory.
  */
-export default function Onboarding() {
+function OnboardingScreen() {
   const router = useRouter();
   const completeOnboarding = useMemoria((s) => s.completeOnboarding);
   const [phase, setPhase] = useState<Phase>('black');
@@ -33,7 +34,8 @@ export default function Onboarding() {
 
   const begin = useCallback(() => {
     completeOnboarding();
-    router.replace('/star/create');
+    // The guided tours run on the cosmos; they lead into creating the first memory.
+    router.replace('/(tabs)');
   }, [completeOnboarding, router]);
 
   return (
@@ -49,31 +51,40 @@ export default function Onboarding() {
           exiting={FadeOut.duration(1400)}
           className="absolute inset-0 items-center justify-center px-12"
         >
-          <Text className="text-muted text-center text-lg leading-7 italic">
+          <Text className="text-starlight/80 font-heading text-center text-3xl leading-9">
             it seems a bit empty in here…
           </Text>
         </Animated.View>
       )}
 
       {phase === 'action' && (
-        <Pressable className="absolute inset-0" onPress={begin}>
-          <Animated.View
-            entering={FadeIn.duration(2600).easing(Easing.out(Easing.ease))}
-            className="flex-1 items-center justify-center px-12"
-          >
-            <View className="bg-accent/10 border-accent/30 mb-8 h-20 w-20 items-center justify-center rounded-full border">
-              <Sparkles size={30} color="#45F3FF" />
-            </View>
-            <Text className="text-starlight font-display mb-3 text-center text-2xl font-semibold">
-              Create your first memory
-            </Text>
-            <Text className="text-muted text-center text-sm leading-6">
-              {"Every memory becomes a star.\nLet's light the first one."}
-            </Text>
-            <Text className="text-muted/70 mt-10 text-center text-xs">Tap anywhere to begin</Text>
-          </Animated.View>
-        </Pressable>
+        <Animated.View
+          entering={FadeIn.duration(1800).easing(Easing.out(Easing.ease))}
+          className="absolute inset-0 items-center justify-center px-10"
+        >
+          <View className="bg-accent/10 border-accent/30 mb-8 h-20 w-20 items-center justify-center rounded-full border">
+            <Sparkles size={30} color="#A5B4FC" />
+          </View>
+          <Text className="text-starlight font-heading mb-3 text-center text-4xl leading-[42px]">
+            Welcome to Memoria
+          </Text>
+          <Text className="text-muted text-center text-base leading-6">
+            {"Every memory becomes a star.\nLet's look around, then light your first one."}
+          </Text>
+          <Button className="mt-10 self-stretch" size="lg" onPress={begin}>
+            Show me around
+          </Button>
+        </Animated.View>
       )}
     </View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function Onboarding() {
+  return (
+    <ScopedTheme theme="dark">
+      <OnboardingScreen />
+    </ScopedTheme>
   );
 }

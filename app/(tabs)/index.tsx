@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { useRouter } from 'expo-router';
 import { Button, Input, Text, TextField } from 'heroui-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import {
   Camera,
   Eye,
@@ -21,20 +22,19 @@ import {
 } from 'lucide-react-native';
 
 import { CosmosCanvas } from '@/components/CosmosCanvas';
+import { ZoomControls } from '@/components/ZoomControls';
 import { GlassCard } from '@/components/GlassCard';
 import { CosmosTutorial } from '@/components/CosmosTutorial';
 import { MemoryDetailPanel, memoryPanelWidth } from '@/components/MemoryDetailPanel';
 import { useMemoria, PERSONAL_COSMOS } from '@/lib/store';
 import { colorFor, userById } from '@/lib/memoria';
 import type { Constellation, MemoryStar } from '@/lib/types';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
-const DANGER = '#FF2A6D';
+import { usePalette } from '@/lib/theme';
 
 export default function CosmosTab() {
+  const colors = usePalette();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { width } = useFrame();
   const allStars = useMemoria((s) => s.stars);
   const allConstellations = useMemoria((s) => s.constellations);
   const createConstellation = useMemoria((s) => s.createConstellation);
@@ -80,6 +80,7 @@ export default function CosmosTab() {
   const [drawId, setDrawId] = useState<string | null>(null);
   // The memory whose floating detail panel is open (slides in on the right).
   const [viewingStar, setViewingStar] = useState<MemoryStar | null>(null);
+  const [zoomCommand, setZoomCommand] = useState<{ id: number; dir: 1 | -1 } | null>(null);
   // The intro label fades away on its own after a short while.
   const [showIntro, setShowIntro] = useState(true);
   // Pending "remove this star from this constellation?" confirmation.
@@ -322,6 +323,9 @@ export default function CosmosTab() {
   return (
     <View className="bg-void flex-1">
       <CosmosCanvas
+        key={colors.isDark ? 'night' : 'day'}
+        light={!colors.isDark}
+        zoomCommand={zoomCommand}
         stars={stars}
         constellations={constellations}
         revealedStarIds={revealedStarIds}
@@ -341,6 +345,7 @@ export default function CosmosTab() {
           setFitIds(null);
         }}
       />
+      {!viewingStar && <ZoomControls onZoom={(dir) => setZoomCommand({ id: Date.now(), dir })} />}
 
       {/* Top bar */}
       <View className="pt-safe-offset-12 absolute inset-x-0 top-0 px-4">
@@ -348,8 +353,17 @@ export default function CosmosTab() {
           <View className="flex-1 pr-2">
             {showIntro && !viewingStar && (
               <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(900)}>
-                <Text className="text-starlight font-display text-3xl leading-9 font-semibold">
-                  Navigate Your{'\n'}Universe
+                <Text className="text-muted text-[10px] font-medium tracking-[2.5px] uppercase">
+                  Your cosmos
+                </Text>
+                <Text className="text-starlight font-heading mt-1.5 text-[26px] leading-[30px]">
+                  Navigate your{'\n'}
+                  <Text
+                    className="text-accent text-[26px] leading-[30px]"
+                    style={{ fontFamily: 'InstrumentSerif_400Regular_Italic' }}
+                  >
+                    universe
+                  </Text>
                 </Text>
               </Animated.View>
             )}
@@ -361,7 +375,7 @@ export default function CosmosTab() {
                   className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
                   style={{ borderWidth: 1 }}
                 >
-                  <Search width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                  <Search width={22} height={22} color={colors.accent} strokeWidth={2.1} />
                 </View>
               </Pressable>
               <Pressable
@@ -376,9 +390,9 @@ export default function CosmosTab() {
                   style={{ borderWidth: 1 }}
                 >
                   {view2D ? (
-                    <Square width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                    <Square width={22} height={22} color={colors.accent} strokeWidth={2.1} />
                   ) : (
-                    <Box width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                    <Box width={22} height={22} color={colors.accent} strokeWidth={2.1} />
                   )}
                 </View>
               </Pressable>
@@ -393,7 +407,7 @@ export default function CosmosTab() {
                   className="bg-background border-accent/60 h-11 w-11 items-center justify-center rounded-full border"
                   style={{ borderWidth: 1 }}
                 >
-                  <Spline width={22} height={22} color={ACCENT} strokeWidth={2.1} />
+                  <Spline width={22} height={22} color={colors.accent} strokeWidth={2.1} />
                 </View>
               </Pressable>
             </View>
@@ -417,7 +431,7 @@ export default function CosmosTab() {
           pointerEvents="none"
         >
           <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
-            <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+            <Spline size={15} color={colors.accent} strokeWidth={2.1} />
             <Text className="text-starlight text-sm font-medium">Connecting your memories</Text>
           </GlassCard>
         </View>
@@ -433,7 +447,7 @@ export default function CosmosTab() {
             }}
           >
             <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
-              <X size={15} color={MUTED} />
+              <X size={15} color={colors.muted} />
               <Text className="text-muted text-sm font-medium">Exit constellation view</Text>
             </GlassCard>
           </Pressable>
@@ -512,7 +526,7 @@ export default function CosmosTab() {
           <Animated.View entering={FadeIn.duration(280)} exiting={FadeOut.duration(600)}>
             <GlassCard contentClassName="items-center gap-2 px-7 py-6">
               <View className="bg-accent/10 mb-1 h-11 w-11 items-center justify-center rounded-full">
-                <Sparkles size={22} color={ACCENT} strokeWidth={2} />
+                <Sparkles size={22} color={colors.accent} strokeWidth={2} />
               </View>
               <Text className="text-starlight font-display text-lg font-semibold">
                 Memory deleted
@@ -532,7 +546,7 @@ export default function CosmosTab() {
         >
           <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(400)}>
             <GlassCard contentClassName="flex-row items-center gap-2 px-4 py-2.5">
-              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+              <Spline size={15} color={colors.accent} strokeWidth={2.1} />
               <Text className="text-starlight text-sm font-medium" numberOfLines={1}>
                 {`Removed from ${removedMessage}`}
               </Text>
@@ -550,7 +564,7 @@ export default function CosmosTab() {
               contentClassName="w-80 max-w-full items-center gap-3 px-6 py-7"
             >
               <View className="bg-danger/10 mb-1 h-12 w-12 items-center justify-center rounded-full">
-                <Spline size={22} color={DANGER} strokeWidth={2} />
+                <Spline size={22} color={colors.danger} strokeWidth={2} />
               </View>
               <Text className="text-starlight font-display text-center text-lg font-semibold">
                 Remove from constellation?
@@ -571,14 +585,7 @@ export default function CosmosTab() {
         </View>
       )}
 
-      {tutorialVisible && (
-        <CosmosTutorial
-          onDone={dismissTutorial}
-          onCreate={() =>
-            router.push({ pathname: '/star/create', params: { cosmosId: PERSONAL_COSMOS } })
-          }
-        />
-      )}
+      {tutorialVisible && <CosmosTutorial onDone={dismissTutorial} />}
     </View>
   );
 }
@@ -602,6 +609,7 @@ function HudCard({
   canConnect: boolean;
   onClose: () => void;
 }) {
+  const colors = usePalette();
   const color = colorFor(star.colorKey);
   const tagged = star.taggedUserIds.map((id) => userById(id)).filter(Boolean);
   return (
@@ -623,7 +631,7 @@ function HudCard({
             </Text>
           </View>
           <Pressable onPress={onClose} hitSlop={10}>
-            <X size={18} color={MUTED} />
+            <X size={18} color={colors.muted} />
           </Pressable>
         </View>
 
@@ -631,7 +639,7 @@ function HudCard({
           <Text className="text-muted text-xs">{format(new Date(star.date), 'PP')}</Text>
           {star.location ? (
             <View className="flex-row items-center gap-1">
-              <MapPin size={12} color={MUTED} />
+              <MapPin size={12} color={colors.muted} />
               <Text className="text-muted text-xs" numberOfLines={1}>
                 {star.location.name}
               </Text>
@@ -641,7 +649,7 @@ function HudCard({
 
         {tagged.length > 0 && (
           <View className="flex-row items-center gap-1.5">
-            <Users size={12} color={MUTED} />
+            <Users size={12} color={colors.muted} />
             <Text className="text-muted text-xs">{tagged.map((u) => u!.name).join(', ')}</Text>
           </View>
         )}
@@ -650,13 +658,13 @@ function HudCard({
           <View className="flex-row items-center gap-3.5 pt-0.5">
             {star.photos.length > 0 && (
               <View className="flex-row items-center gap-1">
-                <Camera size={12} color={MUTED} />
+                <Camera size={12} color={colors.muted} />
                 <Text className="text-muted text-xs">{star.photos.length}</Text>
               </View>
             )}
             {star.voiceNotes.length > 0 && (
               <View className="flex-row items-center gap-1">
-                <Mic size={12} color={MUTED} />
+                <Mic size={12} color={colors.muted} />
                 <Text className="text-muted text-xs">{star.voiceNotes.length}</Text>
               </View>
             )}
@@ -672,7 +680,7 @@ function HudCard({
             }}
             className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
           >
-            <Sparkles size={15} color={ACCENT} strokeWidth={2.1} />
+            <Sparkles size={15} color={colors.accent} strokeWidth={2.1} />
             <Text className="text-accent text-sm font-medium">Open Memory</Text>
           </Pressable>
 
@@ -686,7 +694,7 @@ function HudCard({
                   }}
                   className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
                 >
-                  <Eye size={15} color={ACCENT} strokeWidth={2.1} />
+                  <Eye size={15} color={colors.accent} strokeWidth={2.1} />
                   <Text className="text-accent text-sm font-medium">View Constellation</Text>
                 </Pressable>
                 <Pressable
@@ -696,8 +704,8 @@ function HudCard({
                   }}
                   className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
                 >
-                  <Trash2 size={15} color={DANGER} strokeWidth={2.1} />
-                  <Text className="text-sm font-medium" style={{ color: DANGER }}>
+                  <Trash2 size={15} color={colors.danger} strokeWidth={2.1} />
+                  <Text className="text-sm font-medium" style={{ color: colors.danger }}>
                     Remove from constellation
                   </Text>
                 </Pressable>
@@ -711,7 +719,7 @@ function HudCard({
               }}
               className="border-glass-border h-11 flex-row items-center justify-center gap-2 rounded-xl border"
             >
-              <Spline size={15} color={ACCENT} strokeWidth={2.1} />
+              <Spline size={15} color={colors.accent} strokeWidth={2.1} />
               <Text className="text-accent text-sm font-medium">Add to constellation</Text>
             </Pressable>
           ) : null}

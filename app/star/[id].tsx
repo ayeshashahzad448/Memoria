@@ -10,6 +10,7 @@ import {
   MapPin,
   Mic,
   Pencil,
+  Share2,
   Sparkles,
   Sun,
   Trash2,
@@ -20,18 +21,20 @@ import {
 import { GlassCard } from '@/components/GlassCard';
 import { StarPreview } from '@/components/StarPreview';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
+import { useShareMemory } from '@/lib/share';
 import { useMemoria } from '@/lib/store';
+import { goBack } from '@/lib/navigation';
 import { colorFor, starStatsForStar, userById } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+import { usePalette } from '@/lib/theme';
 
 export default function StarDetail() {
+  const colors = usePalette();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string; justCreated?: string }>();
   const id = params.id;
   const justCreated = params.justCreated === '1';
   const star = useMemoria((s) => s.stars.find((x) => x.id === id));
+  const { share, note, cardElement } = useShareMemory(star);
   const focusStar = useMemoria((s) => s.focusStar);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -45,7 +48,7 @@ export default function StarDetail() {
       router.replace('/(tabs)');
       return;
     }
-    router.back();
+    goBack(router);
   };
 
   const stats = useMemo(() => (star ? starStatsForStar(star) : null), [star]);
@@ -54,7 +57,7 @@ export default function StarDetail() {
     return (
       <View className="bg-void flex-1 items-center justify-center px-6">
         <Text className="text-muted">This memory could not be found.</Text>
-        <Button variant="ghost" onPress={() => router.back()} className="mt-4">
+        <Button variant="ghost" onPress={() => goBack(router)} className="mt-4">
           Back
         </Button>
       </View>
@@ -90,11 +93,21 @@ export default function StarDetail() {
           </View>
           <View className="flex-row items-center gap-4">
             <Pressable
+              onPress={() => void share()}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Share this memory"
+              className="flex-row items-center gap-1.5"
+            >
+              <Share2 size={15} color={colors.accent} />
+              <Text className="text-accent">Share</Text>
+            </Pressable>
+            <Pressable
               onPress={() => router.push({ pathname: '/star/edit', params: { id: star.id } })}
               hitSlop={12}
               className="flex-row items-center gap-1.5"
             >
-              <Pencil size={15} color={ACCENT} />
+              <Pencil size={15} color={colors.accent} />
               <Text className="text-accent">Edit</Text>
             </Pressable>
             <Pressable onPress={closeToCosmos} hitSlop={12}>
@@ -102,6 +115,8 @@ export default function StarDetail() {
             </Pressable>
           </View>
         </View>
+        {cardElement}
+        {note ? <Text className="text-accent -mt-4 mb-4 text-right text-xs">{note}</Text> : null}
 
         {wrap(
           0,
@@ -112,12 +127,12 @@ export default function StarDetail() {
 
             <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
               <View className="flex-row items-center gap-1.5">
-                <CalendarDays size={14} color={MUTED} />
+                <CalendarDays size={14} color={colors.muted} />
                 <Text className="text-muted text-sm">{format(new Date(star.date), 'PPP')}</Text>
               </View>
               {star.location ? (
                 <View className="flex-row items-center gap-1.5">
-                  <MapPin size={14} color={MUTED} />
+                  <MapPin size={14} color={colors.muted} />
                   <Text className="text-muted text-sm">{star.location.name}</Text>
                 </View>
               ) : null}
@@ -125,7 +140,7 @@ export default function StarDetail() {
 
             {tagged.length > 0 && (
               <View className="mt-3 flex-row flex-wrap items-center gap-2">
-                <Users size={14} color={MUTED} />
+                <Users size={14} color={colors.muted} />
                 {tagged.map((u) => (
                   <View key={u!.id} className="border-glass-border rounded-full border px-3 py-1">
                     <Text className="text-starlight text-xs">{u!.name}</Text>
@@ -154,7 +169,7 @@ export default function StarDetail() {
                 </Text>
                 <Text
                   className="font-display text-lg font-semibold"
-                  style={{ color: color.hex }}
+                  style={{ color: colors.readable(color.hex) }}
                   numberOfLines={1}
                 >
                   {stats.spectralName}
@@ -168,17 +183,17 @@ export default function StarDetail() {
                 value={`${stats.temperatureK.toLocaleString()} K`}
               />
               <StatCell
-                icon={<Weight size={15} color={color.hex} />}
+                icon={<Weight size={15} color={colors.readable(color.hex)} />}
                 label="Mass"
                 value={`${stats.massSolar.toFixed(2)} M\u2609`}
               />
               <StatCell
-                icon={<Sun size={15} color="#FFC75F" />}
+                icon={<Sun size={15} color={colors.warning} />}
                 label="Luminosity"
                 value={`${stats.luminositySolar.toFixed(1)} L\u2609`}
               />
               <StatCell
-                icon={<Sparkles size={15} color={color.hex} />}
+                icon={<Sparkles size={15} color={colors.readable(color.hex)} />}
                 label="Spectral class"
                 value={stats.spectralClass}
               />
@@ -215,7 +230,7 @@ export default function StarDetail() {
             420,
             <View className="mt-5 gap-2">
               <View className="flex-row items-center gap-2">
-                <Mic size={15} color={MUTED} />
+                <Mic size={15} color={colors.muted} />
                 <Text className="text-muted text-sm">Voice notes</Text>
               </View>
               {star.voiceNotes.map((n, i) => (
@@ -229,7 +244,7 @@ export default function StarDetail() {
         <Dialog isOpen={confirmOpen} onOpenChange={setConfirmOpen}>
           <Dialog.Trigger asChild>
             <Button variant="danger-soft">
-              <Trash2 size={16} color={colorFor('rose').hex} />
+              <Trash2 size={16} color={colors.danger} />
               <Button.Label>Delete memory</Button.Label>
             </Button>
           </Dialog.Trigger>

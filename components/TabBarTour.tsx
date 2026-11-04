@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { Button, Text } from 'heroui-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { History, Plus, Search, User, UsersRound } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { GlassCard } from '@/components/GlassCard';
-import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-
+import { usePalette } from '@/lib/theme';
 /** Measured screen-space center of each tab icon, reported by the tab bar. */
 export interface TabSpotlight {
   /** Horizontal center of the tab, in screen pixels. */
@@ -34,7 +32,7 @@ const STOPS: TourStop[] = [
     slot: 0,
     icon: History,
     title: 'Recall',
-    body: 'Resurfaces memories from this day in past years and random highlights — a gentle look back.',
+    body: 'Resurfaces memories from this day in past years and random highlights, a gentle look back.',
   },
   {
     slot: 1,
@@ -53,7 +51,7 @@ const STOPS: TourStop[] = [
     slot: 3,
     icon: Search,
     title: 'Search',
-    body: 'Find any memory by words, place, date, people tagged, or constellation — then fly to it.',
+    body: 'Find any memory by words, place, date, people tagged, or constellation, then fly to it.',
   },
   {
     slot: 4,
@@ -66,8 +64,8 @@ const STOPS: TourStop[] = [
 const TAB_COUNT = 5;
 
 /**
- * One-time guided walkthrough of the bottom tab bar, shown after the user
- * creates their first star. Dims the screen, points a spotlight at each tab in
+ * One-time guided walkthrough of the bottom tab bar, shown right after the cosmos
+ * walkthrough and before the user creates their first star. Dims the screen, points a spotlight at each tab in
  * turn, and explains it in plain language.
  *
  * `spotlights` are the measured screen-space centers of each tab icon, so the
@@ -77,11 +75,15 @@ const TAB_COUNT = 5;
 export function TabBarTour({
   onDone,
   spotlights,
+  doneLabel = 'Got it',
 }: {
   onDone: () => void;
   spotlights?: TabSpotlight[];
+  /** Label of the final button, e.g. when finishing the tour leads into creating a memory. */
+  doneLabel?: string;
 }) {
-  const { width, height } = useWindowDimensions();
+  const colors = usePalette();
+  const { width, height } = useFrame();
   const [index, setIndex] = useState(0);
   const stop = STOPS[index];
   const isLast = index === STOPS.length - 1;
@@ -119,15 +121,15 @@ export function TabBarTour({
           top: spotlightCenterY - spotSize / 2,
           width: spotSize,
           height: spotSize,
-          borderColor: ACCENT,
-          backgroundColor: `${ACCENT}1A`,
-          shadowColor: ACCENT,
+          borderColor: colors.accent,
+          backgroundColor: `${colors.accent}1A`,
+          shadowColor: colors.accent,
           shadowOpacity: 0.9,
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 0 },
         }}
       >
-        <Icon size={stop.raised ? 28 : 22} color={ACCENT} strokeWidth={2.2} />
+        <Icon size={stop.raised ? 28 : 22} color={colors.accent} strokeWidth={2.2} />
       </Animated.View>
 
       {/* Explanation card centered above the bar. */}
@@ -136,9 +138,9 @@ export function TabBarTour({
           <GlassCard contentClassName="gap-3 p-6">
             <View
               className="h-11 w-11 items-center justify-center rounded-full"
-              style={{ backgroundColor: `${ACCENT}1F` }}
+              style={{ backgroundColor: `${colors.accent}1F` }}
             >
-              <Icon size={22} color={ACCENT} />
+              <Icon size={22} color={colors.accent} />
             </View>
             <Text className="text-starlight font-display text-xl font-bold">{stop.title}</Text>
             <Text className="text-muted text-sm leading-6">{stop.body}</Text>
@@ -151,7 +153,7 @@ export function TabBarTour({
                     className="h-1.5 rounded-full"
                     style={{
                       width: i === index ? 18 : 6,
-                      backgroundColor: i === index ? ACCENT : 'rgba(255,255,255,0.22)',
+                      backgroundColor: i === index ? colors.accent : colors.fg(0.22),
                     }}
                   />
                 ))}
@@ -163,7 +165,7 @@ export function TabBarTour({
                   </Button>
                 )}
                 <Button size="sm" onPress={next}>
-                  <Button.Label>{isLast ? 'Got it' : 'Next'}</Button.Label>
+                  <Button.Label>{isLast ? doneLabel : 'Next'}</Button.Label>
                 </Button>
               </View>
             </View>

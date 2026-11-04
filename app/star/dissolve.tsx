@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ScopedTheme } from 'uniwind';
 import { Platform, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from 'heroui-native';
@@ -10,7 +11,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { StarDissolve } from '@/components/StarDissolve';
@@ -25,7 +26,7 @@ function fireHaptic(kind: 'shatter' | 'gone') {
   else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
 }
 
-export default function DissolveStar() {
+function DissolveStarScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -112,5 +113,14 @@ export default function DissolveStar() {
         </Text>
       </Animated.View>
     </View>
+  );
+}
+
+/** This screen is a night sky, so it stays dark even when the app is in light mode. */
+export default function DissolveStar() {
+  return (
+    <ScopedTheme theme="dark">
+      <DissolveStarScreen />
+    </ScopedTheme>
   );
 }

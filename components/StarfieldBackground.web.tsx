@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -23,9 +24,9 @@ function rand(i: number): number {
  */
 export function StarfieldBackground({
   variant = 'drift',
-  background = variant === 'dust' ? '#0b0c10' : '#07080b',
+  background = variant === 'dust' ? '#0C0E14' : '#080A10',
 }: StarfieldBackgroundProps) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useFrame();
   const count = variant === 'dust' ? 40 : 70;
 
   const stars = Array.from({ length: count }, (_, i) => ({

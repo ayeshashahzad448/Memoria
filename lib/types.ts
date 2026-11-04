@@ -96,7 +96,12 @@ export type MemoryPrivacy = 'private' | 'friends' | 'public';
 /** Visual density / text size scaling. */
 export type TextSize = 'small' | 'medium' | 'large';
 
+/** Which colour theme to use; "system" follows the device's light or dark setting. */
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export interface AppSettings {
+  /** Light, dark, or follow the device. */
+  theme: ThemeMode;
   /** Haptic feedback on gestures and selections. */
   haptics: boolean;
   /** Twinkle / pulse sounds and UI sound effects. */
@@ -120,6 +125,22 @@ export interface UserProfile {
   avatarColorKey: StarColorKey;
   /** Optional profile photo URI. Falls back to the color avatar when absent. */
   avatarUri?: string;
+}
+
+/** Where the user's memories are mirrored. iCloud on Apple devices, Google Drive elsewhere. */
+export type SyncProvider = 'icloud' | 'googledrive';
+
+export interface SyncState {
+  /** User has switched cloud sync on. */
+  enabled: boolean;
+  /** ISO time of the last completed sync, for display. */
+  lastSyncedAt?: string;
+  /** Local data version (dataUpdatedAt) that the cloud copy already contains. */
+  syncedLocalAt?: string;
+  /** Cloud snapshot version (its updatedAt) that this device has already merged in. */
+  syncedRemoteAt?: string;
+  /** Human-readable message from the most recent failed sync. */
+  lastError?: string;
 }
 
 export interface Throwback {

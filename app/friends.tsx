@@ -6,15 +6,14 @@ import { ChevronLeft, Search, UserMinus, UserPlus, X } from 'lucide-react-native
 
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
-import { CURRENT_USER, DIRECTORY_USERS, colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-const DANGER = colorFor('rose').hex;
-const MUTED = '#94A3B8';
+import { goBack } from '@/lib/navigation';
+import { CURRENT_USER, DIRECTORY_USERS } from '@/lib/memoria';
+import { usePalette } from '@/lib/theme';
 
 const PEOPLE = DIRECTORY_USERS.filter((u) => u.id !== CURRENT_USER.id);
 
 export default function FriendsScreen() {
+  const colors = usePalette();
   const router = useRouter();
   const friendIds = useMemoria((s) => s.friendIds);
   const addFriend = useMemoria((s) => s.addFriend);
@@ -40,15 +39,15 @@ export default function FriendsScreen() {
     <View className="bg-void flex-1">
       <View className="pt-safe-offset-3 flex-row items-center gap-3 px-5 pb-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
           className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+          style={{ backgroundColor: colors.fg(0.06) }}
         >
-          <ChevronLeft size={20} color="#F8FAFC" />
+          <ChevronLeft size={20} color={colors.text} />
         </Pressable>
         <View className="flex-1">
-          <Text className="text-starlight font-display text-2xl font-bold">Friends</Text>
+          <Text className="text-starlight font-heading text-3xl">Friends</Text>
           <Text className="text-muted text-xs">{friendIds.length} connected</Text>
         </View>
       </View>
@@ -56,7 +55,7 @@ export default function FriendsScreen() {
       <ScrollView contentContainerClassName="px-5 pb-24" keyboardShouldPersistTaps="handled">
         {/* Search */}
         <GlassCard contentClassName="flex-row items-center gap-2.5 px-4 py-2.5">
-          <Search size={18} color={MUTED} />
+          <Search size={18} color={colors.muted} />
           <TextField className="flex-1">
             <Input
               placeholder="Search people"
@@ -68,7 +67,7 @@ export default function FriendsScreen() {
           </TextField>
           {query.length > 0 && (
             <Pressable onPress={() => setQuery('')} hitSlop={8}>
-              <X size={16} color={MUTED} />
+              <X size={16} color={colors.muted} />
             </Pressable>
           )}
         </GlassCard>
@@ -136,6 +135,7 @@ interface PersonRowProps {
 }
 
 function PersonRow({ name, handle, avatar, action, onPress }: PersonRowProps) {
+  const colors = usePalette();
   const isAdd = action === 'add';
   return (
     <View className="flex-row items-center gap-3">
@@ -151,13 +151,20 @@ function PersonRow({ name, handle, avatar, action, onPress }: PersonRowProps) {
         hitSlop={6}
         className="h-9 flex-row items-center gap-1.5 rounded-full px-3.5"
         style={{
-          backgroundColor: isAdd ? 'rgba(69,243,255,0.12)' : 'rgba(255,255,255,0.06)',
+          backgroundColor: isAdd ? colors.accentA(0.12) : colors.fg(0.06),
           borderWidth: 1,
-          borderColor: isAdd ? 'rgba(69,243,255,0.5)' : 'rgba(255,42,109,0.4)',
+          borderColor: isAdd ? colors.accentA(0.5) : 'rgba(255,42,109,0.4)',
         }}
       >
-        {isAdd ? <UserPlus size={15} color={ACCENT} /> : <UserMinus size={15} color={DANGER} />}
-        <Text className="text-xs font-semibold" style={{ color: isAdd ? ACCENT : DANGER }}>
+        {isAdd ? (
+          <UserPlus size={15} color={colors.accent} />
+        ) : (
+          <UserMinus size={15} color={colors.danger} />
+        )}
+        <Text
+          className="text-xs font-semibold"
+          style={{ color: isAdd ? colors.accent : colors.danger }}
+        >
           {isAdd ? 'Add' : 'Remove'}
         </Text>
       </Pressable>

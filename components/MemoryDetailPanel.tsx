@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
+import { useFrame } from '@/lib/useFrame';
 import { useRouter } from 'expo-router';
 import { Text } from 'heroui-native';
 import Animated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
@@ -10,6 +11,7 @@ import {
   MapPin,
   Mic,
   Pencil,
+  Share2,
   Sparkles,
   Sun,
   Users,
@@ -19,11 +21,10 @@ import {
 
 import { GlassCard } from '@/components/GlassCard';
 import { VoiceNotePlayer } from '@/components/VoiceNotePlayer';
+import { useShareMemory } from '@/lib/share';
 import { colorFor, starStatsForStar, userById } from '@/lib/memoria';
 import type { MemoryStar } from '@/lib/types';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+import { usePalette } from '@/lib/theme';
 
 /**
  * Width the floating memory panel takes on a given screen. Kept in sync with
@@ -40,8 +41,10 @@ export function memoryPanelWidth(screenWidth: number): number {
  * for in-cosmos viewing.
  */
 export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose: () => void }) {
+  const colors = usePalette();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { share, note, cardElement } = useShareMemory(star);
+  const { width } = useFrame();
   // Take the right portion of the screen, but always leave room on the left so
   // the zoomed-in star stays visible. Cap so it never eats more than ~62% of
   // the screen on phones, and clamp to a comfortable width on tablets/web.
@@ -76,18 +79,30 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
           </View>
           <View className="flex-row items-center gap-3">
             <Pressable
+              onPress={() => void share()}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Share this memory"
+            >
+              <Share2 size={16} color={colors.accent} />
+            </Pressable>
+            <Pressable
               onPress={() => router.push({ pathname: '/star/edit', params: { id: star.id } })}
               hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Edit this memory"
             >
-              <Pencil size={16} color={ACCENT} />
+              <Pencil size={16} color={colors.accent} />
             </Pressable>
             <Pressable onPress={onClose} hitSlop={10}>
               <View className="border-glass-border h-7 w-7 items-center justify-center rounded-full border">
-                <X size={15} color={MUTED} />
+                <X size={15} color={colors.muted} />
               </View>
             </Pressable>
           </View>
         </View>
+        {cardElement}
+        {note ? <Text className="text-accent px-4 pt-2 text-xs">{note}</Text> : null}
 
         <ScrollView contentContainerClassName="px-4 py-4" showsVerticalScrollIndicator={false}>
           <Text className="text-starlight font-display text-2xl leading-7 font-bold">
@@ -96,12 +111,12 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
 
           <View className="mt-3 gap-1.5">
             <View className="flex-row items-center gap-1.5">
-              <CalendarDays size={13} color={MUTED} />
+              <CalendarDays size={13} color={colors.muted} />
               <Text className="text-muted text-xs">{format(new Date(star.date), 'PPP')}</Text>
             </View>
             {star.location ? (
               <View className="flex-row items-center gap-1.5">
-                <MapPin size={13} color={MUTED} />
+                <MapPin size={13} color={colors.muted} />
                 <Text className="text-muted text-xs" numberOfLines={1}>
                   {star.location.name}
                 </Text>
@@ -111,7 +126,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
 
           {tagged.length > 0 && (
             <View className="mt-3 flex-row flex-wrap items-center gap-2">
-              <Users size={13} color={MUTED} />
+              <Users size={13} color={colors.muted} />
               {tagged.map((u) => (
                 <View key={u!.id} className="border-glass-border rounded-full border px-2.5 py-1">
                   <Text className="text-starlight text-[11px]">{u!.name}</Text>
@@ -125,7 +140,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
             <Text className="text-muted text-[10px] tracking-[2px] uppercase">Stellar profile</Text>
             <Text
               className="font-display text-base font-semibold"
-              style={{ color: color.hex }}
+              style={{ color: colors.readable(color.hex) }}
               numberOfLines={1}
             >
               {stats.spectralName}
@@ -137,17 +152,17 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
                 value={`${stats.temperatureK.toLocaleString()} K`}
               />
               <StatCell
-                icon={<Weight size={13} color={color.hex} />}
+                icon={<Weight size={13} color={colors.readable(color.hex)} />}
                 label="Mass"
                 value={`${stats.massSolar.toFixed(2)} M\u2609`}
               />
               <StatCell
-                icon={<Sun size={13} color="#FFC75F" />}
+                icon={<Sun size={13} color={colors.warning} />}
                 label="Luminosity"
                 value={`${stats.luminositySolar.toFixed(1)} L\u2609`}
               />
               <StatCell
-                icon={<Sparkles size={13} color={color.hex} />}
+                icon={<Sparkles size={13} color={colors.readable(color.hex)} />}
                 label="Class"
                 value={stats.spectralClass}
               />
@@ -179,7 +194,7 @@ export function MemoryDetailPanel({ star, onClose }: { star: MemoryStar; onClose
           {star.voiceNotes.length > 0 && (
             <View className="mt-4 gap-2">
               <View className="flex-row items-center gap-2">
-                <Mic size={14} color={MUTED} />
+                <Mic size={14} color={colors.muted} />
                 <Text className="text-muted text-xs">Voice notes</Text>
               </View>
               {star.voiceNotes.map((n, i) => (

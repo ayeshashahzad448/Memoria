@@ -7,11 +7,10 @@ import { History, MapPin, Sparkles } from 'lucide-react-native';
 import { GlassCard } from '@/components/GlassCard';
 import { useMemoria } from '@/lib/store';
 import { colorFor } from '@/lib/memoria';
-
-const ACCENT = colorFor('cyan').hex;
-const MUTED = '#94A3B8';
+import { usePalette } from '@/lib/theme';
 
 export default function ThrowbacksTab() {
+  const colors = usePalette();
   const router = useRouter();
   const allStars = useMemoria((s) => s.stars);
   const activeCosmosId = useMemoria((s) => s.activeCosmosId);
@@ -36,14 +35,14 @@ export default function ThrowbacksTab() {
   return (
     <View className="bg-void flex-1">
       <ScrollView contentContainerClassName="px-5 pt-safe-offset-4 pb-32">
-        <Text className="text-starlight font-display text-3xl font-bold">Recall</Text>
+        <Text className="text-starlight font-heading text-3xl">Recall</Text>
         <Text className="text-muted mt-1 mb-6 text-sm leading-5">
           Anniversaries and highlights resurfaced from years past, brought back for you to revisit.
         </Text>
 
         {cards.length === 0 ? (
           <GlassCard contentClassName="items-center gap-2 p-6">
-            <History size={22} color={MUTED} />
+            <History size={22} color={colors.muted} />
             <Text className="text-muted text-center text-sm leading-5">
               Nothing to recall yet. As your memories age, anniversaries and highlights from years
               past will appear here.
@@ -55,7 +54,7 @@ export default function ThrowbacksTab() {
               const color = colorFor(tb.star.colorKey);
               const isAnniversary = tb.kind === 'anniversary';
               const Icon = isAnniversary ? History : Sparkles;
-              const tint = isAnniversary ? ACCENT : colorFor('amber').hex;
+              const tint = isAnniversary ? colors.accent : colors.readable(colorFor('amber').hex);
               const canOpen = realStarIds.has(tb.star.id);
               return (
                 <Pressable
@@ -94,7 +93,7 @@ export default function ThrowbacksTab() {
                     </View>
                     {tb.star.location ? (
                       <View className="flex-row items-center gap-1.5">
-                        <MapPin size={12} color={MUTED} />
+                        <MapPin size={12} color={colors.muted} />
                         <Text className="text-muted text-xs">{tb.star.location.name}</Text>
                       </View>
                     ) : null}

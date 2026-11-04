@@ -15,9 +15,13 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { Lora_400Regular, Lora_500Medium } from '@expo-google-fonts/lora';
+import {
+  InstrumentSerif_400Regular,
+  InstrumentSerif_400Regular_Italic,
+} from '@expo-google-fonts/instrument-serif';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { Platform } from 'react-native';
-import { useEffect } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
 import * as DevClient from 'expo-dev-client';
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native';
 import { StatusBar } from 'expo-status-bar';
@@ -27,8 +31,17 @@ import {
   type ErrorBoundaryProps,
   SplashScreen,
   Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
 } from 'expo-router';
 
+import { isCloudSimulated, startAutoSync } from '@/lib/cloudSync';
+import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
+import { startAppearanceSync } from '@/lib/appearance';
+import { usePalette } from '@/lib/theme';
+import { useMemoria } from '@/lib/store';
+import { FRAME_MAX_WIDTH, useFrame } from '@/lib/useFrame';
 import { initPostHog } from '@/lib/posthog';
 import { reportErrorToParent } from '@/lib/reportPreviewError';
 import { getMokotoFontMap, injectMokotoWebFont } from '@/lib/fonts';
@@ -66,9 +79,13 @@ export default function RootLayout() {
     SpaceGrotesk_700Bold,
     Lora_400Regular,
     Lora_500Medium,
-    // Clean family aliases so `fontFamily: 'Space Grotesk' | 'Lora'` resolves on native too.
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    // Clean family aliases so `fontFamily: 'Space Grotesk' | 'Lora' | 'Instrument Serif'`
+    // resolves on native too.
     'Space Grotesk': SpaceGrotesk_600SemiBold,
     Lora: Lora_400Regular,
+    'Instrument Serif': InstrumentSerif_400Regular,
     ...getMokotoFontMap(),
   });
 
@@ -109,7 +126,7 @@ export default function RootLayout() {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href =
-          'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&display=swap';
+          'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Lora:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap';
         link.crossOrigin = 'anonymous';
         document.head.appendChild(link);
       }
@@ -143,6 +160,18 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    // Web has no real cloud drive, but the demo simulation should still run there.
+    if (Platform.OS === 'web' && !isCloudSimulated()) return undefined;
+    return startAutoSync();
+  }, []);
+
+  // Text size and High contrast from Settings.
+  useEffect(() => startAppearanceSync(), []);
+
+  // "Reduce motion" turns off Reanimated animations; otherwise follow the device setting.
+  const reduceMotion = useMemoria((s) => s.settings.reduceMotion);
+
+  useEffect(() => {
     if (loaded || error) {
       void SplashScreen.hideAsync();
     }
@@ -154,28 +183,103 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <ReducedMotionConfig mode={reduceMotion ? ReduceMotion.Always : ReduceMotion.System} />
       <HeroUINativeProvider>
-        <RootNavigator />
+        <AppFrame>
+          <RootNavigator />
+        </AppFrame>
       </HeroUINativeProvider>
     </GestureHandlerRootView>
   );
 }
 
+/**
+ * On wide web windows, show the app as a centered phone-width column so cards and the
+ * tab bar keep their intended proportions. Everything inside (modals, the tab bar,
+ * overlays) is positioned against this column. Native and narrow windows are untouched.
+ */
+function AppFrame({ children }: { children: ReactNode }) {
+  const colors = usePalette();
+  const { framed } = useFrame();
+  if (!framed) return <>{children}</>;
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        backgroundColor: colors.isDark ? '#050609' : '#FFE3CC',
+      }}
+    >
+      <View
+        style={{
+          flex: 1,
+          width: FRAME_MAX_WIDTH,
+          overflow: 'hidden',
+          backgroundColor: colors.bg,
+          borderLeftWidth: StyleSheet.hairlineWidth,
+          borderRightWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.fg(0.1),
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/** Screens people can reach without being signed in. */
+const PUBLIC_SEGMENTS = new Set<string | undefined>([undefined, 'index', 'auth', 'login']);
+
+/**
+ * Keep the first-run order: sign up -> accept terms -> onboarding -> first star -> the app. Without
+ * this, a direct link (or a refresh on the web) could open the cosmos or the create-star
+ * screen before onboarding.
+ */
+function useFlowGuard() {
+  const router = useRouter();
+  const segments = useSegments();
+  const navigationKey = useRootNavigationState()?.key;
+  const isAuthed = useMemoria((s) => s.isAuthed);
+  const hasAcceptedTerms = useMemoria((s) => s.hasAcceptedTerms);
+  const hasOnboarded = useMemoria((s) => s.hasOnboarded);
+  const [hydrated, setHydrated] = useState(() => useMemoria.persist.hasHydrated());
+
+  useEffect(() => {
+    if (hydrated) return undefined;
+    return useMemoria.persist.onFinishHydration(() => setHydrated(true));
+  }, [hydrated]);
+
+  const first: string | undefined = segments[0];
+  useEffect(() => {
+    if (!navigationKey || !hydrated) return;
+    if (PUBLIC_SEGMENTS.has(first) || first === '+not-found') return;
+    if (!isAuthed) router.replace('/auth');
+    else if (!hasAcceptedTerms) {
+      if (first !== 'terms') router.replace('/terms');
+    } else if (first === 'terms') router.replace(hasOnboarded ? '/(tabs)' : '/onboarding');
+    else if (!hasOnboarded && first !== 'onboarding') router.replace('/onboarding');
+  }, [navigationKey, hydrated, first, isAuthed, hasAcceptedTerms, hasOnboarded, router]);
+}
+
 function RootNavigator() {
   const [overlay] = useThemeColor(['overlay']);
+  const colors = usePalette();
+  useFlowGuard();
   return (
     <>
       {/* oxlint-disable-next-line react/style-prop-object -- expo-status-bar style prop takes a string */}
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b0c10' } }}>
+      <StatusBar style={colors.isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="terms" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="cosmos/[id]" />
         <Stack.Screen name="constellations" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
         <Stack.Screen name="friends" />
         <Stack.Screen
           name="star/create"

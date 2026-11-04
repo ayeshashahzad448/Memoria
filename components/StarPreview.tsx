@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Canvas, Circle, Blur } from '@shopify/react-native-skia';
+import { Canvas, Circle, Blur, Path } from '@shopify/react-native-skia';
 import {
   Easing,
   useDerivedValue,
@@ -10,6 +10,7 @@ import {
 } from 'react-native-reanimated';
 
 import { colorFor, radiusForText } from '@/lib/memoria';
+import { mixHex, sparklePathData } from '@/lib/sparkle';
 import type { StarColorKey } from '@/lib/types';
 
 export interface StarPreviewProps {
@@ -45,10 +46,19 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
   });
 
   const haloR = useDerivedValue(() => r.value + 16 + twinkle.value * 3);
-  const haloOpacity = useDerivedValue(() => 0.34 + twinkle.value * 0.18);
-  const bloomR = useDerivedValue(() => Math.max(r.value * 0.62, 5) + 3);
-  const coreR = useDerivedValue(() => Math.max(r.value * 0.62, 5));
+  const haloOpacity = useDerivedValue(() => 0.3 + twinkle.value * 0.16);
+  const coreR = useDerivedValue(() => Math.max(r.value * 0.28, 3.5));
   const coreOpacity = useDerivedValue(() => 0.85 + twinkle.value * 0.15);
+
+  // Four-point sparkle that grows with the story, tinted by the chosen emotion.
+  const sparkleLen = useDerivedValue(
+    () => Math.min(54, 14 + r.value * 1.9) * (1 + twinkle.value * 0.05),
+  );
+  const sparkleMain = useDerivedValue(() => sparklePathData(80, 60, sparkleLen.value));
+  const sparkleDiagonal = useDerivedValue(() =>
+    sparklePathData(80, 60, sparkleLen.value * 0.5, Math.PI / 4),
+  );
+  const tint = mixHex('#FFFFFF', color, 0.7);
 
   return (
     <Canvas style={{ width: 160, height: 120 }}>
@@ -56,10 +66,12 @@ export function StarPreview({ story, title, colorKey }: StarPreviewProps) {
       <Circle cx={80} cy={60} r={haloR} color={color} opacity={haloOpacity}>
         <Blur blur={16} />
       </Circle>
-      {/* White-blue bloom */}
-      <Circle cx={80} cy={60} r={bloomR} color="#CFE3FF" opacity={coreOpacity}>
-        <Blur blur={3} />
-      </Circle>
+      {/* Soft glow under the sparkle */}
+      <Path path={sparkleMain} color={tint} opacity={0.5}>
+        <Blur blur={6} />
+      </Path>
+      <Path path={sparkleDiagonal} color="#FFFFFF" opacity={0.7} />
+      <Path path={sparkleMain} color={tint} />
       {/* Bright white core */}
       <Circle cx={80} cy={60} r={coreR} color="#FFFFFF" opacity={coreOpacity} />
     </Canvas>

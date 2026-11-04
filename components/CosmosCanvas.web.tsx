@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { clamp, useSharedValue } from 'react-native-reanimated';
 import * as THREE from 'three';
+import { makeSparkleTexture } from './sparkleTexture';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
 import {
@@ -20,6 +21,20 @@ import {
   pickCandidate,
   REVEAL_DURATION_S,
 } from '@/lib/mediaCycle';
+/**
+ * Light mode paints a pastel daytime sky. Additive glow vanishes on a light background, so
+ * sprites switch to normal blending and white highlights become deep plum.
+ * Set by <CosmosCanvas> before its children build their materials; remount it to change theme.
+ */
+let LIGHT_SKY = false;
+const blend = () => (LIGHT_SKY ? THREE.NormalBlending : THREE.AdditiveBlending);
+const ink = (night: string, day: string) => (LIGHT_SKY ? day : night);
+/** On a light sky, star colours are deepened and their halos strengthened so they still read. */
+const starTone = (hex: string) => {
+  const c = new THREE.Color(hex);
+  return LIGHT_SKY ? c.multiplyScalar(0.92) : c;
+};
+const glowGain = () => (LIGHT_SKY ? 0.9 : 1);
 
 /**
  * Schedules the rare "memory comes alive" reveals: picks one media-bearing star
@@ -65,6 +80,10 @@ function useMediaCycle(stars: MemoryStar[]): ActiveMedia | null {
 }
 
 interface CosmosCanvasProps {
+  /** Paint a pastel daytime sky instead of the night sky (used in light mode). */
+  light?: boolean;
+  /** Zoom one step in (dir 1) or out (dir -1). Pass a new object with a new id to trigger. */
+  zoomCommand?: { id: number; dir: 1 | -1 } | null;
   stars: MemoryStar[];
   constellations: Constellation[];
   revealedStarIds: string[];
@@ -143,9 +162,30 @@ function makeCoreTexture(): THREE.Texture {
   return tex;
 }
 
+/** A crisp round disc: a star's core on a light sky (a soft glow reads as a smudge there) and the round background stars. */
+function makeDiscTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.62, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.8, 'rgba(255,255,255,0)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 export function CosmosCanvas(props: CosmosCanvasProps) {
+  LIGHT_SKY = !!props.light;
   const {
     stars,
+    zoomCommand,
     constellations,
     revealedStarIds,
     selectedStarId,
@@ -169,7 +209,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
           star,
           pos: star3DPosition(star.id, star.x, star.y),
           size: starWorldSize(radius),
-          color: new THREE.Color(colorFor(star.colorKey).hex),
+          color: starTone(colorFor(star.colorKey).hex),
         };
       }),
     [stars],
@@ -291,6 +331,19 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [drawConstellationId]);
 
+  // Zoom buttons: each command nudges the camera distance one step.
+  useEffect(() => {
+    if (!zoomCommand) return;
+    focusActive.value = 0;
+    const step = 0.72;
+    radius.value = clamp(
+      radius.value * (zoomCommand.dir > 0 ? step : 1 / step),
+      MIN_RADIUS,
+      MAX_RADIUS,
+    );
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomCommand?.id]);
+
   const pan = Gesture.Pan()
     .maxPointers(1)
     .onStart(() => {
@@ -353,7 +406,7 @@ export function CosmosCanvas(props: CosmosCanvasProps) {
             gl={{ antialias: true }}
             camera={{ fov: 60, near: 0.1, far: 200, position: [0, 0, 20] }}
             onCreated={(state) => {
-              state.gl.setClearColor('#0b0c10', 1);
+              state.gl.setClearColor(ink('#0C0E14', '#D8ECFF'), 1);
             }}
           >
             <OrbitRig
@@ -580,6 +633,17 @@ function coreTex(): THREE.Texture {
   if (!CORE_TEX) CORE_TEX = makeCoreTexture();
   return CORE_TEX;
 }
+let SPARKLE_TEX: THREE.Texture | null = null;
+function sparkleTex(): THREE.Texture {
+  if (!SPARKLE_TEX) SPARKLE_TEX = makeSparkleTexture();
+  return SPARKLE_TEX;
+}
+
+let DISC_TEX: THREE.Texture | null = null;
+function discTex(): THREE.Texture {
+  if (!DISC_TEX) DISC_TEX = makeDiscTexture();
+  return DISC_TEX;
+}
 
 function StarSprite({
   placed,
@@ -607,18 +671,18 @@ function StarSprite({
         color: color.clone(),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [color],
   );
   const coreMat = useMemo(
     () =>
       new THREE.SpriteMaterial({
-        map: coreTex(),
-        color: new THREE.Color('#ffffff'),
+        map: LIGHT_SKY ? sparkleTex() : coreTex(),
+        color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [],
   );
@@ -626,7 +690,7 @@ function StarSprite({
     () =>
       new THREE.SpriteMaterial({
         map: glowTex(),
-        color: new THREE.Color(forging ? '#FFE066' : '#FFFFFF'),
+        color: new THREE.Color(forging ? ink('#FFE066', '#E0A800') : ink('#FFFFFF', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
         opacity: 0,
@@ -640,7 +704,7 @@ function StarSprite({
     const b = Math.sin((t * rate * 1.7 + phase * 1.7) * Math.PI * 2);
     const mixed = (a * 0.7 + b * 0.3 + 1) / 2;
     const twinkle = Math.pow(mixed, 1.4) * liveliness;
-    glowMat.opacity = (selected ? 0.55 : 0.4) + 0.18 * twinkle;
+    glowMat.opacity = Math.min(1, ((selected ? 0.55 : 0.4) + 0.18 * twinkle) * glowGain());
     coreMat.opacity = 0.85 + 0.15 * twinkle;
     ringMat.opacity = selected || forging ? 0.7 : 0;
     if (ringRef.current) {
@@ -649,8 +713,8 @@ function StarSprite({
     }
   });
 
-  const glowScale = (size + 0.35) * 2.1;
-  const coreScale = size * 0.9;
+  const glowScale = (size + 0.35) * 2.1 * (LIGHT_SKY ? 0.9 : 1);
+  const coreScale = size * (LIGHT_SKY ? 2.4 : 0.9);
 
   return (
     <group position={pos}>
@@ -729,7 +793,7 @@ function PhotoReveal({ uri, size }: { uri: string; size: number }) {
         transparent
         opacity={0}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
+        blending={blend()}
       />
     </sprite>
   );
@@ -738,21 +802,25 @@ function PhotoReveal({ uri, size }: { uri: string; size: number }) {
 function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
   const groupRef = useRef<THREE.Group>(null);
   const startRef = useRef<number | null>(null);
-  const bars = 7;
-  const barRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const bars = 11;
+  // Each bar is a slim rounded pill: a body plus a half-disc cap at each end.
+  const bodyRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const topRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const bottomRefs = useRef<(THREE.Mesh | null)[]>([]);
   const mat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: color.clone().lerp(new THREE.Color('#ffffff'), 0.4),
+        color: color.clone().lerp(new THREE.Color(ink('#ffffff', '#3B2A5C')), 0.4),
         transparent: true,
         opacity: 0,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [color],
   );
   const span = size * 2.4;
-  const barW = span / (bars * 1.8);
+  const pitch = span / bars;
+  const barW = pitch * 0.5;
 
   useFrame((state) => {
     if (startRef.current === null) startRef.current = state.clock.elapsedTime;
@@ -760,12 +828,26 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
     const env = revealEnvelope(elapsed, REVEAL_DURATION_S);
     mat.opacity = env * 0.9;
     const t = state.clock.elapsedTime;
+    const maxH = size * 1.3;
     for (let i = 0; i < bars; i += 1) {
-      const m = barRefs.current[i];
-      if (!m) continue;
-      const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + i * 0.9);
-      const h = (0.25 + wave * 0.75) * size * 1.6;
-      m.scale.y = Math.max(0.05, h);
+      // Two slow, overlapping waves, with the middle bars tallest like a voice envelope.
+      const wave = 0.5 + 0.5 * Math.sin(t * 3 + i * 0.75) * Math.cos(t * 1.3 + i * 0.35);
+      const centre = 1 - (Math.abs(i - (bars - 1) / 2) / ((bars - 1) / 2)) * 0.5;
+      const h = barW + (maxH - barW) * wave * centre;
+      const bodyLen = Math.max(0.0001, h - barW);
+      const half = bodyLen / 2;
+      const body = bodyRefs.current[i];
+      const top = topRefs.current[i];
+      const bottom = bottomRefs.current[i];
+      if (body) body.scale.set(barW, bodyLen, 1);
+      if (top) {
+        top.scale.set(barW, barW, 1);
+        top.position.y = half;
+      }
+      if (bottom) {
+        bottom.scale.set(barW, barW, 1);
+        bottom.position.y = -half;
+      }
     }
     if (groupRef.current) groupRef.current.visible = env > 0.01;
   });
@@ -773,25 +855,40 @@ function WaveformReveal({ size, color }: { size: number; color: THREE.Color }) {
   return (
     <group ref={groupRef}>
       {Array.from({ length: bars }).map((_, i) => {
-        const x = (i - (bars - 1) / 2) * barW * 1.8;
+        const x = (i - (bars - 1) / 2) * pitch;
         return (
-          <mesh
-            // eslint-disable-next-line react/no-array-index-key
-            key={i}
-            position={[x, 0, 0]}
-            material={mat}
-            ref={(el) => {
-              barRefs.current[i] = el;
-            }}
-          >
-            <planeGeometry args={[barW, 1]} />
-          </mesh>
+          // eslint-disable-next-line react/no-array-index-key
+          <group key={i} position={[x, 0, 0]}>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                bodyRefs.current[i] = el;
+              }}
+            >
+              <planeGeometry args={[1, 1]} />
+            </mesh>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                topRefs.current[i] = el;
+              }}
+            >
+              <circleGeometry args={[0.5, 16, 0, Math.PI]} />
+            </mesh>
+            <mesh
+              material={mat}
+              ref={(el) => {
+                bottomRefs.current[i] = el;
+              }}
+            >
+              <circleGeometry args={[0.5, 16, Math.PI, Math.PI]} />
+            </mesh>
+          </group>
         );
       })}
     </group>
   );
 }
-
 function ConstellationLines({
   placed,
   constellations,
@@ -892,10 +989,10 @@ function ConstellationLine({
     () =>
       new THREE.SpriteMaterial({
         map: glowTex(),
-        color: new THREE.Color('#D7B8FF'),
+        color: new THREE.Color(ink('#D7B8FF', '#B79CF0')),
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
         opacity: 0,
       }),
     [],
@@ -1003,7 +1100,8 @@ function DustField() {
       pos[i * 3 + 1] = r * Math.cos(phi);
       pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
       const tint = 0.7 + seed(`dc${i}`) * 0.3;
-      c.setRGB(tint, tint * 0.95, 1);
+      if (LIGHT_SKY) c.setRGB(0.42 * tint, 0.38 * tint, 0.85);
+      else c.setRGB(tint, tint * 0.95, 1);
       col[i * 3] = c.r;
       col[i * 3 + 1] = c.g;
       col[i * 3 + 2] = c.b;
@@ -1018,11 +1116,12 @@ function DustField() {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.35}
+        map={discTex()}
+        size={LIGHT_SKY ? 0.6 : 0.35}
         sizeAttenuation
         vertexColors
         transparent
-        opacity={0.5}
+        opacity={LIGHT_SKY ? 1 : 0.5}
         depthWrite={false}
       />
     </points>
@@ -1054,10 +1153,10 @@ function MilkyWay() {
         (b) =>
           new THREE.SpriteMaterial({
             map: tex,
-            color: new THREE.Color('#3A2E6B'),
+            color: new THREE.Color(ink('#3A2E6B', '#F4CDE0')),
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending,
+            blending: blend(),
             opacity: b.opacity,
           }),
       ),
@@ -1084,7 +1183,7 @@ function MilkyWay() {
 // tail, then a randomized quiet gap (20-40s) passes before the next one.
 
 /** App accent palette for ambient comets (cyan / violet / rose). */
-const COMET_COLORS = ['#45F3FF', '#9D5CFF', '#FF2A6D'];
+const COMET_COLORS = ['#A5B4FC', '#9D5CFF', '#FF2A6D'];
 const COMET_TAIL = 7;
 
 /** Random number in [min, max). */
@@ -1133,12 +1232,12 @@ function ShootingStars() {
   const headMat = useMemo(
     () =>
       new THREE.SpriteMaterial({
-        map: coreTex(),
-        color: new THREE.Color('#ffffff'),
+        map: LIGHT_SKY ? sparkleTex() : coreTex(),
+        color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
         transparent: true,
         depthWrite: false,
         opacity: 0,
-        blending: THREE.AdditiveBlending,
+        blending: blend(),
       }),
     [],
   );
@@ -1149,11 +1248,11 @@ function ShootingStars() {
         () =>
           new THREE.SpriteMaterial({
             map: glowTex(),
-            color: new THREE.Color('#ffffff'),
+            color: new THREE.Color(ink('#ffffff', '#3B2A5C')),
             transparent: true,
             depthWrite: false,
             opacity: 0,
-            blending: THREE.AdditiveBlending,
+            blending: blend(),
           }),
       ),
     [],
@@ -1176,7 +1275,7 @@ function ShootingStars() {
         run.current = makeCometRun();
         elapsed.current = 0;
         const c = run.current.color;
-        headMat.color.copy(c).lerp(new THREE.Color('#ffffff'), 0.6);
+        headMat.color.copy(c).lerp(new THREE.Color(ink('#ffffff', '#3B2A5C')), 0.6);
         for (const m of tailMats) m.color.copy(c);
       }
       return;

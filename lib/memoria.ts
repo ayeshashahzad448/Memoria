@@ -8,8 +8,8 @@ export const STAR_COLORS: StarColor[] = [
   { key: 'amber', label: 'Joy', emotion: 'Joy', hex: '#FFC75F' },
   { key: 'violet', label: 'Grief', emotion: 'Grief', hex: '#2B4FD4' },
   { key: 'rose', label: 'Frustration', emotion: 'Frustration', hex: '#FF1744' },
-  { key: 'emerald', label: 'Nostalgia', emotion: 'Nostalgia', hex: '#E940D6' },
-  { key: 'cyan', label: 'Peace', emotion: 'Peace', hex: '#45F3FF' },
+  { key: 'emerald', label: 'Love', emotion: 'Love', hex: '#E940D6' },
+  { key: 'cyan', label: 'Peace', emotion: 'Peace', hex: '#A5B4FC' },
 ];
 
 export const DEFAULT_STAR_COLOR: StarColorKey = 'cyan';

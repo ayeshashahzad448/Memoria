@@ -3,6 +3,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { getDaysInMonth } from 'date-fns';
 
+import { usePalette } from '@/lib/theme';
 const ITEM_HEIGHT = 40;
 const VISIBLE_ROWS = 5; // odd so there is a clear center row
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
@@ -40,6 +41,7 @@ function WheelColumn({
   align = 'center',
   onActiveChange,
 }: WheelColumnProps) {
+  const colors = usePalette();
   const ref = useRef<ScrollView>(null);
   const selectedIndex = Math.max(
     0,
@@ -125,7 +127,7 @@ function WheelColumn({
               <Text
                 style={{
                   fontSize: 19,
-                  color: active ? '#F8FAFC' : '#64748B',
+                  color: active ? colors.text : '#64748B',
                   fontWeight: active ? '600' : '400',
                 }}
               >
@@ -154,6 +156,7 @@ export function WheelDatePicker({
   maxYear,
   onActiveChange,
 }: WheelDatePickerProps) {
+  const colors = usePalette();
   const now = new Date();
   const maxY = maxYear ?? now.getFullYear();
   const minY = minYear ?? maxY - 10;
@@ -197,8 +200,8 @@ export function WheelDatePicker({
             top: PAD * ITEM_HEIGHT,
             height: ITEM_HEIGHT,
             borderRadius: 10,
-            backgroundColor: 'rgba(69,243,255,0.08)',
-            borderColor: 'rgba(69,243,255,0.25)',
+            backgroundColor: colors.accentA(0.08),
+            borderColor: colors.accentA(0.25),
             borderTopWidth: 1,
             borderBottomWidth: 1,
             zIndex: 1,
