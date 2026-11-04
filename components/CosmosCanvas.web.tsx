@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { clamp, useSharedValue } from 'react-native-reanimated';
 import * as THREE from 'three';
-import { makeSparkleTexture } from './sparkleTexture';
+import { makeSoftDiscMask, makeSparkleTexture } from './sparkleTexture';
 
 import type { Constellation, MemoryStar } from '@/lib/types';
 import {
@@ -633,6 +633,12 @@ function coreTex(): THREE.Texture {
   if (!CORE_TEX) CORE_TEX = makeCoreTexture();
   return CORE_TEX;
 }
+let PHOTO_MASK: THREE.Texture | null = null;
+function photoMask(): THREE.Texture {
+  if (!PHOTO_MASK) PHOTO_MASK = makeSoftDiscMask();
+  return PHOTO_MASK;
+}
+
 let SPARKLE_TEX: THREE.Texture | null = null;
 function sparkleTex(): THREE.Texture {
   if (!SPARKLE_TEX) SPARKLE_TEX = makeSparkleTexture();
@@ -790,6 +796,7 @@ function PhotoReveal({ uri, size }: { uri: string; size: number }) {
       <spriteMaterial
         ref={matRef}
         map={tex}
+        alphaMap={photoMask()}
         transparent
         opacity={0}
         depthWrite={false}

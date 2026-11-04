@@ -30,3 +30,30 @@ export function makeSparkleTexture(size = 128): THREE.Texture {
   tex.needsUpdate = true;
   return tex;
 }
+
+/**
+ * A soft round mask for a photo sprite: fully opaque in the middle and feathered to nothing at the
+ * edge, so the picture reads as a glowing orb rather than a hard-edged square. Used as the
+ * material's alphaMap, which reads the green channel, so the value is written to r, g and b.
+ */
+export function makeSoftDiscMask(size = 128): THREE.Texture {
+  const data = new Uint8Array(size * size * 4);
+  const centre = (size - 1) / 2;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dist = Math.hypot((x - centre) / centre, (y - centre) / centre);
+      const m = clamp01((1 - dist) / 0.4);
+      const value = Math.round(m * m * (3 - 2 * m) * 255);
+      const i = (y * size + x) * 4;
+      data[i] = value;
+      data[i + 1] = value;
+      data[i + 2] = value;
+      data[i + 3] = 255;
+    }
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
+}

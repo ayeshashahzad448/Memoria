@@ -1,0 +1,2 @@
+# Single-page app: send every address to index.html so deep links like /profile load.
+/*  /index.html  200
